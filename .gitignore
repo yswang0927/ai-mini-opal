@@ -33,3 +33,5 @@ yarn.lock
 /playwright/.cache/
 
 test/screenshots
+python/__pycache__
+python/.idea
