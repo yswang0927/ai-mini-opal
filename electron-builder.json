@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "mini-opal",
+  "productName": "MiniOpal",
+  "asar": true,
+  "directories": {
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist-electron",
+    "dist"
+  ],
+  "mac": {
+    "icon": "build/icon.png",
+    "category": "public.app-category.developer-tools",
+    "artifactName": "${productName}_${version}.${ext}",
+    "target": ["dmg", "zip"]
+  },
+  "win": {
+    "icon": "build/icon.png",
+    "target": [
+      { "target": "nsis", "arch": ["x64"] }
+    ],
+    "artifactName": "${productName}_${version}.${ext}"
+  },
+  "linux": {
+    "icon": "build/icon.png",
+    "category": "Utility",
+    "maintainer": "yswang <wangys0927@163.com>",
+    "description": "mini-opal 的详细描述",
+    "synopsis": "Mini Opal",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] }
+    ]
+  },
+  "deb": {
+    "depends": [
+      "gconf2",
+      "gconf-service",
+      "libnotify4",
+      "libappindicator1",
+      "libxtst6",
+      "libnss3"
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "electron-vite",
+    "repo": "electron-vite-react",
+    "releaseType": "release"
+  }
+}

@@ -1,0 +1,48 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+* text eol=lf
+
+# Binary files - treat as binary, no line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.pdf binary
+*.docx binary
+*.doc binary
+*.xlsx binary
+*.xls binary
+*.pptx binary
+*.ppt binary
+*.jar binary
+*.zip binary
+*.rar binary
+*.tar.gz binary
+*.tgz binary
+*.xz binary
+*.so binary
+*.exe binary
+*.dll binary
+*.pyd inary
+*.mp3 binary
+*.mp4 binary
+*.ogg binary
+*.wav binary
+*.webm binary
+*.webp binary
+*.flac binary
+*.aac binary
+*.avi binary
+*.mov binary
+*.wmv binary
+*.mkv binary
+*.flv binary
+
+
+# 明确声明字体文件为二进制，禁止任何转换
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
