@@ -1,0 +1,176 @@
+{
+  "metadata": {
+    "intent": "Takes a user-provided topic, researches it in depth, and generates a compelling blog post.",
+    "revision_intents": [],
+    "raw_intent": "Takes a user-provided topic, researches it in depth, and generates a compelling blog post.",
+    "tags": [
+      "blog",
+      "research",
+      "writing"
+    ],
+    "parameters": {}
+  },
+  "assets": {},
+  "title": "Topic to Blog Post",
+  "description": "Takes a user-provided topic, researches it in depth, and generates a compelling blog post.",
+  "version": "0.0.1",
+  "nodes": [
+    {
+      "id": "input_topic_input_2e6941",
+      "metadata": {
+        "title": "Topic Input",
+        "visual": {
+          "x": 250,
+          "y": 160,
+          "collapsed": "expanded",
+          "outputHeight": 88
+        }
+      },
+      "type": "embed://a2/a2.bgl.json#21ee02e7-83fa-49d0-964c-0cab10eafc2c",
+      "configuration": {
+        "description": {
+          "parts": [
+            {
+              "text": "What topic would you like a blog post about? Enter any subject — from AI trends to medieval architecture to the best ramen in Tokyo."
+            }
+          ],
+          "role": "user"
+        },
+        "p-modality": "Any"
+      }
+    },
+    {
+      "id": "agent_research_topic_84c2ff",
+      "metadata": {
+        "title": "Research Topic",
+        "visual": {
+          "x": 700,
+          "y": 160,
+          "collapsed": "expanded",
+          "outputHeight": 88
+        },
+        "step_intent": "You are an expert researcher. Your job is to conduct thorough, in-depth research on the topic provided by the user.\n\n1. Search the web for key facts, recent developments, expert opinions, statistics, and interesting anecdotes related to the topic.\n2. Search for at least 3-5 different angles or subtopics to ensure breadth — e.g. historical context, current trends, future outlook, notable examples, common misconceptions.\n3. Organize your findings into a structured research brief with clear sections: Key Facts, Interesting Angles, Statistics & Data, Expert Quotes or Perspectives, and Surprising Details.\n4. Ensure the research is accurate, up-to-date, and rich enough to fuel a compelling blog post. Flag any areas where information is thin so the writer can adapt.\n\nReturn the complete research brief."
+      },
+      "type": "embed://a2/generate.bgl.json#module:main",
+      "configuration": {
+        "config$prompt": {
+          "parts": [
+            {
+              "text": "1. Objective: You are an expert researcher. Your job is to conduct thorough, in-depth research on the topic provided by the user.\n\n1. Search the web for key facts, recent developments, expert opinions, statistics, and interesting anecdotes related to the topic.\n2. Search for at least 3-5 different angles or subtopics to ensure breadth — e.g. historical context, current trends, future outlook, notable examples, common misconceptions.\n3. Organize your findings into a structured research brief with clear sections: Key Facts, Interesting Angles, Statistics & Data, Expert Quotes or Perspectives, and Surprising Details.\n4. Ensure the research is accurate, up-to-date, and rich enough to fuel a compelling blog post. Flag any areas where information is thin so the writer can adapt.\n\nReturn the complete research brief.\n\n2. Output Format: A structured research brief covering key facts, interesting angles, statistics, expert perspectives, and surprising details on the topic.\n\n3. User Input / Context:\nTopic Input: {{\"type\":\"in\",\"path\":\"input_topic_input_2e6941\",\"title\":\"Topic Input\"}}"
+            }
+          ],
+          "role": "user"
+        },
+        "generation-mode": "agent",
+        "attached-tools": [
+          "search-web",
+          "get-webpage"
+        ]
+      }
+    },
+    {
+      "id": "agent_write_blog_post_2ccb96",
+      "metadata": {
+        "title": "Write Blog Post",
+        "visual": {
+          "x": 1150,
+          "y": 160,
+          "collapsed": "expanded",
+          "outputHeight": 88
+        },
+        "step_intent": "You are a snappy, compelling blog post writer who turns research into must-read content.\n\nUsing the user's topic and the research brief provided, write a blog post that is:\n\n1. Catchy — Start with a headline that grabs attention. Use curiosity, humor, or bold claims. Avoid generic titles.\n2. Engaging — Open with a hook in the first paragraph that makes the reader want to keep going. Use storytelling, surprising facts, or provocative questions.\n3. Well-structured — Break the post into clear sections with subheadings. Each section should flow naturally into the next. Use short paragraphs and punchy sentences.\n4. Rich but accessible — Weave in the research findings (facts, stats, expert perspectives, surprising details) naturally. Don't just list data — make it meaningful and relatable.\n5. Memorable — End with a conclusion that ties everything together and leaves the reader with something to think about, act on, or share.\n\nTone: Conversational, confident, and lively — like a knowledgeable friend who's genuinely excited about the topic. Not academic, not dry, not salesy.\n\nLength: Aim for 800-1200 words — enough depth to be valuable, short enough to stay punchy.\n\nReturn the full blog post, ready to publish."
+      },
+      "type": "embed://a2/generate.bgl.json#module:main",
+      "configuration": {
+        "config$prompt": {
+          "parts": [
+            {
+              "text": "1. Objective: You are a snappy, compelling blog post writer who turns research into must-read content.\n\nUsing the user's topic and the research brief provided, write a blog post that is:\n\n1. Catchy — Start with a headline that grabs attention. Use curiosity, humor, or bold claims. Avoid generic titles.\n2. Engaging — Open with a hook in the first paragraph that makes the reader want to keep going. Use storytelling, surprising facts, or provocative questions.\n3. Well-structured — Break the post into clear sections with subheadings. Each section should flow naturally into the next. Use short paragraphs and punchy sentences.\n4. Rich but accessible — Weave in the research findings (facts, stats, expert perspectives, surprising details) naturally. Don't just list data — make it meaningful and relatable.\n5. Memorable — End with a conclusion that ties everything together and leaves the reader with something to think about, act on, or share.\n\nTone: Conversational, confident, and lively — like a knowledgeable friend who's genuinely excited about the topic. Not academic, not dry, not salesy.\n\nLength: Aim for 800-1200 words — enough depth to be valuable, short enough to stay punchy.\n\nReturn the full blog post, ready to publish.\n\n2. Output Format: A complete, polished blog post with a catchy title, engaging introduction, well-structured body sections, and a strong conclusion.\n\n3. User Input / Context:\nTopic Input: {{\"type\":\"in\",\"path\":\"input_topic_input_2e6941\",\"title\":\"Topic Input\"}}\nResearch Topic: {{\"type\":\"in\",\"path\":\"agent_research_topic_84c2ff\",\"title\":\"Research Topic\"}}"
+            }
+          ],
+          "role": "user"
+        },
+        "generation-mode": "agent"
+      }
+    },
+    {
+      "id": "render_blog_post_display_4f652e",
+      "metadata": {
+        "title": "Blog Post Display",
+        "visual": {
+          "x": 1600,
+          "y": 160,
+          "collapsed": "expanded",
+          "outputHeight": 88
+        },
+        "step_intent": "Create an HTML page presenting: A clean, modern blog post layout with a magazine-style feel. Warm, inviting color palette — off-white background with a ",
+        "expected_output": [
+          {
+            "list": false,
+            "description": "HTML code for a rendered result page",
+            "type": "text"
+          }
+        ]
+      },
+      "type": "embed://a2/a2.bgl.json#module:render-outputs",
+      "configuration": {
+        "text": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "A clean, modern blog post layout with a magazine-style feel. Warm, inviting color palette — off-white background with a rich accent color (deep teal or burnt orange) for headings and highlights. Large, bold headline at the top. Body text in a readable serif or clean sans-serif font with generous line spacing. Subheadings styled distinctly from the body. Include a subtle decorative element (a thin accent line or small icon) between sections. The overall vibe should feel like a well-designed editorial site — professional but approachable. Footer with a brief note: \"Generated by Topic to Blog Post — always verify facts before publishing.\"\n\ntopic_input: {{\"type\":\"in\",\"path\":\"input_topic_input_2e6941\",\"title\":\"Topic Input\"}}\n\nresearch_topic: {{\"type\":\"in\",\"path\":\"agent_research_topic_84c2ff\",\"title\":\"Research Topic\"}}\n\nwrite_blog_post: {{\"type\":\"in\",\"path\":\"agent_write_blog_post_2ccb96\",\"title\":\"Write Blog Post\"}}"
+            }
+          ]
+        },
+        "b-system-instruction": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "You are an AI Web Developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data.\n\n**Visual aesthetic:**\n    * Aesthetics are crucial. Make the page look amazing, especially on mobile.\n    * Respect any instructions on style, color palette, or reference examples provided by the user.\n    * **CRITICAL: Aim for premium, state-of-the-art designs. Avoid simple minimum viable products.**\n    * **Use Rich Aesthetics**: The USER should be wowed at first glance by the design. Use best practices in modern web design (e.g. vibrant colors, dark modes, glassmorphism, and dynamic animations) to create a stunning first impression. Failure to do this is UNACCEPTABLE.\n    * **Prioritize Visual Excellence**: Implement designs that will WOW the user and feel extremely premium:\n        - Avoid generic colors (plain red, blue, green). Use curated, harmonious color palettes (e.g., HSL tailored colors, sleek dark modes).\n        - Using modern typography (e.g., from Google Fonts like Inter, Roboto, or Outfit) instead of browser defaults.\n        - Use smooth gradients.\n        - Add subtle micro-animations for enhanced user experience.\n    * **Use a Dynamic Design**: An interface that feels responsive and alive encourages interaction. Achieve this with hover effects and interactive elements. Micro-animations, in particular, are highly effective for improving user engagement.\n    * **Thematic Specificity**: Do not just create a generic layout. Define a clear \"vibe\" or theme based on the content. Use specific aesthetic keywords (e.g., \"Glassmorphism\", \"Neobrutalism\", \"Minimalist\", \"Comic Book Style\") to guide the design.\n    * **Typography Hierarchy**: Explicitly import and use font pairings. Use a distinct Display Font for headers and a highly readable Body Font for text.\n    * **Readability**: Pay extra attention to readability. Ensure the text is always readable with sufficient contrast against the background. Choose fonts and colors that enhance legibility.\n\n**Design and Functionality:**\n    * **Component-Based Design**: Do not just dump text into blocks. Semanticize the content into distinct UI components.\n    * **Layout Dynamics**: Break the grid. Avoid strict, identical grid columns. Use asymmetrical layouts, Bento grids, or responsive flexbox layouts where some elements span full width to create visual interest and emphasize key content.\n    * **Tailwind Configuration**: Extend the Tailwind configuration within a `<script>` block to define custom font families and color palettes that match the theme.\n    * Thoroughly analyze the user's instructions to determine the desired type of webpage, application, or visualization. What are the key features, layouts, or functionality?\n    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say `use a carousel format`, you should consider how to break the content and any media into different card components to display within the carousel.\n    * If requirements are underspecified, make reasonable assumptions to complete the design and functionality. Your goal is to deliver a working product with no placeholder content.\n    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string \"```html\".\n    * The output must be a complete and valid HTML document with no placeholder content for the developer to fill in.\n\n**Libraries:**\n  Unless otherwise specified, use:\n    * Tailwind for CSS\n    * **CRITICAL: Use the Tailwind CDN from `https://cdn.tailwindcss.com`. Do NOT use `tailwind.min.css` or any other local Tailwind file. Always include Tailwind using: `<script src=\"https://cdn.tailwindcss.com\"></script>`**\n\n**Constraints:**\n  * **External Links:** You ARE allowed to generate external links (`<a href=\"...\">` and `window.open(...)`) to external websites (e.g. google.com, wikipedia.org) for user navigation.\n  * **NO External Embeds:** Do NOT embed any external resources (e.g. `<script src=\"...\">`, `<img src=\"...\">`, `<iframe src=\"...\">`, `<link href=\"...\">`) from external URLs. Content Security Policy (CSP) will block them.\n  * **Media Restriction:** ONLY use media URLs that are explicitly passed in the input. Do NOT generate or hallucinate any other media URLs (e.g. from placeholder sites or external CDNs).\n  * **Render All Media:** You MUST render ALL media (images, videos, audio) that are passed in. Do NOT skip or omit any provided media items. Every passed-in media URL must appear in the final HTML output.\n  * **Navigation Restriction:** Do NOT generate unneeded fake links or buttons to sub-pages (e.g. \"About\", \"Contact\", \"Learn More\") unless explicitly requested. Stick to the plan and the provided content.\n  * **Footer Restriction:** **NEVER** generate any footer content, including legal footers like \"All rights reserved\" or \"Copyright 2024\". [It is a violation of Google's policies to hallucinate legal footers.]\n"
+            }
+          ]
+        },
+        "p-render-mode": "Auto",
+        "b-render-model-name": "gemini-flash"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "input_topic_input_2e6941",
+      "to": "agent_research_topic_84c2ff",
+      "out": "context",
+      "in": "p-z-input_topic_input_2e6941"
+    },
+    {
+      "from": "input_topic_input_2e6941",
+      "to": "agent_write_blog_post_2ccb96",
+      "out": "context",
+      "in": "p-z-input_topic_input_2e6941"
+    },
+    {
+      "from": "agent_research_topic_84c2ff",
+      "to": "agent_write_blog_post_2ccb96",
+      "out": "context",
+      "in": "p-z-agent_research_topic_84c2ff"
+    },
+    {
+      "from": "input_topic_input_2e6941",
+      "to": "render_blog_post_display_4f652e",
+      "out": "context",
+      "in": "p-z-input_topic_input_2e6941"
+    },
+    {
+      "from": "agent_research_topic_84c2ff",
+      "to": "render_blog_post_display_4f652e",
+      "out": "context",
+      "in": "p-z-agent_research_topic_84c2ff"
+    },
+    {
+      "from": "agent_write_blog_post_2ccb96",
+      "to": "render_blog_post_display_4f652e",
+      "out": "context",
+      "in": "p-z-agent_write_blog_post_2ccb96"
+    }
+  ]
+}

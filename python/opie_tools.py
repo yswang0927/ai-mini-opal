@@ -78,12 +78,18 @@ class _CreateInputStepArgs(BaseModel):
         "Any",
         description="期望的输入模态:Text/Any/Image/Audio。大多数场景用'Any'即可,除非明确要求特定输入类型。",
     )
+    required: bool = Field(
+        True,
+        description="该输入是否必填。设为False表示用户可以跳过(如'可选:补充你的偏好'这类场景)。",
+    )
 
 
 def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
-    def _run(title: str, question_text: str, modality: str = "Any") -> str:
+    def _run(title: str, question_text: str, modality: str = "Any", required: bool = True) -> str:
         try:
-            step = graph.add_input_step(title=title, question_text=question_text, modality=modality)
+            step = graph.add_input_step(
+                title=title, question_text=question_text, modality=modality, required=required
+            )
             return _ok({"step_id": step.step_id, "title": step.title})
         except GraphValidationError as e:
             return _err(str(e))
@@ -163,6 +169,13 @@ class _CreateAgentStepArgs(BaseModel):
             "注意:路由目标节点必须已经存在(先创建目标节点,再创建带routes的源节点)。"
         ),
     )
+    asset_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "该节点需要引用的资产id列表(通过register_asset创建或graph_get_overview获取)。"
+            "适用场景:让agent基于用户上传的文件/图片/文档/视频进行分析或处理。"
+        ),
+    )
 
 
 def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
@@ -179,6 +192,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         expected_output_is_list: bool = False,
         image_aspect_ratio: Optional[str] = None,
         routes: Optional[List[Dict[str, str]]] = None,
+        asset_ids: Optional[List[str]] = None,
     ) -> str:
         try:
             step = graph.add_agent_step(
@@ -194,6 +208,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
                 expected_output_is_list=expected_output_is_list,
                 image_aspect_ratio=image_aspect_ratio,
                 routes=[dict(r) for r in (routes or [])],
+                asset_ids=asset_ids or [],
             )
             return _ok({"step_id": step.step_id, "title": step.title})
         except GraphValidationError as e:
@@ -218,12 +233,14 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
 class _CreateRenderStepArgs(BaseModel):
     title: str = Field(..., description="节点标题,如'Design Dashboard'")
     parents: List[str] = Field(
-        ...,
+        default_factory=list,
         description=(
-            "需要展示的数据来源节点的 step_id 列表。注意:"
+            "需要展示的数据来源节点的 step_id 列表。可以为空——比如这个render节点"
+            "是某个agent节点的routing目标、需要先创建出来时,可以先不传parents,"
+            "等对应的agent节点建好后用manage_connection补上。注意:"
             "(1) 通常应包含原始输入节点(而非仅计算结果节点);"
-            "(2) 若design_brief要求展示图片/视频/音频,对应的媒体生成agent节点必须包含在parents里,"
-            "否则会被拒绝创建。"
+            "(2) 若design_brief要求展示图片/视频/音频,对应的媒体生成agent节点或"
+            "媒体类asset必须包含在parents/asset_ids里,否则会被拒绝创建。"
         ),
     )
     design_brief: str = Field(
@@ -234,12 +251,36 @@ class _CreateRenderStepArgs(BaseModel):
             "若涉及footer,只能描述为免责声明/说明性文字,不要描述为版权/法律声明类内容。"
         ),
     )
+    asset_ids: List[str] = Field(
+        default_factory=list,
+        description="该节点需要展示的资产id列表(图片/文档/视频等,通过register_asset创建或graph_get_overview获取)。",
+    )
+    render_mode: str = Field(
+        "Auto",
+        description=(
+            "渲染模式,可选 'Auto'(AI自动生成完整布局,绝大多数场景用这个)或"
+            "'Manual layout'(更接近手动摆放元素的模式,用途尚不完全明确,"
+            "没有明确指示时不要主动选择这个选项)。"
+        ),
+    )
 
 
 def _make_create_render_step_tool(graph: OpalGraphState) -> StructuredTool:
-    def _run(title: str, parents: List[str], design_brief: str) -> str:
+    def _run(
+        title: str,
+        design_brief: str,
+        parents: Optional[List[str]] = None,
+        asset_ids: Optional[List[str]] = None,
+        render_mode: str = "Auto",
+    ) -> str:
         try:
-            step = graph.add_render_step(title=title, parents=parents, design_brief=design_brief)
+            step = graph.add_render_step(
+                title=title,
+                parents=parents or [],
+                design_brief=design_brief,
+                asset_ids=asset_ids or [],
+                render_mode=render_mode,
+            )
             return _ok({"step_id": step.step_id, "title": step.title})
         except GraphValidationError as e:
             return _err(str(e))
@@ -267,6 +308,8 @@ class _EditStepArgs(BaseModel):
     enable_chat: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
     enable_memory: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
     terse_mode: Optional[bool] = Field(None, description="(可选,仅agent节点适用)见create_agent_step说明")
+    asset_ids: Optional[List[str]] = Field(None, description="覆盖式设置资产引用列表(可选,agent/render节点均适用)")
+    render_mode: Optional[str] = Field(None, description="'Auto'或'Manual layout'(可选,仅render节点适用)")
 
 
 def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
@@ -278,6 +321,8 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
         terse_mode: Optional[bool] = None,
+        asset_ids: Optional[List[str]] = None,
+        render_mode: Optional[str] = None,
     ) -> str:
         try:
             step = graph.edit_step(
@@ -288,6 +333,8 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
                 enable_chat=enable_chat,
                 enable_memory=enable_memory,
                 terse_mode=terse_mode,
+                asset_ids=asset_ids,
+                render_mode=render_mode,
             )
             return _ok({"step_id": step.step_id, "title": step.title})
         except GraphValidationError as e:
@@ -400,14 +447,80 @@ def _make_set_graph_metadata_tool(graph: OpalGraphState) -> StructuredTool:
 
 
 # ===========================================================================
-# 工厂函数:一次性构建全部 8 个工具
+# 2.9 register_asset (v4新增)
+# ===========================================================================
+
+class _RegisterAssetArgs(BaseModel):
+    title: str = Field(..., description="资产的显示名称,如'产品说明.pdf'、'品牌宣传视频'。")
+    kind: str = Field(
+        ...,
+        description=(
+            "资产类型,可选值:\n"
+            "- 'inline_text': 一段纯文本参考资料(唯一Opie能直接凭空创建内容的类型,"
+            "适合注入一段背景知识、参考文案、示例数据等)\n"
+            "- 'uploaded_file': 已经存在于宿主应用里的上传文件引用(需要drive_handle,"
+            "这类资产通常是用户在界面里上传后由宿主应用登记,而不是Opie凭空创建)\n"
+            "- 'google_drive_doc': 已有的Google Drive文档引用(需要drive_handle)\n"
+            "- 'youtube_video': YouTube视频链接引用(需要file_uri)\n"
+            "- 'drawing': 手绘图引用(需要drive_handle)"
+        ),
+    )
+    text_content: Optional[str] = Field(None, description="kind='inline_text'时必填,资产的文本内容。")
+    mime_type: Optional[str] = Field(None, description="MIME类型,如'image/png'、'video/mp4'。文本资产可不填。")
+    drive_handle: Optional[str] = Field(
+        None, description="kind为uploaded_file/google_drive_doc/drawing时必填,格式类似'drive:/{file_id}'。"
+    )
+    file_uri: Optional[str] = Field(None, description="kind='youtube_video'时必填,完整视频URL。")
+
+
+def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
+    def _run(
+        title: str,
+        kind: str,
+        text_content: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        drive_handle: Optional[str] = None,
+        file_uri: Optional[str] = None,
+    ) -> str:
+        try:
+            asset = graph.register_asset(
+                title=title,
+                kind=kind,
+                mime_type=mime_type,
+                drive_handle=drive_handle,
+                file_uri=file_uri,
+                text_content=text_content,
+            )
+            return _ok({"asset_id": asset.asset_id, "title": asset.title})
+        except GraphValidationError as e:
+            return _err(str(e))
+
+    return StructuredTool.from_function(
+        func=_run,
+        name="register_asset",
+        description=(
+            "登记一个资产(文件/文档/视频/文本),使其可以被 create_agent_step / "
+            "create_render_step 的 asset_ids 参数引用。注意:Opie 自己没有真正"
+            "'上传文件'的能力——只有 kind='inline_text' 是可以凭空创建内容的场景"
+            "(比如注入一段参考文案);其余类型(已上传文件/Drive文档/YouTube链接/"
+            "手绘图)通常对应用户已经在宿主应用里提供、只是需要在对话里被登记引用的"
+            "已有资源。调用前先用 graph_get_overview 确认该资产是否已经存在,避免"
+            "重复登记。"
+        ),
+        args_schema=_RegisterAssetArgs,
+    )
+
+
+# ===========================================================================
+# 工厂函数:一次性构建全部 9 个工具
 # ===========================================================================
 
 def build_opie_tools(graph: OpalGraphState) -> List[StructuredTool]:
     """
     传入一个 OpalGraphState 实例(每个会话独立一份),返回绑定了该状态的
-    8 个 LangChain 工具。所有工具共享同一个 graph 闭包,因此对图的修改
-    在多次工具调用之间是持久的(在这个 Python 进程/会话的生命周期内)。
+    9 个 LangChain 工具(v4新增 register_asset)。所有工具共享同一个 graph
+    闭包,因此对图的修改在多次工具调用之间是持久的(在这个 Python 进程/
+    会话的生命周期内)。
     """
     return [
         _make_get_overview_tool(graph),
@@ -418,4 +531,5 @@ def build_opie_tools(graph: OpalGraphState) -> List[StructuredTool]:
         _make_remove_step_tool(graph),
         _make_manage_connection_tool(graph),
         _make_set_graph_metadata_tool(graph),
+        _make_register_asset_tool(graph),
     ]

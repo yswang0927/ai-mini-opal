@@ -24,21 +24,28 @@ Opie 图状态管理 + 后端编译器。
 【版本历史 / 假设边界】
 v1: 只有 BMI 一份样本,tools/chat/memory/routes 字段完全靠猜测占位。
 
-v3(当前版本): 补充了 5 份真实 Opal 导出样本(博客写作、共同思考助手、
-选书推荐、产品调研 4 个 flow),修正了两处明确错误:
-  1. tools 不是独立 config 字段,而是 inline 写在 config$prompt 文本里的
-     占位符 {{"type":"tool","path":"...","title":"..."}},且不同工具的
-     path 命名空间不统一(search-web/get-webpage 是一类,memory 是另一类)。
-  2. render 节点的巨型 system-instruction 是服务端默认值,不应该被写进
-     图 JSON——只有节点被显式编辑过(userModified=true)时才会回写解析后
-     的文本。
+v3: 补充了 5 份真实 Opal 导出样本,修正了两处明确错误(tools是inline占位符;
+render节点的system-instruction是服务端默认值不应写入)。
+
+v4(当前版本): 补充了一份官方"全节点/全资产/全工具"kitchen-sink测试样本,
+带来三处重大修正:
+  1. **routing 的真实机制被证实,此前的实现完全错误**——路由不是独立的
+     `<a>`/route边体系,而是复用 tool 占位符:
+     {{"type":"tool","path":"control-flow/routing","instance":"<目标step_id>","title":"<目标节点标题>"}}
+     对应的 edge 的 out 字段值是目标节点 id 本身,不是字符串 "route"。
+  2. **新增 Assets(资产)体系**——graph级别的资源池(上传文件/Google Doc/
+     YouTube链接/纯文本/手绘),节点通过 {{"type":"asset","path":"<asset_id>",
+     "mimeType":"...","title":"..."}} 占位符引用。此前完全没建模。
+  3. search-maps / code-execution 两个工具的 path 被验证命中此前的推测;
+     新确认 input 节点的 p-required 字段、render 节点的 p-render-mode
+     还有 "Manual layout" 这个取值。
 
 仍然是推断、未被样本直接证实的部分(标注在对应代码位置):
   - generation-capabilities / p-aspect-ratio 等图像生成相关字段(仅1个样本)
   - config$list 字段的确切语义(仅1个样本)
-  - route 边的 out/in 命名格式(0个样本,完全未验证)
-  - get-weather / search-maps / search-internal / search-enterprise /
-    code-execution 五个工具的 path(按 search-web 的命名风格类推)
+  - get-weather / search-internal / search-enterprise 三个工具的 path
+    (按已确认工具的命名风格类推,尚未见到真实样本)
+  - 多路由(3个以上分支)场景下 routing 占位符的排列方式(目前只见过单路由样本)
 
 拿到更多真实样本或官方 schema 后,优先核实上面这几项。
 """
@@ -54,10 +61,10 @@ from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
-# 常量:embed:// URI 映射(来自真实 Opal 导出样本,已确认)
+# 常量:embed:// URI 映射(来自真实 Opal 导出样本)
 # ---------------------------------------------------------------------------
 
-EMBED_URI_INPUT = "embed://a2/a2.bgl.json#21ee02e7-83fa-49d0-964c-0cab10eafc2c"
+EMBED_URI_INPUT = "embed://a2/a2.bgl.json#module:user-inputs"
 EMBED_URI_AGENT = "embed://a2/generate.bgl.json#module:main"
 EMBED_URI_RENDER = "embed://a2/a2.bgl.json#module:render-outputs"
 
@@ -91,14 +98,19 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
         "display_title": "Use Memory",
         "confirmed": True,
     },
-    "get-weather": {
-        "path": "embed://a2/tools.bgl.json#module:get-weather",
-        "display_title": "Get Weather",
-        "confirmed": False,
-    },
     "search-maps": {
         "path": "embed://a2/tools.bgl.json#module:search-maps",
         "display_title": "Search Maps",
+        "confirmed": True,  # v4确认
+    },
+    "code-execution": {
+        "path": "embed://a2/tools.bgl.json#module:code-execution",
+        "display_title": "Code Execution",
+        "confirmed": True,  # v4确认
+    },
+    "get-weather": {
+        "path": "embed://a2/tools.bgl.json#module:get-weather",
+        "display_title": "Get Weather",
         "confirmed": False,
     },
     "search-internal": {
@@ -111,12 +123,19 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
         "display_title": "Search Enterprise",
         "confirmed": False,
     },
-    "code-execution": {
-        "path": "embed://a2/tools.bgl.json#module:code-execution",
-        "display_title": "Code Execution",
-        "confirmed": False,
-    },
 }
+
+# ---------------------------------------------------------------------------
+# 常量:routing 的特殊 tool path(v4新增,来自kitchen-sink样本,已确认)
+#
+# 路由不是独立的标签/边体系,而是复用了 tool 占位符机制,只是多了一个
+# "instance" 字段指向目标节点的 step_id:
+#     {{"type":"tool","path":"control-flow/routing","instance":"<目标step_id>","title":"<目标节点标题>"}}
+# 对应的 edge 里,out 字段的值是目标节点 id 本身(不是 "context" 也不是
+# 我们此前瞎猜的 "route")。
+# ---------------------------------------------------------------------------
+
+ROUTING_TOOL_PATH = "control-flow/routing"
 
 # ---------------------------------------------------------------------------
 # 常量:agent 节点的"terse 模式"系统指令
@@ -200,6 +219,52 @@ _MEDIA_KEYWORDS = [
 
 _MEDIA_CAPABILITIES = {"image", "video", "speech", "music"}
 
+# ---------------------------------------------------------------------------
+# v4新增:Assets(资产)体系
+#
+# 来自 kitchen-sink 样本的顶层 "assets" 字典,是独立于 nodes/edges 的
+# graph级资源池。节点通过 {{"type":"asset","path":"<asset_id>",
+# "mimeType":"...","title":"..."}} 占位符引用某个资产。样本里观察到
+# 5 种资产形态,对应下面的 AssetKind 枚举:
+#
+#   - uploaded_file  : type=file, managed=true,  parts=[{storedData:{handle,mimeType,contentLength}}]
+#   - google_drive_doc: type=content, managed=false, subType=gdrive,  parts=[{storedData:{handle,mimeType}}] (无contentLength)
+#   - youtube_video   : type=content, subType=youtube, parts=[{fileData:{fileUri,mimeType}}]
+#   - inline_text     : type=content, parts=[{text:...}]
+#   - drawing         : type=content, subType=drawable, parts=[{storedData:{handle,mimeType,contentLength}}]
+#
+# 【重要边界声明】我们的工具调用架构里,Opie 没有真正"上传文件"的能力
+# (拿不到 Google Drive handle、算不出 contentLength)。register_asset()
+# 因此设计成"登记一个已经存在的资产引用"——真实产品里,这通常应该由
+# 宿主 App 在用户实际上传文件/粘贴链接后调用(不一定经过 Opie 的 LLM
+# 决策),Opie 主要消费 graph_get_overview 里已登记的资产列表,并把它们
+# 挂到某个节点上。我们仍然把 register_asset 暴露成一个工具,方便端到端
+# 测试和"用户口头描述一个已知外部资源(如YouTube链接)"这种场景。
+# ---------------------------------------------------------------------------
+
+class AssetKind(str, Enum):
+    UPLOADED_FILE = "uploaded_file"
+    GOOGLE_DRIVE_DOC = "google_drive_doc"
+    YOUTUBE_VIDEO = "youtube_video"
+    INLINE_TEXT = "inline_text"
+    DRAWING = "drawing"
+
+
+# 图片/视频/音频类 mimeType 前缀,用于6.3节媒体校验时把"资产提供的媒体"
+# 也算作合法来源(不只是agent生成的媒体节点才算数)。
+_MEDIA_MIME_PREFIXES = ("image/", "video/", "audio/")
+
+
+@dataclass
+class Asset:
+    asset_id: str
+    title: str
+    kind: AssetKind
+    mime_type: Optional[str] = None
+    drive_handle: Optional[str] = None
+    file_uri: Optional[str] = None
+    text_content: Optional[str] = None
+
 
 class GraphValidationError(Exception):
     """工具层校验失败时抛出,message 会原样返回给 LLM 作为工具结果。"""
@@ -231,6 +296,7 @@ class Step:
     # --- input 专属 ---
     question_text: Optional[str] = None
     modality: str = "Any"
+    required: bool = True  # v4新增:对应 p-required,默认必填(样本里显式设false才是可选)
 
     # --- agent 专属 ---
     prompt: Optional[str] = None
@@ -245,11 +311,13 @@ class Step:
 
     # --- render 专属 ---
     design_brief: Optional[str] = None
+    render_mode: str = "Auto"  # v4新增:对应 p-render-mode,可选 "Auto" / "Manual layout"
 
     # --- 通用 ---
     user_modified: bool = False  # v3新增:新建默认False,edit_step后置True(见 6.1 节修正)
     parents: List[str] = field(default_factory=list)          # 数据依赖父节点
     routes: List[Dict[str, str]] = field(default_factory=list)  # [{"target_step_id":..,"label":..}]
+    asset_ids: List[str] = field(default_factory=list)  # v4新增:引用的资产id列表(agent/render节点均可用)
 
 
 class OpalGraphState:
@@ -260,6 +328,7 @@ class OpalGraphState:
 
     def __init__(self) -> None:
         self.steps: Dict[str, Step] = {}
+        self.assets: Dict[str, Asset] = {}
         self.title: str = "Untitled Opal"
         self.description: str = ""
         self.tags: List[str] = []
@@ -282,6 +351,9 @@ class OpalGraphState:
                 entry["enable_chat"] = s.enable_chat
                 entry["enable_memory"] = s.enable_memory
                 entry["routes"] = list(s.routes)
+                entry["asset_ids"] = list(s.asset_ids)
+            elif s.step_type == StepType.RENDER:
+                entry["asset_ids"] = list(s.asset_ids)
             nodes.append(entry)
 
         edges = []
@@ -296,11 +368,17 @@ class OpalGraphState:
                     "label": r.get("label", ""),
                 })
 
+        assets = [
+            {"asset_id": a.asset_id, "title": a.title, "kind": a.kind.value, "mime_type": a.mime_type}
+            for a in self.assets.values()
+        ]
+
         return {
             "graph_title": self.title,
             "graph_description": self.description,
             "nodes": nodes,
             "edges": edges,
+            "assets": assets,
         }
 
     # ------------------------------------------------------------------
@@ -319,6 +397,61 @@ class OpalGraphState:
         if tags is not None:
             self.tags = tags
         return {"title": self.title, "description": self.description, "tags": self.tags}
+
+    # ------------------------------------------------------------------
+    # 资产(Assets)
+    # ------------------------------------------------------------------
+    def register_asset(
+        self,
+        title: str,
+        kind: str,
+        mime_type: Optional[str] = None,
+        drive_handle: Optional[str] = None,
+        file_uri: Optional[str] = None,
+        text_content: Optional[str] = None,
+    ) -> Asset:
+        """
+        登记一个资产引用(见文件顶部【重要边界声明】—— 这不是真正的文件上传,
+        而是把一个已经存在的资源"告知"图状态,使其可以被节点引用)。
+        """
+        try:
+            kind_enum = AssetKind(kind)
+        except ValueError:
+            raise GraphValidationError(
+                f"未知的 asset kind='{kind}'。可用取值: {[k.value for k in AssetKind]}"
+            )
+
+        if kind_enum == AssetKind.UPLOADED_FILE and not drive_handle:
+            raise GraphValidationError("kind='uploaded_file' 时必须提供 drive_handle。")
+        if kind_enum == AssetKind.GOOGLE_DRIVE_DOC and not drive_handle:
+            raise GraphValidationError("kind='google_drive_doc' 时必须提供 drive_handle。")
+        if kind_enum == AssetKind.YOUTUBE_VIDEO and not file_uri:
+            raise GraphValidationError("kind='youtube_video' 时必须提供 file_uri。")
+        if kind_enum == AssetKind.INLINE_TEXT and not text_content:
+            raise GraphValidationError("kind='inline_text' 时必须提供 text_content。")
+        if kind_enum == AssetKind.DRAWING and not drive_handle:
+            raise GraphValidationError("kind='drawing' 时必须提供 drive_handle。")
+
+        asset_id = str(uuid.uuid4())
+        asset = Asset(
+            asset_id=asset_id,
+            title=title,
+            kind=kind_enum,
+            mime_type=mime_type,
+            drive_handle=drive_handle,
+            file_uri=file_uri,
+            text_content=text_content,
+        )
+        self.assets[asset_id] = asset
+        return asset
+
+    def _require_asset(self, asset_id: str) -> Asset:
+        if asset_id not in self.assets:
+            raise GraphValidationError(
+                f"未找到 asset_id='{asset_id}' 对应的资产。请先调用 graph_get_overview "
+                f"确认已登记的资产列表,或先调用 register_asset 登记该资产。"
+            )
+        return self.assets[asset_id]
 
     # ------------------------------------------------------------------
     # 内部工具方法
@@ -340,7 +473,9 @@ class OpalGraphState:
     # ------------------------------------------------------------------
     # 创建节点
     # ------------------------------------------------------------------
-    def add_input_step(self, title: str, question_text: str, modality: str = "Any") -> Step:
+    def add_input_step(
+        self, title: str, question_text: str, modality: str = "Any", required: bool = True
+    ) -> Step:
         step_id = self._new_id("input", title)
         step = Step(
             step_id=step_id,
@@ -348,6 +483,7 @@ class OpalGraphState:
             step_type=StepType.INPUT,
             question_text=question_text,
             modality=modality,
+            required=required,
         )
         self.steps[step_id] = step
         return step
@@ -366,6 +502,7 @@ class OpalGraphState:
         expected_output_is_list: bool = False,
         terse_mode: bool = False,
         image_aspect_ratio: Optional[str] = None,
+        asset_ids: Optional[List[str]] = None,
     ) -> Step:
         parents = parents or []
         for p in parents:
@@ -374,6 +511,9 @@ class OpalGraphState:
         if routes:
             for r in routes:
                 self._require_step(r["target_step_id"])  # 校验路由目标必须已存在(方案1)
+
+        for aid in (asset_ids or []):
+            self._require_asset(aid)  # 校验引用的资产必须已登记
 
         resolved_tools = list(tools or [])
         if enable_memory and "memory" not in resolved_tools:
@@ -404,6 +544,7 @@ class OpalGraphState:
             terse_mode=terse_mode,
             image_aspect_ratio=image_aspect_ratio,
             routes=routes or [],
+            asset_ids=asset_ids or [],
         )
         self.steps[step_id] = step
         return step
@@ -413,14 +554,28 @@ class OpalGraphState:
         title: str,
         parents: List[str],
         design_brief: str,
+        asset_ids: Optional[List[str]] = None,
+        render_mode: str = "Auto",
     ) -> Step:
-        if not parents:
-            raise GraphValidationError("render 节点必须至少有一个 parent 作为数据来源。")
+        # v4修正:不再强制要求创建时就有非空 parents。routing 场景下,
+        # 目标节点(如这里的 render 节点)往往需要先于指向它的 agent 节点
+        # 创建("方案1":路由目标必须先存在),此时它天然还没有 parents。
+        # 允许先创建"空壳"节点,后续用 manage_connection 或 edit_step
+        # 补充数据来源。只有当 design_brief 完全没有任何数据来源
+        # (parents 和 asset_ids 都为空)时,才在这里给出提醒而非阻断。
         for p in parents:
             self._require_step(p)
 
-        # --- 6.3 节校验:媒体节点连线完整性 ---
-        self._validate_render_media_parents(design_brief, parents)
+        for aid in (asset_ids or []):
+            self._require_asset(aid)  # 校验引用的资产必须已登记
+
+        if render_mode not in ("Auto", "Manual layout"):
+            raise GraphValidationError(
+                f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'Manual layout'"
+            )
+
+        # --- 6.3 节校验:媒体节点连线完整性(v4:资产也算合法媒体来源) ---
+        self._validate_render_media_parents(design_brief, parents, asset_ids or [])
 
         step_id = self._new_id("render", title)
         step = Step(
@@ -429,16 +584,25 @@ class OpalGraphState:
             step_type=StepType.RENDER,
             design_brief=design_brief,
             parents=parents,
+            asset_ids=asset_ids or [],
+            render_mode=render_mode,
         )
         self.steps[step_id] = step
         return step
 
-    def _validate_render_media_parents(self, design_brief: str, parents: List[str]) -> None:
+    def _validate_render_media_parents(
+        self, design_brief: str, parents: List[str], asset_ids: Optional[List[str]] = None
+    ) -> None:
         """
         对应设计文档 6.3 节的硬校验:
         如果 design_brief 里提到展示媒体,但 parents 里没有任何一个
         agent 节点声明了对应的媒体生成能力(image/video/speech/music),
-        直接拒绝创建,并告知 LLM 原因,而不是静默生成一个渲染不出媒体的页面。
+        且 asset_ids 里也没有任何图片/视频/音频类资产,直接拒绝创建,
+        并告知 LLM 原因,而不是静默生成一个渲染不出媒体的页面。
+
+        v4修正:资产(Assets)现在也是合法的媒体来源(比如用户上传的图片),
+        不只是 agent 生成的媒体节点才算数——这是 kitchen-sink 样本里
+        render 节点同时引用 agent 输出和多个图片/视频资产揭示的用法。
         """
         brief_lower = design_brief.lower()
         mentions_media = any(kw.lower() in brief_lower for kw in _MEDIA_KEYWORDS)
@@ -454,12 +618,19 @@ class OpalGraphState:
                     break
 
         if not has_media_parent:
+            for aid in (asset_ids or []):
+                asset = self.assets.get(aid)
+                if asset and asset.mime_type and asset.mime_type.startswith(_MEDIA_MIME_PREFIXES):
+                    has_media_parent = True
+                    break
+
+        if not has_media_parent:
             raise GraphValidationError(
                 "design_brief 中提到展示图片/视频/音频等媒体内容,但 parents 列表里"
                 "没有任何声明了对应 generation_capabilities(image/video/speech/music)"
-                "的 agent 节点。渲染节点的系统规则禁止编造媒体 URL,只能渲染上游"
-                "明确传入的媒体——请检查是否漏连了媒体生成节点,并将其 step_id 加入"
-                "parents 后重试。"
+                "的 agent 节点,asset_ids 里也没有图片/视频/音频类的资产。渲染节点的"
+                "系统规则禁止编造媒体 URL,只能渲染上游明确传入的媒体——请检查是否"
+                "漏连了媒体生成节点或漏引用了媒体资产,修正后重试。"
             )
 
     # ------------------------------------------------------------------
@@ -474,6 +645,8 @@ class OpalGraphState:
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
         terse_mode: Optional[bool] = None,
+        asset_ids: Optional[List[str]] = None,
+        render_mode: Optional[str] = None,
     ) -> Step:
         step = self._require_step(step_id)
         if title is not None:
@@ -498,6 +671,18 @@ class OpalGraphState:
             step.enable_memory = enable_memory
         if terse_mode is not None:
             step.terse_mode = terse_mode
+        if asset_ids is not None:
+            for aid in asset_ids:
+                self._require_asset(aid)
+            step.asset_ids = asset_ids
+        if render_mode is not None:
+            if step.step_type != StepType.RENDER:
+                raise GraphValidationError("render_mode 字段仅适用于 render 类型节点。")
+            if render_mode not in ("Auto", "Manual layout"):
+                raise GraphValidationError(
+                    f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'Manual layout'"
+                )
+            step.render_mode = render_mode
 
         # v3新增:对应"userModified"语义(见 6.1 节修正)——
         # 一旦被编辑过,render节点就不再享受"留空走服务端默认值"的待遇,
@@ -599,12 +784,7 @@ class OpalGraphState:
     # ------------------------------------------------------------------
     def _compile_agent_prompt_text(self, step: Step) -> str:
         lines = [f"1. Objective: {step.prompt}"]
-
-        output_line = f"2. Output Format: {step.expected_output}"
-        if step.routes:
-            route_desc = "; ".join(f"if {r['label']}, proceed to the corresponding route" for r in step.routes)
-            output_line += f" Choose exactly one outgoing route based on the result ({route_desc})."
-        lines.append(output_line)
+        lines.append(f"2. Output Format: {step.expected_output}")
 
         if step.parents:
             ctx_lines = ["3. User Input / Context:"]
@@ -616,35 +796,63 @@ class OpalGraphState:
                 )
             lines.append("\n".join(ctx_lines))
 
-        # v3新增:工具引用是 inline 写在 prompt 文本里的占位符(见 TOOL_PATH_MAP
-        # 上方注释)。demo2 的 "Do Research" 节点验证了"多个工具集中列出"这种
-        # 写法是有效的:"Use the tools:\n{{tool1}}\n{{tool2}}"。我们的编译器
-        # 采用这个已验证的块状写法,而不是尝试把工具引用穿插进句子中间
-        # (那需要NLU能力,风险更高)。
-        if step.tools:
-            memory_tools = [t for t in step.tools if t == "memory"]
-            other_tools = [t for t in step.tools if t != "memory"]
+        # v4修正:工具(含 memory、routing)统一放进同一个 "Use tools:" 块,
+        # 空格分隔,一字排开——这是 kitchen-sink 样本里最权威的真实写法。
+        # 此前 v3 把 memory 特殊处理成独立句子、routing 完全没实现,均已修正。
+        tool_placeholders: List[str] = []
+        for t in step.tools:
+            spec = TOOL_PATH_MAP[t]
+            tool_placeholders.append(
+                f'{{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}}'
+            )
+        for r in step.routes:
+            target = self.steps.get(r["target_step_id"])
+            target_title = target.title if target else r["target_step_id"]
+            tool_placeholders.append(
+                f'{{{{"type":"tool","path":"{ROUTING_TOOL_PATH}",'
+                f'"instance":"{r["target_step_id"]}","title":"{target_title}"}}}}'
+            )
+        if tool_placeholders:
+            lines.append("Use tools:\n" + " ".join(tool_placeholders))
 
-            # memory 单独成句更贴近 demo5 的用法("... {{memory tool}} to retrieve
-            # conversation history."),其余工具走 demo2 的块状列举写法。
-            if other_tools:
-                tool_lines = ["Use the tools:"]
-                for t in other_tools:
-                    spec = TOOL_PATH_MAP[t]
-                    tool_lines.append(
-                        f'{{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}}'
-                    )
-                lines.append("\n".join(tool_lines))
+        # routing 场景下补一句人类可读的判断依据说明(label 仍然有用武之地,
+        # 只是不再进 tool 占位符本身,而是作为 prose 提示放在这里,
+        # 帮助 agent 理解"什么条件下选哪条路由")。
+        if step.routes:
+            route_desc = "; ".join(
+                f'if {r["label"]}, use the "{(self.steps.get(r["target_step_id"]).title if self.steps.get(r["target_step_id"]) else r["target_step_id"])}" routing tool'
+                for r in step.routes
+            )
+            lines.append(f"Choose exactly one route based on the result: {route_desc}.")
 
-            for t in memory_tools:
-                spec = TOOL_PATH_MAP[t]
-                lines.append(
-                    f'Use {{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}} '
-                    f"to retrieve and update relevant memory as needed."
-                )
+        # v4新增:资产引用块,格式与 kitchen-sink 样本一致。
+        if step.asset_ids:
+            asset_placeholders = []
+            for aid in step.asset_ids:
+                asset = self.assets.get(aid)
+                if not asset:
+                    continue
+                asset_placeholders.append(self._compile_asset_placeholder(asset))
+            if asset_placeholders:
+                lines.append("Use assets:\n" + " ".join(asset_placeholders))
 
         if step.enable_chat:
             lines.append("Chat with the user as needed to clarify or confirm details.")
+
+        return "\n\n".join(lines)
+
+    def _compile_asset_placeholder(self, asset: "Asset") -> str:
+        """
+        编译单个资产引用占位符:{{"type":"asset","path":"...","mimeType":"...","title":"..."}}
+        kitchen-sink 样本里,纯文本资产(inline_text)引用时不带 mimeType 字段,
+        其余带 storedData/fileData 的资产都带 mimeType,这里按同样规则处理。
+        """
+        if asset.mime_type:
+            return (
+                f'{{{{"type":"asset","path":"{asset.asset_id}",'
+                f'"mimeType":"{asset.mime_type}","title":"{asset.title}"}}}}'
+            )
+        return f'{{{{"type":"asset","path":"{asset.asset_id}","title":"{asset.title}"}}}}'
 
         return "\n\n".join(lines)
 
@@ -736,6 +944,7 @@ class OpalGraphState:
                             "role": "user",
                         },
                         "p-modality": step.modality,
+                        "p-required": step.required,  # v4新增,确认字段
                     },
                 }
 
@@ -771,6 +980,17 @@ class OpalGraphState:
                         )
                     brief_text = brief_text + "\n\n" + "\n\n".join(ctx_lines)
 
+                # v4新增:render 节点也可以直接引用资产(kitchen-sink 样本里
+                # Output 节点同时展示了 agent 输出和多个图片/视频/文档资产)。
+                if step.asset_ids:
+                    asset_placeholders = []
+                    for aid in step.asset_ids:
+                        asset = self.assets.get(aid)
+                        if asset:
+                            asset_placeholders.append(self._compile_asset_placeholder(asset))
+                    if asset_placeholders:
+                        brief_text = brief_text + "\n\n" + " ".join(asset_placeholders)
+
                 base_metadata["step_intent"] = (
                     f"Create an HTML page presenting: {step.design_brief[:120]}"
                 )
@@ -780,7 +1000,7 @@ class OpalGraphState:
 
                 render_config: Dict[str, Any] = {
                     "text": {"role": "user", "parts": [{"text": brief_text}]},
-                    "p-render-mode": "Auto",
+                    "p-render-mode": step.render_mode,  # v4修正:此前硬编码"Auto"
                     "b-render-model-name": "gemini-flash",
                 }
 
@@ -806,7 +1026,20 @@ class OpalGraphState:
 
             nodes.append(node)
 
+            # v4修正:先收集这个 step 作为路由源头会产生的 (from,to) 对,
+            # 用于后面跳过重复的 context 边——kitchen-sink 样本里 Generate→Output
+            # 只有【一条】边(routing 语义的 out=target_id),而不是"一条context
+            # 边 + 一条routing边"两条并存。当上游节点对某个目标声明了 route,
+            # 就用 routing 语义的边替代普通的 context 边。
+            routed_targets = {r["target_step_id"] for r in step.routes}
+
             for p in step.parents:
+                # 如果 p 这个上游节点已经对当前 step 声明了 route(即 p 会在
+                # 自己的 routes 循环里生成 out=step.step_id 的边),这里就
+                # 不再重复生成一条 out="context" 的边。
+                parent_step = self.steps.get(p)
+                if parent_step and step.step_id in {r["target_step_id"] for r in parent_step.routes}:
+                    continue
                 edges.append({
                     "from": p,
                     "to": step.step_id,
@@ -814,11 +1047,14 @@ class OpalGraphState:
                     "in": f"p-z-{p}",
                 })
             for r in step.routes:
+                # v4修正(kitchen-sink样本确认):routing edge的out字段值是
+                # 目标节点id本身,不是字符串"route";in字段依然是普通的
+                # p-z-{source} 格式,和parent边一致,没有特殊前缀。
                 edges.append({
                     "from": step.step_id,
                     "to": r["target_step_id"],
-                    "out": "route",
-                    "in": f"p-r-{_slugify(r['label'])}",
+                    "out": r["target_step_id"],
+                    "in": f"p-z-{step.step_id}",
                 })
 
         return {
@@ -829,10 +1065,58 @@ class OpalGraphState:
                 "tags": self.tags,
                 "parameters": {},
             },
-            "assets": {},
+            "assets": self._compile_assets(),
             "title": self.title,
             "description": self.description,
             "version": "0.0.1",
             "nodes": nodes,
             "edges": edges,
         }
+
+    # ------------------------------------------------------------------
+    # 编译:顶层 assets 字典
+    # ------------------------------------------------------------------
+    def _compile_assets(self) -> Dict[str, Any]:
+        """
+        把 self.assets 编译成顶层 assets 字典,格式对齐 kitchen-sink 样本里
+        观察到的 5 种资产形态(见文件顶部 v4 说明)。
+        """
+        compiled: Dict[str, Any] = {}
+        for asset in self.assets.values():
+            if asset.kind == AssetKind.INLINE_TEXT:
+                part: Dict[str, Any] = {"text": asset.text_content}
+                asset_type = "content"
+                extra_meta: Dict[str, Any] = {}
+            elif asset.kind == AssetKind.UPLOADED_FILE:
+                part = {
+                    "storedData": {
+                        "handle": asset.drive_handle,
+                        "mimeType": asset.mime_type,
+                    }
+                }
+                asset_type = "file"
+                extra_meta = {"managed": True}
+            elif asset.kind == AssetKind.GOOGLE_DRIVE_DOC:
+                part = {"storedData": {"handle": asset.drive_handle, "mimeType": asset.mime_type}}
+                asset_type = "content"
+                extra_meta = {"managed": False, "subType": "gdrive"}
+            elif asset.kind == AssetKind.YOUTUBE_VIDEO:
+                part = {"fileData": {"fileUri": asset.file_uri, "mimeType": asset.mime_type}}
+                asset_type = "content"
+                extra_meta = {"subType": "youtube"}
+            elif asset.kind == AssetKind.DRAWING:
+                part = {"storedData": {"handle": asset.drive_handle, "mimeType": asset.mime_type}}
+                asset_type = "content"
+                extra_meta = {"subType": "drawable"}
+            else:
+                raise AssertionError(f"未知 AssetKind: {asset.kind}")
+
+            compiled[asset.asset_id] = {
+                "data": [{"parts": [part], "role": "user"}],
+                "metadata": {
+                    "title": asset.title,
+                    "type": asset_type,
+                    **extra_meta,
+                },
+            }
+        return compiled
