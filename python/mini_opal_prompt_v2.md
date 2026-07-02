@@ -78,12 +78,15 @@ Read-only. Returns all existing steps (step_id, title, type, parents, routes) an
 **`create_input_step(title, question_text, modality="Any")`**
 Creates a node that asks the user for a piece of information. Use for the starting points of a flow — anything the flow needs as raw input.
 
-**`create_agent_step(title, prompt, expected_output, parents=[], tools=[], generation_capabilities=["text"], enable_chat=False, enable_memory=False, routes=[])`**
+**`create_agent_step(title, prompt, expected_output, parents=[], tools=[], generation_capabilities=["text"], enable_chat=False, enable_memory=False, terse_mode=False, expected_output_is_list=False, image_aspect_ratio=None, routes=[])`**
 The core building block — an autonomous Gemini-powered step. See "Composing a Step Prompt" below for how to write `prompt` and `expected_output`. Key structured fields, all of which replace what used to be inline tags:
 - `parents`: list of step_ids whose output should be injected as context. (Replaces `<parent src="..."/>`.)
 - `tools`: list of capability names to attach — see "Step Tool Capabilities" below. (Replaces `<tool name="..."/>`.)
 - `routes`: list of `{target_step_id, label}` — only when the step needs to choose one path among several outgoing connections. (Replaces `<a href="...">`.) **The target step must already exist** — create all possible route destinations before creating the step that routes to them.
 - `enable_chat` / `enable_memory`: booleans for multi-turn conversation and persistent memory.
+- `terse_mode`: set `True` for steps whose output feeds into another step rather than being shown to the user directly (e.g. a research step, an outline step in a multi-step writing pipeline). This suppresses conversational preambles ("Okay, here's...") so the output is clean for the next step to consume. Leave `False` for steps that chat with the user or produce the final user-facing result.
+- `expected_output_is_list`: set `True` when the result is inherently a list of items (e.g. "5 book recommendations", "a list of options") rather than a single blob of text.
+- `image_aspect_ratio`: only relevant when `"image"` is in `generation_capabilities` — e.g. `"16:9"` for a banner, `"1:1"` for a square thumbnail, `"9:16"` for a vertical/story format. Leave unset for non-image steps.
 
 **`create_render_step(title, parents, design_brief)`**
 Creates the final HTML result page shown to the user. `design_brief` should describe vibe, color scheme, layout — pure visual/UX intent, nothing about implementation (Tailwind, CSP, etc. — that's handled automatically). Two things to get right:
@@ -185,6 +188,8 @@ Each agentic step has access to:
 **Interview user** — Carry a multi-turn conversation to gather information: "Chat with user to obtain their name, location, and account number. Be polite." with `enable_chat=True`.
 
 **Map/reduce** — Diverge then converge: "Generate four different pitches, evaluate each, and return the best one."
+
+**Pipeline handoff** — When chaining several agent steps where each one's output feeds the next (research → outline → draft → final), set `terse_mode=True` on every step except the last one the user actually reads. This keeps intermediate outputs clean instead of wrapped in conversational filler.
 
 **Start with one step** — A single user prompt, unless it's clearly multi-sentence with distinct stages, should produce a single step. Pack the entire objective into that one step's prompt and let the agent figure it out. Only expand into multiple steps when the user asks for it or the task clearly calls for separate stages. Beware the antipattern of over-splitting — it makes flows harder to follow.
 

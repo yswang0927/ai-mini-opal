@@ -21,14 +21,26 @@ Opie 图状态管理 + 后端编译器。
 - 6.1 render系统指令固定模板 -> RENDER_SYSTEM_INSTRUCTION 常量
 - 6.3 媒体连线校验 -> validate_render_media_parents()
 
-【重要声明 / 假设边界】
-示例 JSON 只给出了 input / agent / render 三类节点在"无工具挂载、
-无chat、无memory、无routing"情况下的真实结构。tools/chat/memory/routes
-在 Opal 底层的确切字段名并未在示例中出现过,因此本模块中这些字段的编译
-方式(如 configuration.p-chat-enabled、configuration.attached_tools 等)
-属于【合理推断的占位实现】,并在代码注释中逐一标注。若拿到真实 Opal 后端
-schema,只需替换 _compile_agent_configuration() 内对应几行,不影响
-其余架构。
+【版本历史 / 假设边界】
+v1: 只有 BMI 一份样本,tools/chat/memory/routes 字段完全靠猜测占位。
+
+v3(当前版本): 补充了 5 份真实 Opal 导出样本(博客写作、共同思考助手、
+选书推荐、产品调研 4 个 flow),修正了两处明确错误:
+  1. tools 不是独立 config 字段,而是 inline 写在 config$prompt 文本里的
+     占位符 {{"type":"tool","path":"...","title":"..."}},且不同工具的
+     path 命名空间不统一(search-web/get-webpage 是一类,memory 是另一类)。
+  2. render 节点的巨型 system-instruction 是服务端默认值,不应该被写进
+     图 JSON——只有节点被显式编辑过(userModified=true)时才会回写解析后
+     的文本。
+
+仍然是推断、未被样本直接证实的部分(标注在对应代码位置):
+  - generation-capabilities / p-aspect-ratio 等图像生成相关字段(仅1个样本)
+  - config$list 字段的确切语义(仅1个样本)
+  - route 边的 out/in 命名格式(0个样本,完全未验证)
+  - get-weather / search-maps / search-internal / search-enterprise /
+    code-execution 五个工具的 path(按 search-web 的命名风格类推)
+
+拿到更多真实样本或官方 schema 后,优先核实上面这几项。
 """
 
 from __future__ import annotations
@@ -50,11 +62,96 @@ EMBED_URI_AGENT = "embed://a2/generate.bgl.json#module:main"
 EMBED_URI_RENDER = "embed://a2/a2.bgl.json#module:render-outputs"
 
 # ---------------------------------------------------------------------------
-# 常量:render 节点固定系统指令(来自真实 Opal 导出样本,已确认,原文照抄)
-# 对应设计文档 6.1 节。Opie / LLM 从不接触这段文本。
+# 常量:工具 path 映射表(基于多份真实样本修正)
+#
+# 【修正说明 v3】之前版本假设工具是通过 configuration 里一个独立字段挂载的
+# (如 attached-tools),这是错的。真实机制是:工具引用是 inline 写在
+# config$prompt 文本里的占位符,格式统一为:
+#     {{"type":"tool","path":"<TOOL_PATH>","title":"<Display Title>"}}
+# 但 <TOOL_PATH> 的命名空间在不同工具之间并不一致 —— search-web/get-webpage
+# 用 embed://a2/tools.bgl.json#module:X 这种路径,而 memory 用完全不同的
+# function-group/use-memory。下表只有 search-web / get-webpage / memory
+# 三项是从真实样本里直接观察到的,其余是按前者的命名风格类推的占位猜测,
+# 用 confirmed=False 标注,接入真实后端前建议单独验证。
 # ---------------------------------------------------------------------------
 
-RENDER_SYSTEM_INSTRUCTION = """You are an AI Web Developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data.
+TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
+    "search-web": {
+        "path": "embed://a2/tools.bgl.json#module:search-web",
+        "display_title": "Search Web",
+        "confirmed": True,
+    },
+    "get-webpage": {
+        "path": "embed://a2/tools.bgl.json#module:get-webpage",
+        "display_title": "Get Webpage",
+        "confirmed": True,
+    },
+    "memory": {
+        "path": "function-group/use-memory",
+        "display_title": "Use Memory",
+        "confirmed": True,
+    },
+    "get-weather": {
+        "path": "embed://a2/tools.bgl.json#module:get-weather",
+        "display_title": "Get Weather",
+        "confirmed": False,
+    },
+    "search-maps": {
+        "path": "embed://a2/tools.bgl.json#module:search-maps",
+        "display_title": "Search Maps",
+        "confirmed": False,
+    },
+    "search-internal": {
+        "path": "embed://a2/tools.bgl.json#module:search-internal",
+        "display_title": "Search Internal",
+        "confirmed": False,
+    },
+    "search-enterprise": {
+        "path": "embed://a2/tools.bgl.json#module:search-enterprise",
+        "display_title": "Search Enterprise",
+        "confirmed": False,
+    },
+    "code-execution": {
+        "path": "embed://a2/tools.bgl.json#module:code-execution",
+        "display_title": "Code Execution",
+        "confirmed": False,
+    },
+}
+
+# ---------------------------------------------------------------------------
+# 常量:agent 节点的"terse 模式"系统指令
+#
+# 【新增 v3】在 3 个不同真实样本(2 个不同 flow)中,3 个agent节点
+# 一字不差地使用了同一段 b-system-instruction 文本,证明这是一个可复用的
+# 预设开关,而不是自由文本。用于"这个节点的输出是喂给下一个节点的,
+# 不需要对话式的寒暄"这种场景。
+# ---------------------------------------------------------------------------
+
+AGENT_TERSE_SYSTEM_INSTRUCTION = (
+    "You are working as part of an AI system, so no chit-chat and no "
+    "explaining what you're doing and why.\n"
+    "DO NOT start with \"Okay\", or \"Alright\" or any preambles. Just the "
+    "output, please."
+)
+
+# ---------------------------------------------------------------------------
+# 【修正说明 v3】render 节点的巨型 system-instruction 不再写入编译后的 JSON。
+#
+# 证据:同一个 render-outputs 节点在不同样本里,b-system-instruction 呈现
+# 三种状态——完整填充(仅出现在 userModified=true 的节点上)、空字符串
+# (userModified=false)、或字段整个不存在(同样 userModified=false)。
+# 这说明这段巨型指令是【服务端默认值】,只有当节点被显式修改过
+# (userModified=true)时,解析后的完整文本才会被回写进图 JSON。
+# 我们的编译器默认场景下不应该写入这段文本,而是把它留空/省略,
+# 交由服务端在运行时应用默认值。
+#
+# 这段文本仍然作为下面的常量保留 —— 不是为了写入 JSON,而是作为
+# Opie 撰写 design_brief 时应当遵守的约束的【文档依据】(见
+# create_render_step 里 design_brief 参数说明中对 footer/媒体的限制,
+# 均来自这段文本)。
+# ---------------------------------------------------------------------------
+
+RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE = """You are an AI Web Developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data.
 
 **Visual aesthetic:**
     * Aesthetics are crucial. Make the page look amazing, especially on mobile.
@@ -138,15 +235,19 @@ class Step:
     # --- agent 专属 ---
     prompt: Optional[str] = None
     expected_output: Optional[str] = None
+    expected_output_is_list: bool = False  # v3新增:对应 metadata.expected_output[].list
     tools: List[str] = field(default_factory=list)
     generation_capabilities: List[str] = field(default_factory=lambda: ["text"])
     enable_chat: bool = False
     enable_memory: bool = False
+    terse_mode: bool = False  # v3新增:对应 AGENT_TERSE_SYSTEM_INSTRUCTION 开关
+    image_aspect_ratio: Optional[str] = None  # v3新增:仅当 generation_capabilities 含 image 时有意义
 
     # --- render 专属 ---
     design_brief: Optional[str] = None
 
-    # --- 通用连接信息 ---
+    # --- 通用 ---
+    user_modified: bool = False  # v3新增:新建默认False,edit_step后置True(见 6.1 节修正)
     parents: List[str] = field(default_factory=list)          # 数据依赖父节点
     routes: List[Dict[str, str]] = field(default_factory=list)  # [{"target_step_id":..,"label":..}]
 
@@ -262,6 +363,9 @@ class OpalGraphState:
         enable_chat: bool = False,
         enable_memory: bool = False,
         routes: Optional[List[Dict[str, str]]] = None,
+        expected_output_is_list: bool = False,
+        terse_mode: bool = False,
+        image_aspect_ratio: Optional[str] = None,
     ) -> Step:
         parents = parents or []
         for p in parents:
@@ -271,6 +375,19 @@ class OpalGraphState:
             for r in routes:
                 self._require_step(r["target_step_id"])  # 校验路由目标必须已存在(方案1)
 
+        resolved_tools = list(tools or [])
+        if enable_memory and "memory" not in resolved_tools:
+            # enable_memory=True 时自动确保 memory 工具引用会被写进
+            # prompt(见 _compile_agent_prompt_text),用户不需要在 tools
+            # 里重复声明一遍 "memory"。
+            resolved_tools.append("memory")
+
+        unknown_tools = [t for t in resolved_tools if t not in TOOL_PATH_MAP]
+        if unknown_tools:
+            raise GraphValidationError(
+                f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+            )
+
         step_id = self._new_id("agent", title)
         step = Step(
             step_id=step_id,
@@ -278,11 +395,14 @@ class OpalGraphState:
             step_type=StepType.AGENT,
             prompt=prompt,
             expected_output=expected_output,
+            expected_output_is_list=expected_output_is_list,
             parents=parents,
-            tools=tools or [],
+            tools=resolved_tools,
             generation_capabilities=generation_capabilities or ["text"],
             enable_chat=enable_chat,
             enable_memory=enable_memory,
+            terse_mode=terse_mode,
+            image_aspect_ratio=image_aspect_ratio,
             routes=routes or [],
         )
         self.steps[step_id] = step
@@ -353,6 +473,7 @@ class OpalGraphState:
         tools: Optional[List[str]] = None,
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
+        terse_mode: Optional[bool] = None,
     ) -> Step:
         step = self._require_step(step_id)
         if title is not None:
@@ -365,11 +486,23 @@ class OpalGraphState:
         if tools is not None:
             if step.step_type != StepType.AGENT:
                 raise GraphValidationError("tools 字段仅适用于 agent 类型节点。")
+            unknown_tools = [t for t in tools if t not in TOOL_PATH_MAP]
+            if unknown_tools:
+                raise GraphValidationError(
+                    f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+                )
             step.tools = tools
         if enable_chat is not None:
             step.enable_chat = enable_chat
         if enable_memory is not None:
             step.enable_memory = enable_memory
+        if terse_mode is not None:
+            step.terse_mode = terse_mode
+
+        # v3新增:对应"userModified"语义(见 6.1 节修正)——
+        # 一旦被编辑过,render节点就不再享受"留空走服务端默认值"的待遇,
+        # 后续 compile 时会把解析后的实际取值写回JSON(如适用)。
+        step.user_modified = True
         return step
 
     def remove_step(self, step_id: str) -> None:
@@ -483,18 +616,57 @@ class OpalGraphState:
                 )
             lines.append("\n".join(ctx_lines))
 
+        # v3新增:工具引用是 inline 写在 prompt 文本里的占位符(见 TOOL_PATH_MAP
+        # 上方注释)。demo2 的 "Do Research" 节点验证了"多个工具集中列出"这种
+        # 写法是有效的:"Use the tools:\n{{tool1}}\n{{tool2}}"。我们的编译器
+        # 采用这个已验证的块状写法,而不是尝试把工具引用穿插进句子中间
+        # (那需要NLU能力,风险更高)。
+        if step.tools:
+            memory_tools = [t for t in step.tools if t == "memory"]
+            other_tools = [t for t in step.tools if t != "memory"]
+
+            # memory 单独成句更贴近 demo5 的用法("... {{memory tool}} to retrieve
+            # conversation history."),其余工具走 demo2 的块状列举写法。
+            if other_tools:
+                tool_lines = ["Use the tools:"]
+                for t in other_tools:
+                    spec = TOOL_PATH_MAP[t]
+                    tool_lines.append(
+                        f'{{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}}'
+                    )
+                lines.append("\n".join(tool_lines))
+
+            for t in memory_tools:
+                spec = TOOL_PATH_MAP[t]
+                lines.append(
+                    f'Use {{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}} '
+                    f"to retrieve and update relevant memory as needed."
+                )
+
         if step.enable_chat:
-            lines.append("4. Interaction: Chat with the user as needed to clarify or confirm details.")
+            lines.append("Chat with the user as needed to clarify or confirm details.")
 
         return "\n\n".join(lines)
 
     def _compile_agent_configuration(self, step: Step) -> Dict[str, Any]:
         """
         编译 agent 节点的 configuration 字段。
-        【假设声明】示例 JSON 未展示带 tools/chat/memory 的 agent 节点,
-        因此下面这几个字段名(p-chat-enabled / p-memory-enabled / attached-tools /
-        generation-capabilities)是按照命名风格推断的占位实现。接入真实 Opal
-        后端时,只需替换这个函数内部即可,不影响上层工具调用接口。
+
+        v3 修正(基于 demo2/demo3/demo5 三份真实样本):
+        - enable_chat 的真实底层字段是 config$ask-user(布尔,含义与直觉相反:
+          "是否允许停下来问用户问题")。真正需要对话的节点(demo5)完全不设置
+          这个字段(推测默认就是允许);明确不该打断用户的自动化节点
+          (demo2/demo3 里的处理型节点)会显式设为 false。因此我们只在
+          enable_chat=False 时写入 config$ask-user=false,enable_chat=True
+          时不写这个字段(交给默认值)。
+        - tools 不再作为独立字段,而是编译进 config$prompt 文本内部
+          (见 _compile_agent_prompt_text)。
+        - b-system-instruction 只在 terse_mode=True 时写入固定的
+          AGENT_TERSE_SYSTEM_INSTRUCTION 常量,而不是让 LLM 自由发挥。
+        - config$list 目前只有单个样本佐证(demo3),按 expected_output_is_list
+          原样透传。
+        - generation-capabilities / p-aspect-ratio 等图像相关字段仍缺乏
+          充分样本验证,标注为待确认。
         """
         config: Dict[str, Any] = {
             "config$prompt": {
@@ -503,14 +675,24 @@ class OpalGraphState:
             },
             "generation-mode": "agent",
         }
-        if step.tools:
-            config["attached-tools"] = list(step.tools)  # 假设字段
+
+        if not step.enable_chat:
+            config["config$ask-user"] = False  # 确认字段(demo2 x2, demo3)
+
+        config["config$list"] = step.expected_output_is_list  # 部分确认(仅demo3一例)
+
+        if step.terse_mode:
+            config["b-system-instruction"] = {
+                "role": "user",
+                "parts": [{"text": AGENT_TERSE_SYSTEM_INSTRUCTION}],
+            }
+
         if step.generation_capabilities and step.generation_capabilities != ["text"]:
-            config["generation-capabilities"] = list(step.generation_capabilities)  # 假设字段
-        if step.enable_chat:
-            config["p-chat-enabled"] = True  # 假设字段
-        if step.enable_memory:
-            config["p-memory-enabled"] = True  # 假设字段
+            config["generation-capabilities"] = list(step.generation_capabilities)  # 待确认字段
+
+        if step.image_aspect_ratio and "image" in step.generation_capabilities:
+            config["p-aspect-ratio"] = step.image_aspect_ratio  # 部分确认(仅demo2一例)
+
         return config
 
     # ------------------------------------------------------------------
@@ -533,7 +715,17 @@ class OpalGraphState:
                 },
             }
 
+            # v3新增:所有节点类型都带 userModified,对应真实样本里
+            # 普遍存在的这个字段,同时也是我们 render 节点
+            # b-system-instruction 是否留空的判断依据(见下方)。
+            base_metadata["userModified"] = step.user_modified
+
             if step.step_type == StepType.INPUT:
+                # v3新增:demo4 显示 input 节点也可以带结构化 expected_output,
+                # 这里用 question_text 自动生成一个合理的描述。
+                base_metadata["expected_output"] = [
+                    {"type": "text", "description": step.question_text, "list": False}
+                ]
                 node = {
                     "id": step.step_id,
                     "metadata": base_metadata,
@@ -549,6 +741,16 @@ class OpalGraphState:
 
             elif step.step_type == StepType.AGENT:
                 base_metadata["step_intent"] = step.prompt
+                # v3修正:expected_output 是结构化 metadata 字段,不再只是
+                # prompt 文本里的一段话(prompt 文本里仍会带一份"Output Format"
+                # 描述,供 LLM 阅读;这里额外补一份结构化版本供 UI/下游读取)。
+                base_metadata["expected_output"] = [
+                    {
+                        "type": "text",
+                        "description": step.expected_output,
+                        "list": step.expected_output_is_list,
+                    }
+                ]
                 node = {
                     "id": step.step_id,
                     "metadata": base_metadata,
@@ -575,19 +777,29 @@ class OpalGraphState:
                 base_metadata["expected_output"] = [
                     {"list": False, "description": "HTML code for a rendered result page", "type": "text"}
                 ]
+
+                render_config: Dict[str, Any] = {
+                    "text": {"role": "user", "parts": [{"text": brief_text}]},
+                    "p-render-mode": "Auto",
+                    "b-render-model-name": "gemini-flash",
+                }
+
+                # v3修正(见文件顶部说明):巨型 system-instruction 是服务端
+                # 默认值,默认场景下不写入。只有这个节点被 edit_step 修改过
+                # (user_modified=True)时,才写入解析后的完整参考文本 ——
+                # 这对应真实样本里"只有 userModified=true 的render节点
+                # 才带完整文本"的观察。
+                if step.user_modified:
+                    render_config["b-system-instruction"] = {
+                        "role": "user",
+                        "parts": [{"text": RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE}],
+                    }
+
                 node = {
                     "id": step.step_id,
                     "metadata": base_metadata,
                     "type": EMBED_URI_RENDER,
-                    "configuration": {
-                        "text": {"role": "user", "parts": [{"text": brief_text}]},
-                        "b-system-instruction": {
-                            "role": "user",
-                            "parts": [{"text": RENDER_SYSTEM_INSTRUCTION}],
-                        },
-                        "p-render-mode": "Auto",
-                        "b-render-model-name": "gemini-flash",
-                    },
+                    "configuration": render_config,
                 }
             else:
                 raise AssertionError(f"未知 step_type: {step.step_type}")

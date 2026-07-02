@@ -136,6 +136,26 @@ class _CreateAgentStepArgs(BaseModel):
     )
     enable_chat: bool = Field(False, description="是否需要与用户进行多轮对话(而非单次执行)。")
     enable_memory: bool = Field(False, description="是否启用持久化记忆(跨session保留状态)。")
+    terse_mode: bool = Field(
+        False,
+        description=(
+            "该节点的输出是否只喂给下一个节点、不直接展示给用户看。若为True,"
+            "会关闭寒暄式的开场白('Okay'/'Alright'等),让输出更适合被下游"
+            "节点直接消费。适用于流程中间的处理型节点(如'先研究再写大纲再成文'"
+            "这类链条里的中间环节),不适用于直接与用户对话或作为最终结果展示的节点。"
+        ),
+    )
+    expected_output_is_list: bool = Field(
+        False,
+        description="expected_output描述的结果本质上是一个列表(如多条推荐、多个条目)时设为True。",
+    )
+    image_aspect_ratio: Optional[str] = Field(
+        None,
+        description=(
+            "仅当generation_capabilities包含'image'时有意义,指定生成图片的宽高比,"
+            "如'16:9'、'9:16'、'1:1'。不涉及图片生成时不要传这个参数。"
+        ),
+    )
     routes: List[_RouteSpec] = Field(
         default_factory=list,
         description=(
@@ -155,6 +175,9 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         generation_capabilities: Optional[List[str]] = None,
         enable_chat: bool = False,
         enable_memory: bool = False,
+        terse_mode: bool = False,
+        expected_output_is_list: bool = False,
+        image_aspect_ratio: Optional[str] = None,
         routes: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         try:
@@ -167,6 +190,9 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
                 generation_capabilities=generation_capabilities or ["text"],
                 enable_chat=enable_chat,
                 enable_memory=enable_memory,
+                terse_mode=terse_mode,
+                expected_output_is_list=expected_output_is_list,
+                image_aspect_ratio=image_aspect_ratio,
                 routes=[dict(r) for r in (routes or [])],
             )
             return _ok({"step_id": step.step_id, "title": step.title})
@@ -240,6 +266,7 @@ class _EditStepArgs(BaseModel):
     tools: Optional[List[str]] = Field(None, description="覆盖式设置工具列表(可选,仅agent节点适用)")
     enable_chat: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
     enable_memory: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
+    terse_mode: Optional[bool] = Field(None, description="(可选,仅agent节点适用)见create_agent_step说明")
 
 
 def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
@@ -250,6 +277,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
         tools: Optional[List[str]] = None,
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
+        terse_mode: Optional[bool] = None,
     ) -> str:
         try:
             step = graph.edit_step(
@@ -259,6 +287,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
                 tools=tools,
                 enable_chat=enable_chat,
                 enable_memory=enable_memory,
+                terse_mode=terse_mode,
             )
             return _ok({"step_id": step.step_id, "title": step.title})
         except GraphValidationError as e:
