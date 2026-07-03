@@ -4,21 +4,19 @@
 }
 
 :root {
+  --font-family: BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Microsoft YaHei', 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-size: 0.875rem;
   --font-size-sm: 0.75rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
 }
 
-button, input[type="text"], input[type="password"], textarea {
-  font-size: var(--font-size);
+body {
+  font-family: var(--font-family);
 }
 
-.blur {
-  --_blur: 1rem;
-  -webkit-backdrop-filter: blur(var(--_blur));
-  backdrop-filter: blur(var(--_blur));
-  background-color: #ffffff80 !important;
+button, input[type="text"], input[type="password"], textarea {
+  font-size: var(--font-size);
 }
 
 /* 通用的layout-resizer样式 */

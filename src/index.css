@@ -1,8 +1,5 @@
-@import "tailwindcss";
-
 :root {
   color-scheme: light;
-  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -36,6 +33,12 @@ input,
 textarea,
 select {
   font: inherit;
+  font-family: inherit;
+}
+
+ul, li, dl, dt, dd {
+  list-style: none;
+  margin: 0;
 }
 
 code {
@@ -52,6 +55,7 @@ button {
   font-size: 0.875rem;
   appearance: none;
   -webkit-appearance: none;
+  background-color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -66,6 +70,11 @@ button {
 
 button svg {
   pointer-events: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
 }
 
 *, *::before, *::after {
@@ -95,3 +104,85 @@ button svg {
   background: #64748b;
 }
 
+.absolute {
+  position: absolute;
+}
+.relative {
+  position: relative;
+}
+.fixed {
+  position: fixed;
+}
+.inset-0 {
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+.left-0 {
+  left: 0;
+}
+.top-0 {
+  top: 0;
+}
+.right-0 {
+  right: 0;
+}
+.bottom-0 {
+  bottom: 0;
+}
+.w-full {
+  width: 100%;
+}
+.h-full {
+  height: 100%;
+}
+.flex {
+  display: flex;
+}
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.flex-col {
+  flex-direction: column;
+}
+.flex-row {
+  flex-direction: row;
+}
+.items-center {
+  align-items: center;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-end {
+  justify-content: flex-end;
+}
+.nowrap {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.overflow-auto {
+  overflow: auto;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+
+[class*=blur], [class*=blur].light {
+  --_blur: 1rem;
+  -webkit-backdrop-filter: blur(var(--_blur));
+  backdrop-filter: blur(var(--_blur));
+  background-color: #ffffff80 !important;
+}
+.dark [class*=blur], [class*=blur].dark {
+  background-color: #00000080!important;
+}
+.blur-sm {
+  --_blur: .5rem;
+}
+.blur-lg {
+  --_blur: 1.5rem;
+}

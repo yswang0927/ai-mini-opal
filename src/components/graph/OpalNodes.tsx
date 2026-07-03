@@ -6,9 +6,7 @@ const nodeContainerStyle = {
   background: '#fff',
   border: '1px solid #e2e8f0',
   borderRadius: '12px',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
   width: '280px',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
   overflow: 'hidden',
 };
 
@@ -46,7 +44,7 @@ const handleStyle = {
 // 1. 用户输入节点 (黄色 Header)
 export const UserInputNode = ({ data }: { data: { title: string, description: string } }) => {
   return (
-    <div style={nodeContainerStyle}>
+    <div className="opal-node" style={nodeContainerStyle}>
       <div style={{ ...headerStyle, backgroundColor: '#f3ff9e' }}>
         <div style={headerInnerStyle}>
           <MessageSquareText size={20} strokeWidth={2.0} />
@@ -60,7 +58,7 @@ export const UserInputNode = ({ data }: { data: { title: string, description: st
       <Handle
         type="source"
         position={Position.Right}
-        style={{ ...handleStyle, right: '0px' }}
+        style={{ right: '0px' }}
       />
     </div>
   );
@@ -69,12 +67,12 @@ export const UserInputNode = ({ data }: { data: { title: string, description: st
 // 2. AI生成节点 (蓝色 Header)
 export const GenerateNode = ({ data }: { data: { title: string, description: string } }) => {
   return (
-    <div style={nodeContainerStyle}>
+    <div className="opal-node" style={nodeContainerStyle}>
       {/* 左侧输入锚点 */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ ...handleStyle, left: '0px' }}
+        style={{ left: '0px' }}
       />
       
       <div style={{ ...headerStyle, backgroundColor: '#c7d2fe' }}>
@@ -90,7 +88,7 @@ export const GenerateNode = ({ data }: { data: { title: string, description: str
       <Handle
         type="source"
         position={Position.Right}
-        style={{ ...handleStyle, right: '0px' }}
+        style={{ right: '0px' }}
       />
     </div>
   );
@@ -99,12 +97,12 @@ export const GenerateNode = ({ data }: { data: { title: string, description: str
 // 3. 输出节点 (绿色 Header)
 export const OutputNode = ({ data }: { data: { title: string, description: string } }) => {
   return (
-    <div style={nodeContainerStyle}>
+    <div className="opal-node" style={nodeContainerStyle}>
       {/* 左侧输入锚点 */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ ...handleStyle, left: '0px' }}
+        style={{ left: '0px' }}
       />
       
       <div style={{ ...headerStyle, backgroundColor: '#bbf7d0' }}>
@@ -120,7 +118,7 @@ export const OutputNode = ({ data }: { data: { title: string, description: strin
       <Handle
         type="source"
         position={Position.Right}
-        style={{ ...handleStyle, right: '0px' }}
+        style={{ right: '0px' }}
       />
     </div>
   );
