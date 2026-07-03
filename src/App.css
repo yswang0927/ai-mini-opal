@@ -3,6 +3,24 @@
   height: 100vh;
 }
 
+:root {
+  --font-size: 0.875rem;
+  --font-size-sm: 0.75rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+}
+
+button, input[type="text"], input[type="password"], textarea {
+  font-size: var(--font-size);
+}
+
+.blur {
+  --_blur: 1rem;
+  -webkit-backdrop-filter: blur(var(--_blur));
+  backdrop-filter: blur(var(--_blur));
+  background-color: #ffffff80 !important;
+}
+
 /* 通用的layout-resizer样式 */
 .layout-resizer {
   position: absolute;

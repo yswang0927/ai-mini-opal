@@ -8,9 +8,10 @@ import {
   ConnectionLineType,
   MarkerType
 } from '@xyflow/react';
+import { Sparkles, Proportions, MessageSquareText, SquarePlus } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
-import './chatflow.css';
+import './chatgraph.css';
 
 import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
  
@@ -85,7 +86,7 @@ const defaultEdgeOptions = {
   },
 };
  
-export default function ChatFlow() {
+export default function ChatGraph() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
@@ -143,17 +144,22 @@ export default function ChatFlow() {
           };
         });
 
-        console.log(graphNodes);
-        console.log(graphEdges);
-
         setNodes(graphNodes);
         setEdges(graphEdges);
-
       });
   }, []);
 
   return (
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc' }}>
+      <div className="graph-nodes-panel">
+          <div className="graph-nodes">
+            <button><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
+            <button><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
+            <button><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
+            <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
+          </div>
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}

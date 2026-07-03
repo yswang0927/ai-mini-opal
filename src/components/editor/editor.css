@@ -1,20 +1,16 @@
-.flow-editor {
+.opal-editor {
     height: 100%;
     display: flex;
     flex-direction: column;
 }
-.flow-editor-header {
+.layout-header {
     position: relative;
     z-index: 4;
-    height: 46px;
-    padding: 0 15px;
+    height: 2.875rem;
     background-color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     border-bottom: 1px solid rgb(226, 226, 226);
 }
-.flow-editor-header::after {
+.layout-header::after {
     content: "";
     box-shadow: rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.15) 0px 1px 3px 1px;
     height: 100%;
@@ -23,51 +19,7 @@
     z-index: -1;
     display: none;
 }
-.flow-editor-header-left,
-.flow-editor-header-center,
-.flow-editor-header-right {
-    flex: 1;
-}
-.flow-editor-header-center {
-    display: flex;
-    justify-content: center;
-}
-.flow-editor-header-btn-group {
-    display: inline-flex;
-    justify-content: center;
-    gap: 4px;
-}
-.flow-editor-header-btn-group > button {
-    background: rgb(241, 241, 241);
-    border: 0 none;
-    padding: 0 10px;
-    height: 30px;
-    min-width: 50px;
-    appearance: none;
-    -webkit-appearance: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 20px;
-}
-.flow-editor-header-btn-group > button:first-child {
-    padding-left: 14px;
-    border-top-left-radius: 64px;
-    border-bottom-left-radius: 64px;
-}
-.flow-editor-header-btn-group > button:last-child {
-    padding-right: 14px;
-    border-top-right-radius: 64px;
-    border-bottom-right-radius: 64px;
-}
-.flow-editor-header-btn-group > button.selected {
-    border: 1px solid #a9583e;
-    background-color: rgba(169, 88, 62, 0.2);
-}
-
-.flow-editor-body {
+.layout-body {
     position: relative;
     flex: 1;
     min-height: 0;
@@ -75,20 +27,20 @@
     display: flex;
     flex-direction: row;
 }
-.flow-editor-main {
+.layout-main {
     position: relative;
     flex: 1;
     min-width: 0;
     height: 100%;
 }
-.flow-editor-sidebar {
+.layout-sidebar {
     position: relative;
     z-index: 2;
     width: 500px;
     height: 100%;
     background-color: #fff;
 }
-.flow-editor-sidebar::before {
+.layout-sidebar::before {
     content: "";
     box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3),  0px 1px 6px 2px rgba(0, 0, 0, 0.15);
     height: 100%;
@@ -96,8 +48,161 @@
     width: 100%;
     z-index: -1;
 }
-.flow-editor-sidebar-body {
+.layout-sidebar-body {
     position: relative;
     z-index: 1;
     height: 100%;
+}
+
+/* Editor Header */
+.editor-header {
+    height: 100%;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.editor-header-left,
+.editor-header-center,
+.editor-header-right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+}
+.editor-header-center {
+    justify-content: center;
+}
+.editor-header-right {
+    justify-content: flex-end;
+    gap: 12px;
+}
+.editor-header-left {
+    gap: 10px;
+}
+.editor-header .nav-title-input {
+    border: 0 none;
+    outline: 0 none;
+    background-color: transparent;
+    field-sizing: content; /* chrome-v123+ */
+    box-sizing: border-box;
+    max-width: 200px;
+    min-width: 100px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 5px;
+}
+.editor-header .nav-title-input:hover {
+    outline: 1px solid rgba(0, 0, 0, 0.3);
+}
+.editor-header .nav-back {
+    min-width: 2rem;
+    min-height: 2rem;
+    border-radius: 5px;
+}
+.editor-header .nav-back svg {
+    transition: transform 0.2s cubic-bezier(0, 0, 0.3, 1);
+}
+.editor-header .nav-back:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.editor-header .nav-back:hover svg {
+    transform: translateX(-3px);
+}
+
+.editor-header .nav-publish,
+.editor-header .nav-share {
+    padding: 0 1rem 0 0.75rem;
+    min-width: 1.875rem;
+    min-height: 1.875rem;
+    border-radius: 64px;
+}
+.editor-header .nav-publish {
+    border: 1px solid rgba(0,0,0,0.1);
+}
+.editor-header .nav-share {
+    background-color: rgba(0,0,0,0.8);
+    color: #fff;
+}
+
+.editor-header-btn-group {
+    display: inline-flex;
+    justify-content: center;
+    gap: 4px;
+}
+.editor-header-btn-group > button {
+    padding: 0 10px;
+    min-height: 1.875rem;
+    min-width: 3rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: 20px;
+    cursor: pointer;
+    background: rgb(241, 241, 241);
+    transition: background-color 0.2s cubic-bezier(0, 0, 0.3, 1);
+}
+.editor-header-btn-group > button:first-child {
+    padding-left: 14px;
+    border-top-left-radius: 64px;
+    border-bottom-left-radius: 64px;
+}
+.editor-header-btn-group > button:last-child {
+    padding-right: 14px;
+    border-top-right-radius: 64px;
+    border-bottom-right-radius: 64px;
+}
+.editor-header-btn-group > button.selected {
+    outline: 1px solid #a9583e;
+    background-color: rgba(169, 88, 62, 0.2);
+}
+
+/* Editor Sidebar */
+.editor-side {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.editor-side-header {
+    height: 2.625rem;
+    border-bottom: 1px solid rgb(226, 226, 226);
+}
+.editor-side-body {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+.editor-side-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    height: 100%;
+    padding: 0 10px;
+}
+.editor-side-nav > button {
+    padding: 0 10px;
+    min-height: 1.875rem;
+    min-width: 3rem;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 64px;
+    transition: background-color 0.2s cubic-bezier(0, 0, 0.3, 1);
+}
+.editor-side-nav > button.selected,
+.editor-side-nav > button.selected:hover {
+    background-color: rgba(169, 88, 62, 0.2);
+}
+.editor-side-nav > button:hover {
+    background-color: rgba(169, 88, 62, 0.1);
+}
+
+.editor-side .empty-state {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0,0,0,0.1);
+    color: rgba(0, 0, 0, 0.5);
 }

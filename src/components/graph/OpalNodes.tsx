@@ -52,7 +52,7 @@ export const UserInputNode = ({ data }: { data: { title: string, description: st
           <MessageSquareText size={20} strokeWidth={2.0} />
           <span>{data.title}</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#666' }}>▶</span>
+        <button className="node-run-btn">▶</button>
       </div>
       <div style={bodyStyle}>{data.description}</div>
       
@@ -82,7 +82,7 @@ export const GenerateNode = ({ data }: { data: { title: string, description: str
           <Sparkles size={20} strokeWidth={2.0} />
           <span>{data.title}</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#666' }}>▶</span>
+        <button className="node-run-btn">▶</button>
       </div>
       <div style={bodyStyle}>{data.description}</div>
       
@@ -112,7 +112,7 @@ export const OutputNode = ({ data }: { data: { title: string, description: strin
           <Proportions size={20} strokeWidth={2.0} />
           <span>{data.title}</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#666' }}>▶</span>
+        <button className="node-run-btn">▶</button>
       </div>
       <div style={bodyStyle}>{data.description}</div>
       
