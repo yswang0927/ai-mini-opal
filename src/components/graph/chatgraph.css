@@ -1,16 +1,39 @@
 .react-flow__node .opal-node {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    background: #fff;
+    width: 280px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 .react-flow__node.selected .opal-node {
-  outline: 2px solid #000 !important; 
+    outline: 2px solid #000 !important;
+}
+
+.react-flow__node .opal-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 16px;
+    color: #1C2127;
+}
+
+.react-flow__node .opal-node-body {
+    padding: 12px;
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.5;
+    min-height: 60px;
 }
 
 .react-flow__handle {
-  width: 14px;
-  height: 14px;
-  background-color: #fff;
-  border: 2px solid #383E47;
+    width: 14px;
+    height: 14px;
+    background-color: #fff;
+    border: 2px solid #383E47;
 }
 
 .react-flow__handle::after {
@@ -31,10 +54,11 @@
     min-width: 1.75rem;
     min-height: 1.75rem;
     border-radius: 5px;
-    color: rgba(0,0,0,0.6);
+    color: rgba(0, 0, 0, 0.6);
 }
+
 .node-run-btn:hover {
-    background-color: rgba(0,0,0,0.1);
+    background-color: rgba(0, 0, 0, 0.1);
 }
 
 .graph-nodes-panel {
@@ -47,6 +71,7 @@
     align-items: center;
     justify-content: center;
 }
+
 .graph-nodes {
     display: flex;
     align-items: center;
@@ -58,20 +83,24 @@
     padding: 2px;
     box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
 }
+
 .graph-nodes button {
     padding: 0 10px;
     min-width: 2.25rem;
     min-height: 2.25rem;
     border-radius: 5px;
 }
+
 .graph-nodes button:hover {
     background-color: rgba(169, 88, 62, 0.2);
 }
+
 .graph-nodes button:first-child {
     border-top-left-radius: 18px;
     border-bottom-left-radius: 18px;
     padding-left: 16px;
 }
+
 .graph-nodes button:last-child {
     border-top-right-radius: 18px;
     border-bottom-right-radius: 18px;
@@ -96,18 +125,21 @@
     align-items: center;
     justify-content: center;
 }
+
 .graph-chatbox-input {
     position: relative;
     width: 500px;
     padding: 10px 3rem 10px 20px;
     background-color: #fff;
     border-radius: 64px;
-    box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3),  0px 1px 6px 2px rgba(0, 0, 0, 0.15);
+    box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 6px 2px rgba(0, 0, 0, 0.15);
 }
+
 .graph-chatbox-input:focus-within {
     outline: 1px solid #a9583e;
-    box-shadow: 0px 1px 2px 0px rgba(169, 88, 62, 0.3),  0px 1px 6px 2px rgba(169, 88, 62, 0.15);
+    box-shadow: 0px 1px 2px 0px rgba(169, 88, 62, 0.3), 0px 1px 6px 2px rgba(169, 88, 62, 0.15);
 }
+
 .graph-chatbox textarea {
     flex: 1 1 0%;
     width: 100%;
@@ -122,6 +154,7 @@
     line-height: 1.25;
     scrollbar-color: rgb(225, 225, 225) transparent;
 }
+
 .graph-chatbox-submit {
     position: absolute;
     right: 10px;
@@ -133,6 +166,7 @@
     border-radius: 50%;
     outline: none;
 }
+
 .graph-chatbox-submit:hover {
-    background-color: rgba(0,0,0,0.1);
+    background-color: rgba(0, 0, 0, 0.1);
 }

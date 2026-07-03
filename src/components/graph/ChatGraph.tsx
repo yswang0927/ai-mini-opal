@@ -76,7 +76,7 @@ const defaultEdgeOptions = {
   style: {
     stroke: '#C5CBD3',
     strokeWidth: 2,
-    strokeDasharray: '5,5',
+    //strokeDasharray: '5,5',
   },
   markerEnd: {
     type: MarkerType.ArrowClosed, // 闭合实心箭头
@@ -84,6 +84,12 @@ const defaultEdgeOptions = {
     height: 16, 
     color: '#C5CBD3',  
   },
+};
+
+const NODE_WIDTH = 280;
+
+const nodeRandomOffset = () => {
+  return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
 };
  
 export default function ChatGraph() {
@@ -107,18 +113,7 @@ export default function ChatGraph() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const onDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    const type = event.dataTransfer.getData('application/reactflow/type');
-    if (!type || !reactFlowInstance.current) {
-      return;
-    }
-
-    const position = reactFlowInstance.current.screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-
+  const appendNewNode = (type: string, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
     const newNode = {
       id: nodeId,
@@ -129,8 +124,38 @@ export default function ChatGraph() {
         description: 'Select to edit in editor',
       },
     };
-
     setNodes((nds) => nds.concat(newNode));
+  };
+
+  const addNode = useCallback((type: string) => {
+    if (!reactFlowInstance.current) return;
+    
+    // 计算画布中间位置
+    const canvasWidth = reactFlowWrapper.current?.clientWidth || 800;
+    const canvasHeight = reactFlowWrapper.current?.clientHeight || 600;
+    
+    // 将屏幕中间位置转换为画布坐标
+    const position = reactFlowInstance.current.screenToFlowPosition({
+      x: (canvasWidth / 2 - NODE_WIDTH / 2 + nodeRandomOffset()),
+      y: (canvasHeight / 2 + nodeRandomOffset())
+    });
+
+    appendNewNode(type, position);
+  }, [setNodes]);
+
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    const type = event.dataTransfer.getData('application/reactflow/type');
+    if (!type || !reactFlowInstance.current) {
+      return;
+    }
+
+    const position = reactFlowInstance.current.screenToFlowPosition({
+      x: event.clientX - NODE_WIDTH / 2,
+      y: event.clientY - 20,
+    });
+
+    appendNewNode(type, position);
   }, [setNodes]);
 
   useEffect(()=>{
@@ -196,9 +221,9 @@ export default function ChatGraph() {
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={reactFlowWrapper}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
-            <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
-            <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
+            <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
+            <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
+            <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
           </div>
