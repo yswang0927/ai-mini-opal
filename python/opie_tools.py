@@ -495,17 +495,25 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
         except GraphValidationError as e:
             return _err(str(e))
 
+    """
+    description=(
+        "Register an asset (file/doc/video/text) for use in agent/render steps. "
+        "Only 'inline_text' creates new content; other types reference existing resources. "
+        "Examples: register_asset(title='FAQ.txt', kind='inline_text', text_content='...') "
+        "or register_asset(title='Logo', kind='uploaded_file', drive_handle='drive:/abc123', mime_type='image/png')"
+    )
+    """
     return StructuredTool.from_function(
         func=_run,
         name="register_asset",
         description=(
-            "登记一个资产(文件/文档/视频/文本),使其可以被 create_agent_step / "
-            "create_render_step 的 asset_ids 参数引用。注意:Opie 自己没有真正"
-            "'上传文件'的能力——只有 kind='inline_text' 是可以凭空创建内容的场景"
-            "(比如注入一段参考文案);其余类型(已上传文件/Drive文档/YouTube链接/"
-            "手绘图)通常对应用户已经在宿主应用里提供、只是需要在对话里被登记引用的"
-            "已有资源。调用前先用 graph_get_overview 确认该资产是否已经存在,避免"
-            "重复登记。"
+            "登记一个资产(文件/文档/视频/文本),供 create_agent_step / "
+            "create_render_step 的 asset_ids 引用。只有 kind='inline_text' 能"
+            "凭空创建内容,其余类型是登记已存在的资源引用。调用前先用 "
+            "graph_get_overview 检查是否已登记过,避免重复。\n"
+            "示例: register_asset(title='FAQ', kind='inline_text', text_content='...') "
+            "或 register_asset(title='Logo', kind='uploaded_file', "
+            "drive_handle='drive:/abc123', mime_type='image/png')"
         ),
         args_schema=_RegisterAssetArgs,
     )

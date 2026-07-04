@@ -61,7 +61,7 @@ from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
-# 常量:embed:// URI 映射(来自真实 Opal 导出样本)
+# 常量:embed:// URI 映射(来自真实 Opal 导出样本,已确认)
 # ---------------------------------------------------------------------------
 
 EMBED_URI_INPUT = "embed://a2/a2.bgl.json#module:user-inputs"
@@ -717,6 +717,19 @@ class OpalGraphState:
             # 所以真正被修改 parents 列表的是 target 节点。
             target = self.steps[target_step_id]
             if action == "add":
+                # v5新增(采纳代码审查意见):在连线真正建立之前检测是否会
+                # 形成循环依赖。如果 target_step_id 已经是 source_step_id 的
+                # 祖先(即 source 已经直接或间接依赖 target),那么再让
+                # target 依赖 source,就会形成 target -> ... -> source -> target
+                # 的环。此前这种情况只会在 compile_to_opal_json 阶段被
+                # _compute_depths 悄悄吞掉(深度归零),现在改成在源头直接拒绝。
+                if self._is_ancestor(target_step_id, source_step_id):
+                    raise GraphValidationError(
+                        f"添加这条连线会形成循环依赖:'{target_step_id}' 已经是 "
+                        f"'{source_step_id}' 的(直接或间接)上游节点,不能反过来让 "
+                        f"'{target_step_id}' 依赖 '{source_step_id}'。Opal 的图必须是"
+                        f"有向无环图(DAG)。请检查这两个节点之间已有的连线关系。"
+                    )
                 if source_step_id not in target.parents:
                     target.parents.append(source_step_id)
             elif action == "remove":
@@ -738,6 +751,24 @@ class OpalGraphState:
         else:
             raise GraphValidationError(f"未知 connection_type='{connection_type}'")
 
+    def _is_ancestor(self, candidate_id: str, of_step_id: str) -> bool:
+        """
+        判断 candidate_id 是否是 of_step_id 的(直接或间接)上游节点,
+        即沿着 parents 链条能否从 of_step_id 走到 candidate_id。
+        用于 manage_connection 添加 parent 连线前的环检测。
+        """
+        visited: set = set()
+        stack = list(self.steps[of_step_id].parents) if of_step_id in self.steps else []
+        while stack:
+            node_id = stack.pop()
+            if node_id == candidate_id:
+                return True
+            if node_id in visited or node_id not in self.steps:
+                continue
+            visited.add(node_id)
+            stack.extend(self.steps[node_id].parents)
+        return False
+
     # ------------------------------------------------------------------
     # 坐标分配(拓扑深度)
     # ------------------------------------------------------------------
@@ -748,8 +779,15 @@ class OpalGraphState:
             if step_id in depths:
                 return depths[step_id]
             if step_id in visiting:
-                # 环路保护:出现循环依赖时深度归零,避免无限递归
-                return 0
+                # 采纳代码审查意见:不再静默归零,而是显式报错。
+                # manage_connection 添加连线时已经会提前拦截循环依赖
+                # (见 _is_ancestor),这里是 compile 阶段的纵深防御——
+                # 理论上不应该走到这一步,如果走到了,说明有其他路径
+                # (比如未来新增的连线管理方式)绕过了前置校验。
+                raise GraphValidationError(
+                    f"检测到循环依赖,涉及节点 '{step_id}'。Opal 的图必须是"
+                    f"有向无环图(DAG)。当前访问路径: {' -> '.join(visiting)} -> {step_id}"
+                )
             visiting.add(step_id)
             step = self.steps[step_id]
             if not step.parents:

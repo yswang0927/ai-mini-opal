@@ -34,9 +34,9 @@ from opie_tools import build_opie_tools
 # LLM 连接配置 —— 在这里填写你自己的参数
 # ===========================================================================
 
-LLM_BASE_URL = os.environ.get("OPIE_LLM_BASE_URL", "http://10.1.9.179:3333/v1")
-LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "sk-cJES6x1Mw2BpBczLPIComvSS7BEou5H0WGsnjJufmSyZb0ws")
-LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "glm-5.1")
+LLM_BASE_URL = os.environ.get("OPIE_LLM_BASE_URL", "")   # 例如: "https://api.your-gateway.com/v1"
+LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "")     # 例如: "sk-xxxxxxxx"
+LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "")         # 例如: "gpt-4o" / "qwen-max" / 自建模型名
 
 # 也支持直接改这三行代替环境变量:
 # LLM_BASE_URL = "https://api.your-gateway.com/v1"
@@ -125,7 +125,7 @@ def run_single_turn_demo() -> None:
 def run_repl() -> None:
     """交互式多轮对话模式,方便手动测试编辑类指令(改prompt、加路由、删节点等)。"""
     agent, graph_state = build_agent_and_state()
-    history: list[dict] = []
+    history: list = []  # 直接存放LangChain消息对象,不要压扁成dict
 
     print("进入交互模式,输入 'quit' 退出,输入 'json' 查看当前编译结果。\n")
     while True:
@@ -144,11 +144,13 @@ def run_repl() -> None:
 
         history.append({"role": "user", "content": user_input})
         result = agent.invoke({"messages": history})
-        history = [
-            {"role": getattr(m, "type", "ai"), "content": m.content}
-            for m in result["messages"]
-            if getattr(m, "content", None)
-        ]
+
+        # 修复(采纳代码审查意见):此前这里把消息压扁成 {"role","content"}
+        # 字典,丢失了 tool_calls / tool_call_id 等结构化信息,而且过滤条件
+        # `if content` 会直接丢弃"纯工具调用、content为空"的AI消息——
+        # 一旦某轮触发了工具调用,下一轮历史里就会漏掉这条消息,模型看不到
+        # 自己刚才做过什么。直接保留完整的消息对象列表,原样传给下一次 invoke。
+        history = result["messages"]
 
         last_ai = next(
             (m for m in reversed(result["messages"]) if getattr(m, "type", "") == "ai" and m.content),
