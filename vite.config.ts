@@ -3,6 +3,7 @@ import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import svgr from 'vite-plugin-svgr'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
 import { notBundle } from 'vite-plugin-electron/plugin'
 import pkg from './package.json'
@@ -27,6 +28,7 @@ export default defineConfig(({ command }) => {
     },
     plugins: [
       react(),
+      svgr(),
       tailwindcss(),
       electronSimple({
         main: {

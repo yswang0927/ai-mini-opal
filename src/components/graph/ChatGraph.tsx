@@ -6,9 +6,18 @@ import {
   useEdgesState,
   addEdge,
   ConnectionLineType,
-  MarkerType
+  MarkerType,
+  type Node,
+  type Edge,
 } from '@xyflow/react';
-import { Sparkles, Proportions, MessageSquareText, SquarePlus, SendHorizontal } from 'lucide-react';
+
+import { 
+  Sparkles, 
+  Proportions, 
+  MessageSquareText, 
+  SquarePlus, 
+  SendHorizontal 
+} from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
 import './style.css';
@@ -22,52 +31,8 @@ const nodeTypes = {
   opalOutput: OutputNode,
 };
 
-// 初始化节点数据（完美对照图片内容）
-const initialNodes = [
-  {
-    id: 'project-name',
-    type: 'userInput',
-    position: { x: 50, y: 50 },
-    data: {
-      title: 'Project Name',
-      description: 'Enter the full title of your proposed project.',
-    },
-  },
-  {
-    id: 'project-budget',
-    type: 'userInput',
-    position: { x: 50, y: 230 },
-    data: {
-      title: 'Project Budget',
-      description: 'Specify the total estimated budget in numerical format.',
-    },
-  },
-  {
-    id: 'project-evaluation',
-    type: 'opalGenerate',
-    position: { x: 420, y: 130 },
-    data: {
-      title: 'Project Evaluation And ...',
-      description: 'Analyze the project name and budget. If the budget is greater than 1,000,000, generate a detailed risk assessment report.',
-    },
-  },
-  {
-    id: 'generate-approval',
-    type: 'opalOutput',
-    position: { x: 780, y: 130 },
-    data: {
-      title: 'Generate Approval Out...',
-      description: 'Take the generated risk assessment report or approval certificate and render it into an HTML document.',
-    },
-  },
-];
-
-// 初始化连接线
-const initialEdges = [
-  { id: 'e1', source: 'project-name', target: 'project-evaluation' },
-  { id: 'e2', source: 'project-budget', target: 'project-evaluation' },
-  { id: 'e3', source: 'project-evaluation', target: 'generate-approval' },
-];
+type GraphNode = Node<{ title: string; description: string }>;
+type GraphEdge = Edge;
 
 // 全局边线默认样式：灰色、虚线、平滑贝塞尔曲线
 const defaultEdgeOptions = {
@@ -93,8 +58,8 @@ const nodeRandomOffset = () => {
 };
  
 export default function ChatGraph() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<GraphEdge>([]);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const reactFlowInstance = useRef<any>(null);
 
@@ -115,7 +80,7 @@ export default function ChatGraph() {
 
   const appendNewNode = (type: string, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
-    const newNode = {
+    const newNode: GraphNode = {
       id: nodeId,
       type,
       position,
@@ -158,7 +123,12 @@ export default function ChatGraph() {
     appendNewNode(type, position);
   }, [setNodes]);
 
+  const onGraphChange = () => {
+    // 监听图变化事件，获取当前图的节点和边数据，调用后台接口保存
+  };
+
   useEffect(()=>{
+    // 请求测试数据
     fetch('./generated_graph.json', {
       headers: {
         'Content-Type': 'application/json'
@@ -166,10 +136,9 @@ export default function ChatGraph() {
     })
       .then(rsp => rsp.json())
       .then(data => {
-        const graphNodes = data.nodes.map((node: any) => {
-          const newNode = {
+        const graphNodes = data.nodes.map((node: any): GraphNode => {
+          const newNode: GraphNode = {
             id: node.id,
-            key: node.id,
             type: 'opalGenerate',
             position: { x: node.metadata.visual.x, y: node.metadata.visual.y },
             data: {
@@ -246,6 +215,20 @@ export default function ChatGraph() {
         {/* 背景网格点 */}
         <Background color="#C5CBD3" gap={20} size={1} />
       </ReactFlow>
+
+      { nodes.length === 0 && (
+      <div className="absolute inset-0 flex items-center justify-center graph-empty-state">
+        <div className="empty-state-top">
+          Add a step to get started.
+        </div>
+        <div>
+          <h3>Let's build your app!</h3>
+          <h4>Take a look at our <a href="#">demo video</a></h4>
+        </div>
+        <div className="empty-state-bottom">
+          ... or type what your want to build
+        </div>
+      </div>)}
 
       <div className="graph-chatbox">
         <div className="graph-chatbox-input flex items-center">

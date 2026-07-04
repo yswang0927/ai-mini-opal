@@ -1,18 +1,16 @@
 import { Handle, Position } from '@xyflow/react';
 import { Sparkles, Proportions, MessageSquareText } from 'lucide-react';
+import { CaretRightIcon } from '@/components/icons'
 
 type nodeData = {
-    id: string,
-    data: {
-        title: string,
-        description: string
-    }
+  id: string,
+  data: {
+    title: string,
+    description: string
+  }
 }
 
-// 基础节点容器样式
 const headerInnerStyle = {
-  display: 'flex', 
-  alignItems: 'center', 
   gap: '8px'
 };
 
@@ -25,7 +23,7 @@ export const UserInputNode = ({ id, data }: nodeData) => {
           <MessageSquareText size={20} strokeWidth={2.0} />
           <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
-        <button className="node-run-btn">▶</button>
+        <button className="node-run-btn"><CaretRightIcon /></button>
       </div>
       <div className="opal-node-body">{data.description}</div>
       
@@ -55,7 +53,7 @@ export const GenerateNode = ({ id, data }: nodeData) => {
           <Sparkles size={20} strokeWidth={2.0} />
           <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
-        <button className="node-run-btn">▶</button>
+        <button className="node-run-btn"><CaretRightIcon /></button>
       </div>
       <div className="opal-node-body">{data.description}</div>
       
@@ -85,7 +83,7 @@ export const OutputNode = ({ id, data }: nodeData) => {
           <Proportions size={20} strokeWidth={2.0} />
           <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
-        <button className="node-run-btn">▶</button>
+        <button className="node-run-btn"><CaretRightIcon /></button>
       </div>
       <div className="opal-node-body">{data.description}</div>
       
