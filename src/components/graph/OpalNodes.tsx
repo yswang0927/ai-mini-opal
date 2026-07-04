@@ -1,6 +1,14 @@
 import { Handle, Position } from '@xyflow/react';
 import { Sparkles, Proportions, MessageSquareText } from 'lucide-react';
 
+type nodeData = {
+    id: string,
+    data: {
+        title: string,
+        description: string
+    }
+}
+
 // 基础节点容器样式
 const headerInnerStyle = {
   display: 'flex', 
@@ -9,13 +17,13 @@ const headerInnerStyle = {
 };
 
 // 1. 用户输入节点 (黄色 Header)
-export const UserInputNode = ({ data }: { data: { title: string, description: string } }) => {
+export const UserInputNode = ({ id, data }: nodeData) => {
   return (
     <div className="opal-node">
       <div className="opal-node-header" style={{ backgroundColor: '#f3ff9e' }}>
-        <div style={headerInnerStyle}>
+        <div className="flex-1 flex items-center" style={headerInnerStyle} title={id}>
           <MessageSquareText size={20} strokeWidth={2.0} />
-          <span>{data.title}</span>
+          <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
         <button className="node-run-btn">▶</button>
       </div>
@@ -32,7 +40,7 @@ export const UserInputNode = ({ data }: { data: { title: string, description: st
 };
 
 // 2. AI生成节点 (蓝色 Header)
-export const GenerateNode = ({ data }: { data: { title: string, description: string } }) => {
+export const GenerateNode = ({ id, data }: nodeData) => {
   return (
     <div className="opal-node">
       {/* 左侧输入锚点 */}
@@ -43,9 +51,9 @@ export const GenerateNode = ({ data }: { data: { title: string, description: str
       />
       
       <div className="opal-node-header" style={{ backgroundColor: '#c7d2fe' }}>
-        <div style={headerInnerStyle}>
+        <div className="flex-1 flex items-center" style={headerInnerStyle} title={id}>
           <Sparkles size={20} strokeWidth={2.0} />
-          <span>{data.title}</span>
+          <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
         <button className="node-run-btn">▶</button>
       </div>
@@ -62,7 +70,7 @@ export const GenerateNode = ({ data }: { data: { title: string, description: str
 };
 
 // 3. 输出节点 (绿色 Header)
-export const OutputNode = ({ data }: { data: { title: string, description: string } }) => {
+export const OutputNode = ({ id, data }: nodeData) => {
   return (
     <div className="opal-node">
       {/* 左侧输入锚点 */}
@@ -73,9 +81,9 @@ export const OutputNode = ({ data }: { data: { title: string, description: strin
       />
       
       <div className="opal-node-header" style={{ backgroundColor: '#bbf7d0' }}>
-        <div style={headerInnerStyle}>
+        <div className="flex-1 flex items-center" style={headerInnerStyle} title={id}>
           <Proportions size={20} strokeWidth={2.0} />
-          <span>{data.title}</span>
+          <div className="flex-1 text-ellipsis">{data.title}</div>
         </div>
         <button className="node-run-btn">▶</button>
       </div>

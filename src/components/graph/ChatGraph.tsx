@@ -11,7 +11,7 @@ import {
 import { Sparkles, Proportions, MessageSquareText, SquarePlus, SendHorizontal } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
-import './chatgraph.css';
+import './style.css';
 
 import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
  

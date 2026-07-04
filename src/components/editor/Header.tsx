@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { ArrowLeft, CloudUpload, Share2, EllipsisVertical } from 'lucide-react';
+import { 
+    ArrowLeft, 
+    CloudUpload, 
+    Share2, 
+    EllipsisVertical, 
+    PanelRightClose, 
+    PanelRightOpen 
+} from 'lucide-react';
+import { useEditorContext } from './EditorContext';
 
 export default function Header() {
     const [selectedTab, setSelectedTab] = useState('Editor');
+    const { sidebarShow, toggleSidebar } = useEditorContext();
 
     return (
         <div className="editor-header">
@@ -21,6 +30,9 @@ export default function Header() {
                 <button className="nav-publish"><CloudUpload size={18} strokeWidth={1.5} /> <span>发布</span></button>
                 <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>分享</span></button>
                 <button><EllipsisVertical size={18} strokeWidth={1.5} /></button>
+                <div style={{marginLeft: '0.5rem'}}>
+                    <button onClick={toggleSidebar}>{ (sidebarShow ? <PanelRightClose size={18} strokeWidth={1.5} /> : <PanelRightOpen size={18} strokeWidth={1.5} />) }</button>
+                </div>
             </div>
         </div>
     );

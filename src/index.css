@@ -170,6 +170,12 @@ table {
 .overflow-hidden {
   overflow: hidden;
 }
+.text-ellipsis {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 [class*=blur], [class*=blur].light {
   --_blur: 1rem;

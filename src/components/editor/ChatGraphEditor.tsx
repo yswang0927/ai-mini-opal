@@ -1,13 +1,22 @@
 import { useEffect, useRef } from 'react';
 import ChatGraph from '@/components/graph/ChatGraph';
 import { LayoutResizer } from '@/utils/util';
+import { EditorProvider, useEditorContext } from './EditorContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
-import "./editor.css";
+import "./style.css";
 
 export default function ChatGraphEditor() {
+    return (
+        <EditorProvider>
+            <ChatGraphEditorContent />
+        </EditorProvider>
+    );
+};
 
+function ChatGraphEditorContent() {
+    const { sidebarShow } = useEditorContext();
     const sidebarRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
 
@@ -34,7 +43,7 @@ export default function ChatGraphEditor() {
                     <ChatGraph />
                 </div>
 
-                <div ref={sidebarRef} className="layout-sidebar">
+                <div ref={sidebarRef} className={`layout-sidebar${sidebarShow ? '' : ' is-hidden'}`}>
                     <div className="layout-resizer" data-region="right" data-min="300" data-max="1200"></div>
                     <div className="layout-sidebar-body">
                         <Sidebar />
@@ -43,5 +52,4 @@ export default function ChatGraphEditor() {
             </div>
         </div>
     );
-
-};
+}

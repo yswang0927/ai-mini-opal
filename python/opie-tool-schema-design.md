@@ -21,15 +21,15 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 
 ## 1. 工具总览
 
-| 工具名 | 作用 | 对应JSON节点类型 |
-|---|---|---|
-| `graph_get_overview` | 读取当前图状态 | — |
-| `create_input_step` | 创建"询问用户"节点 | `a2.bgl.json#21ee02e7...` |
-| `create_agent_step` | 创建Agentic计算/生成节点 | `generate.bgl.json#module:main` |
+| 工具名 | 作用 | 对应JSON节点类型                          |
+|---|---|-------------------------------------|
+| `graph_get_overview` | 读取当前图状态 | —                                   |
+| `create_input_step` | 创建"询问用户"节点 | `a2.bgl.json#module:user-inputs`    |
+| `create_agent_step` | 创建Agentic计算/生成节点 | `generate.bgl.json#module:main`     |
 | `create_render_step` | 创建HTML渲染输出节点 | `a2.bgl.json#module:render-outputs` |
-| `edit_step` | 修改已有节点的prompt/配置 | — |
-| `remove_step` | 删除节点(自动清理相关edges) | — |
-| `manage_connection` | 增/删 parent连线或route | — |
+| `edit_step` | 修改已有节点的prompt/配置 | —                                   |
+| `remove_step` | 删除节点(自动清理相关edges) | —                                   |
+| `manage_connection` | 增/删 parent连线或route | —                                   |
 | `set_graph_metadata` | 设置图的标题/描述/标签 | 顶层 `metadata`/`title`/`description` |
 
 ---
