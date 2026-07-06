@@ -3,7 +3,15 @@ import Quill from 'quill';
 import { useEditorContext } from './EditorContext';
 import { NodeTypes, type NodeData, type NodeTypeKey } from '@/components/graph/OpalNodes';
 
+import { CustomTagBlot, TagReplacerModule } from './QuillCustomBlots';
+
 import "quill/dist/quill.core.css";
+
+// 注册 Blot 和 Module
+Quill.register({
+  'formats/custom-tag': CustomTagBlot,
+  'modules/tagReplacer': TagReplacerModule
+}, true);
 
 // 步骤节点详情
 const StepDetail = ({stepData}: {
@@ -29,12 +37,17 @@ const StepDetail = ({stepData}: {
     }
 
     useEffect(() => {
-        const quill = quillRef.current = new Quill(quillDomRef.current!, {
-            placeholder: 'Type your prompt here. Use @ to include other content.',
-            modules: {
-                toolbar: false
-            }
-        });
+        if (quillDomRef.current && !quillRef.current) {
+            const quill = quillRef.current = new Quill(quillDomRef.current!, {
+                placeholder: 'Type your prompt here. Use @ to include other content.',
+                theme: 'snow',
+                modules: {
+                    toolbar: false
+                },
+                // 激活我们的自定义模块
+                tagReplacer: true
+            });
+        }
     }, []);
 
     if (quillRef.current) {
