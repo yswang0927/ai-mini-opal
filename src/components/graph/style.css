@@ -1,3 +1,9 @@
+.react-flow__attribution {
+    display: none !important;
+}
+.react-flow__attribution a {
+    display: none !important;
+}
 .react-flow__node .opal-node {
     position: relative;
     background: #fff;
@@ -20,6 +26,9 @@
     border-top-left-radius: inherit;
     border-top-right-radius: inherit;
 }
+.react-flow__node .opal-node-header-title {
+    gap: 8px;
+}
 .react-flow__node .opal-node-body {
     padding: 12px;
     font-size: 14px;
@@ -28,6 +37,9 @@
     min-height: 60px;
     border-bottom-left-radius: inherit;
     border-bottom-right-radius: inherit;
+}
+.react-flow__node .opal-node-body .missing {
+    color: rgba(0, 0, 0, 0.6);
 }
 
 .react-flow__handle {
@@ -52,10 +64,14 @@
 
 .node-run-btn {
     font-size: var(--font-size-sm);
-    min-width: 1.75rem;
-    min-height: 1.75rem;
-    border-radius: 5px;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
     color: rgba(0, 0, 0, 0.6);
+}
+.node-run-btn svg {
+    width: 16px;
+    height: 16px;
 }
 
 .node-run-btn:hover {
@@ -112,9 +128,9 @@
 
 .graph-chatbox {
     position: absolute;
-    left: 0;
+    left: 50%;
     bottom: 1.875rem;
-    right: 0;
+    transform: translateX(-50%);
     z-index: 10;
     padding: 0 1rem;
     display: flex;

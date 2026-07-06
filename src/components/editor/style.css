@@ -60,7 +60,7 @@
 /* Editor Header */
 .editor-header {
     height: 100%;
-    padding: 0 1.25rem;
+    padding: 0 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -208,4 +208,32 @@
     justify-content: center;
     background-color: rgba(0,0,0,0.1);
     color: rgba(0, 0, 0, 0.5);
+}
+
+.opal-node-detail-header {
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+.opal-node-detail-header[data-nodetype='userInput'] {
+    background-color: #f3ff9e;
+}
+.opal-node-detail-header[data-nodetype='opalGenerate'] {
+    background-color: #c7d2fe;
+}
+.opal-node-detail-header[data-nodetype='opalOutput'] {
+    background-color: #bbf7d0;
+}
+.opal-node-detail-body {
+    font-size: var(--font-size);
+}
+.opal-node-detail-body .ql-container {
+    font-size: var(--font-size);
+}
+.opal-node-detail-body .ql-editor {
+    padding: 1.25rem 1.75rem;
+    line-height: 1.5;
+}
+.opal-node-detail-body  .ql-editor > p {
+    margin-bottom: 0.5rem;
 }

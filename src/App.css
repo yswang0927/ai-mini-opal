@@ -13,6 +13,7 @@
 
 body {
   font-family: var(--font-family);
+  font-size: var(--font-size);
 }
 
 button, input[type="text"], input[type="password"], textarea {

@@ -1,12 +1,14 @@
-import { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { 
   ReactFlow,
+  ReactFlowProvider,
   Background,
   useNodesState,
   useEdgesState,
   addEdge,
   ConnectionLineType,
   MarkerType,
+  Controls,
   type Node,
   type Edge,
 } from '@xyflow/react';
@@ -22,17 +24,23 @@ import {
 import '@xyflow/react/dist/style.css';
 import './style.css';
 
-import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
+import { LayoutDagIcon } from '@/components/icons';
+import { useEditorContext } from '@/components/editor/EditorContext';
+import { 
+  UserInputNode, 
+  GenerateNode, 
+  OutputNode, 
+  type NodeTypeKey, 
+  type NodeDataType 
+} from './OpalNodes';
+import autoLayout from './AutoLayout';
  
 // 注册自定义节点映射
-const nodeTypes = {
+const nodeTypes: Record<NodeTypeKey, any> = {
   userInput: UserInputNode,
   opalGenerate: GenerateNode,
   opalOutput: OutputNode,
 };
-
-type GraphNode = Node<{ title: string; description: string }>;
-type GraphEdge = Edge;
 
 // 全局边线默认样式：灰色、虚线、平滑贝塞尔曲线
 const defaultEdgeOptions = {
@@ -41,7 +49,7 @@ const defaultEdgeOptions = {
   style: {
     stroke: '#C5CBD3',
     strokeWidth: 2,
-    //strokeDasharray: '5,5',
+    strokeDasharray: '5,5',
   },
   markerEnd: {
     type: MarkerType.ArrowClosed, // 闭合实心箭头
@@ -51,22 +59,37 @@ const defaultEdgeOptions = {
   },
 };
 
-const NODE_WIDTH = 280;
+const NODE_WIDTH = 300;
 
 const nodeRandomOffset = () => {
   return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
 };
  
 export default function ChatGraph() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<GraphEdge>([]);
-  const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const reactFlowInstance = useRef<any>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { setSelectedNode } = useEditorContext();
+
+  const graphDOMRef = useRef<HTMLDivElement>(null);
+  const reactFlowRef = useRef<any>(null);
+
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    setSelectedNode(node);
+  }, [setSelectedNode]);
 
   const onConnect = useCallback(
     (params: any) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+
+  const doLayout = useCallback(async () => {
+    if (!reactFlowRef.current) return;
+    const rf = reactFlowRef.current;
+    const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
+    setNodes(result.nodes);
+    setEdges(result.edges);
+    rf.fitView();
+  }, [reactFlowRef]);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
@@ -80,27 +103,53 @@ export default function ChatGraph() {
 
   const appendNewNode = (type: string, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
-    const newNode: GraphNode = {
+    const newNode: Node = {
       id: nodeId,
-      type,
-      position,
-      data: {
-        title: type === 'userInput' ? 'New Input' : type === 'opalGenerate' ? 'New Generate' : 'New Output',
-        description: 'Select to edit in editor',
-      },
+      type: type,
+      position: position,
+      data: {}
     };
+
+    if (type === 'userInput') {
+      newNode.data = {
+        id: nodeId,
+        type: "embed://a2/a2.bgl.json#module:user-inputs",
+        metadata: {
+          "title": "User Input"
+        }
+      };
+    }
+    else if (type === 'opalGenerate') {
+      newNode.data = {
+        id: nodeId,
+        type: "embed://a2/generate.bgl.json#module:main",
+        metadata: {
+          "title": "Generate"
+        }
+      };
+    }
+    else if (type === 'opalOutput') {
+      newNode.data = {
+        id: nodeId,
+        type: "embed://a2/a2.bgl.json#module:render-outputs",
+        metadata: {
+          "title": "Output"
+        }
+      };
+    }
+
     setNodes((nds) => nds.concat(newNode));
   };
 
   const addNode = useCallback((type: string) => {
-    if (!reactFlowInstance.current) return;
+    if (!reactFlowRef.current) return;
     
     // 计算画布中间位置
-    const canvasWidth = reactFlowWrapper.current?.clientWidth || 800;
-    const canvasHeight = reactFlowWrapper.current?.clientHeight || 600;
+    const canvasWidth = graphDOMRef.current?.clientWidth || 800;
+    const canvasHeight = graphDOMRef.current?.clientHeight || 600;
     
     // 将屏幕中间位置转换为画布坐标
-    const position = reactFlowInstance.current.screenToFlowPosition({
+    const position = reactFlowRef.current.screenToFlowPosition({
       x: (canvasWidth / 2 - NODE_WIDTH / 2 + nodeRandomOffset()),
       y: (canvasHeight / 2 + nodeRandomOffset())
     });
@@ -111,13 +160,13 @@ export default function ChatGraph() {
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const type = event.dataTransfer.getData('application/reactflow/type');
-    if (!type || !reactFlowInstance.current) {
+    if (!type || !reactFlowRef.current) {
       return;
     }
 
-    const position = reactFlowInstance.current.screenToFlowPosition({
-      x: event.clientX - NODE_WIDTH / 2,
-      y: event.clientY - 20,
+    const position = reactFlowRef.current.screenToFlowPosition({
+      x: (event.clientX - NODE_WIDTH / 2),
+      y: (event.clientY - 20),
     });
 
     appendNewNode(type, position);
@@ -136,39 +185,27 @@ export default function ChatGraph() {
     })
       .then(rsp => rsp.json())
       .then(data => {
-        const graphNodes = data.nodes.map((node: any): GraphNode => {
-          const newNode: GraphNode = {
+        const graphNodes = data.nodes.map((node: NodeDataType): Node => {
+          const newNode: Node = {
             id: node.id,
             type: 'opalGenerate',
-            position: { x: node.metadata.visual.x, y: node.metadata.visual.y },
-            data: {
-              title: node.metadata.title,
-              description: ''
-            }
+            position: { x: node.metadata.visual?.x || 0, y: node.metadata.visual?.y || 0 },
+            data: node
           };
-          let desc = '';
           const nodeType = node.type || '';
           if (nodeType.includes('embed://a2/generate.bgl.json')) {
-            desc = node.metadata.step_intent;
             newNode.type = 'opalGenerate';
           } 
           else if (nodeType.includes('module:render-outputs')) {
-            desc = node.metadata.step_intent || node.configuration.description.parts[0].text;
             newNode.type = 'opalOutput';
           }
           else if (nodeType.includes('module:user-inputs')) {
-            desc = node.configuration.description.parts[0].text;
             newNode.type = 'userInput';
           }
-          const maxLen = 150;
-          if (desc.length > maxLen) {
-            desc = desc.substring(0, maxLen) + '...';
-          }
-          newNode.data.description = desc;
           return newNode;
         });
 
-        const graphEdges = data.edges.map((edge: any) => {
+        const graphEdges = data.edges.map((edge: any): Edge => {
           return {
             id: `${edge.from}-${edge.to}`,
             source: edge.from,
@@ -178,16 +215,17 @@ export default function ChatGraph() {
 
         setNodes(graphNodes);
         setEdges(graphEdges);
-        
+
         // 加载完成后调用 fitView
         setTimeout(() => {
-          reactFlowInstance.current?.fitView({ padding: 0.2 });
+          doLayout();
         }, 30);
       });
   }, []);
 
   return (
-    <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={reactFlowWrapper}>
+    <ReactFlowProvider>
+    <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
             <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
@@ -195,6 +233,8 @@ export default function ChatGraph() {
             <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
+            <div className="divider"></div>
+            <button onClick={() => doLayout()}><LayoutDagIcon /><span>Layout</span></button>
           </div>
       </div>
 
@@ -203,17 +243,23 @@ export default function ChatGraph() {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        onPaneClick={() => setSelectedNode(null)}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        onInit={(instance) => reactFlowInstance.current = instance}
+        onInit={(instance) => reactFlowRef.current = instance}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
+        nodeDragThreshold={5}
+        snapToGrid={true}
+        snapGrid={[10, 10]}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
       >
         {/* 背景网格点 */}
         <Background color="#C5CBD3" gap={20} size={1} />
+        <Controls />
       </ReactFlow>
 
       { nodes.length === 0 && (
@@ -238,5 +284,6 @@ export default function ChatGraph() {
       </div>
 
     </div>
+    </ReactFlowProvider>
   );
 }

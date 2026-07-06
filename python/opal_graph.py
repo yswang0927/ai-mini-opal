@@ -8,7 +8,7 @@ Opie 图状态管理 + 后端编译器。
 - OpalGraphState 维护当前图的内存表示(节点、连线)。
 - compile_to_opal_json() 把内存表示编译成与 Google Opal 实际导出格式
   对齐的 JSON 结构(embed:// URI、坐标、config$prompt 拼接、
-  b-system-instruction 固定模板等实现细节都在这里落地)。
+  system-instruction 固定模板等实现细节都在这里落地)。
 
 设计对应关系(见设计文档 opie-tool-schema-design.md):
 - 2.2 create_input_step  -> add_input_step()
@@ -141,7 +141,7 @@ ROUTING_TOOL_PATH = "control-flow/routing"
 # 常量:agent 节点的"terse 模式"系统指令
 #
 # 【新增 v3】在 3 个不同真实样本(2 个不同 flow)中,3 个agent节点
-# 一字不差地使用了同一段 b-system-instruction 文本,证明这是一个可复用的
+# 一字不差地使用了同一段 system-instruction 文本,证明这是一个可复用的
 # 预设开关,而不是自由文本。用于"这个节点的输出是喂给下一个节点的,
 # 不需要对话式的寒暄"这种场景。
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ AGENT_TERSE_SYSTEM_INSTRUCTION = (
 # ---------------------------------------------------------------------------
 # 【修正说明 v3】render 节点的巨型 system-instruction 不再写入编译后的 JSON。
 #
-# 证据:同一个 render-outputs 节点在不同样本里,b-system-instruction 呈现
+# 证据:同一个 render-outputs 节点在不同样本里,system-instruction 呈现
 # 三种状态——完整填充(仅出现在 userModified=true 的节点上)、空字符串
 # (userModified=false)、或字段整个不存在(同样 userModified=false)。
 # 这说明这段巨型指令是【服务端默认值】,只有当节点被显式修改过
@@ -907,7 +907,7 @@ class OpalGraphState:
           时不写这个字段(交给默认值)。
         - tools 不再作为独立字段,而是编译进 config$prompt 文本内部
           (见 _compile_agent_prompt_text)。
-        - b-system-instruction 只在 terse_mode=True 时写入固定的
+        - system-instruction 只在 terse_mode=True 时写入固定的
           AGENT_TERSE_SYSTEM_INSTRUCTION 常量,而不是让 LLM 自由发挥。
         - config$list 目前只有单个样本佐证(demo3),按 expected_output_is_list
           原样透传。
@@ -928,7 +928,7 @@ class OpalGraphState:
         config["config$list"] = step.expected_output_is_list  # 部分确认(仅demo3一例)
 
         if step.terse_mode:
-            config["b-system-instruction"] = {
+            config["system-instruction"] = {
                 "role": "user",
                 "parts": [{"text": AGENT_TERSE_SYSTEM_INSTRUCTION}],
             }
@@ -956,14 +956,12 @@ class OpalGraphState:
                 "visual": {
                     "x": xy["x"],
                     "y": xy["y"],
-                    "collapsed": "expanded",
-                    "outputHeight": 88,
                 },
             }
 
             # v3新增:所有节点类型都带 userModified,对应真实样本里
             # 普遍存在的这个字段,同时也是我们 render 节点
-            # b-system-instruction 是否留空的判断依据(见下方)。
+            # system-instruction 是否留空的判断依据(见下方)。
             base_metadata["userModified"] = step.user_modified
 
             if step.step_type == StepType.INPUT:
@@ -1048,7 +1046,7 @@ class OpalGraphState:
                 # 这对应真实样本里"只有 userModified=true 的render节点
                 # 才带完整文本"的观察。
                 if step.user_modified:
-                    render_config["b-system-instruction"] = {
+                    render_config["system-instruction"] = {
                         "role": "user",
                         "parts": [{"text": RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE}],
                     }
