@@ -95,7 +95,7 @@
 .graph-nodes {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: nowrap;
     white-space: nowrap;
     background-color: #fff;
@@ -105,22 +105,39 @@
 }
 .graph-nodes button {
     padding: 0 10px;
-    min-width: 2.25rem;
+    min-width: 2rem;
     min-height: 2.25rem;
     border-radius: 5px;
 }
 .graph-nodes button:hover {
     background-color: rgba(169, 88, 62, 0.2);
 }
-.graph-nodes button:first-child {
+.graph-nodes > button:first-child {
     border-top-left-radius: 18px;
     border-bottom-left-radius: 18px;
     padding-left: 16px;
 }
-.graph-nodes button:last-child {
+.graph-nodes > button:last-child {
     border-top-right-radius: 18px;
     border-bottom-right-radius: 18px;
     padding-right: 16px;
+}
+.graph-nodes .undo-redo {
+    display: flex;
+    gap: 0px;
+}
+.graph-nodes .undo-redo button {
+    padding: 0 6px;
+}
+.graph-nodes .undo-redo > button:first-child {
+    border-top-left-radius: 18px;
+    border-bottom-left-radius: 18px;
+    padding-left: 8px;
+}
+.graph-nodes .undo-redo > button:last-child {
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+    padding-right: 8px;
 }
 .graph-nodes .divider {
     height: 1.5rem;

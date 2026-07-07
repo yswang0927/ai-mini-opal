@@ -89,8 +89,8 @@ const StepDetail = ({stepData}: {
                     // 将修改后的 desc 赋值回去
                     rawData.configuration[targetKey].parts[0].text = text;
                 }
-
-                updateNode(stepData.id, rawData);
+                // TODO 更新节点配置
+                //updateNode(stepData.id, rawData);
             }, 200);
         };
 

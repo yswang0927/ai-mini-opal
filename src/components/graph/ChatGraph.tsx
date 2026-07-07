@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { 
   ReactFlow,
   Background,
@@ -17,7 +17,9 @@ import {
   Proportions, 
   MessageSquareText, 
   SquarePlus, 
-  SendHorizontal 
+  SendHorizontal,
+  Undo2, 
+  Redo2
 } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
@@ -75,8 +77,149 @@ export default function ChatGraph() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { setSelectedNode } = useEditorContext();
 
+  // Undo/Redo 状态
+  const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isPaused = useRef(false);
+  const lastSavedNodesRef = useRef<string>('');
+  const lastSavedEdgesRef = useRef<string>('');
+    // 防抖函数，用于延迟保存历史记录（处理节点拖拽等连续变化）
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const nodesSnapshotRef = useRef<string>('');
+  const edgesSnapshotRef = useRef<string>('');
+
   const graphDOMRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
+
+  // 保存当前状态到历史记录
+  const saveToHistory = useCallback((currentNodes?: Node[], currentEdges?: Edge[]) => {
+    if (isPaused.current) return;
+    
+    const nodesToSave = currentNodes || nodes;
+    const edgesToSave = currentEdges || edges;
+    
+    // 深拷贝以避免引用问题，并忽略临时的选中/高亮状态
+    const normalizedNodes = nodesToSave.map(node => ({
+      ...node,
+      selected: false,
+      style: undefined,
+      zIndex: undefined
+    }));
+    const normalizedEdges = edgesToSave.map(edge => ({
+      ...edge,
+      selected: false,
+      style: undefined,
+      markerEnd: undefined,
+      zIndex: undefined
+    }));
+    
+    const nodesStr = JSON.stringify(normalizedNodes);
+    const edgesStr = JSON.stringify(normalizedEdges);
+    
+    // 避免保存重复的状态
+    if (nodesStr === lastSavedNodesRef.current && edgesStr === lastSavedEdgesRef.current) {
+      return;
+    }
+    
+    lastSavedNodesRef.current = nodesStr;
+    lastSavedEdgesRef.current = edgesStr;
+    
+    setHistory(prevHistory => {
+      const newHistory = prevHistory.slice(0, historyIndex + 1);
+      newHistory.push({ 
+        nodes: JSON.parse(nodesStr), 
+        edges: JSON.parse(edgesStr) 
+      });
+      
+      // 限制历史记录数量为 50
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    
+    setHistoryIndex(prevIndex => {
+      const newIndex = prevIndex + 1;
+      return newIndex > 49 ? 49 : newIndex;
+    });
+  }, [nodes, edges, historyIndex]);
+
+  // Undo 操作
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      isPaused.current = true;
+      const newIndex = historyIndex - 1;
+      const historyItem = history[newIndex];
+      
+      if (historyItem) {
+        setNodes(historyItem.nodes);
+        setEdges(historyItem.edges);
+        setHistoryIndex(newIndex);
+        
+        // 更新最后保存的引用
+        lastSavedNodesRef.current = JSON.stringify(historyItem.nodes.map(n => ({
+          ...n, selected: false, style: undefined, zIndex: undefined
+        })));
+        lastSavedEdgesRef.current = JSON.stringify(historyItem.edges.map(e => ({
+          ...e, selected: false, style: undefined, markerEnd: undefined, zIndex: undefined
+        })));
+      }
+      
+      setTimeout(() => {
+        isPaused.current = false;
+      }, 50);
+    }
+  }, [historyIndex, history, setNodes, setEdges]);
+
+  // Redo 操作
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isPaused.current = true;
+      const newIndex = historyIndex + 1;
+      const historyItem = history[newIndex];
+      
+      if (historyItem) {
+        setNodes(historyItem.nodes);
+        setEdges(historyItem.edges);
+        setHistoryIndex(newIndex);
+        
+        // 更新最后保存的引用
+        lastSavedNodesRef.current = JSON.stringify(historyItem.nodes.map(n => ({
+          ...n, selected: false, style: undefined, zIndex: undefined
+        })));
+        lastSavedEdgesRef.current = JSON.stringify(historyItem.edges.map(e => ({
+          ...e, selected: false, style: undefined, markerEnd: undefined, zIndex: undefined
+        })));
+      }
+      
+      setTimeout(() => {
+        isPaused.current = false;
+      }, 50);
+    }
+  }, [historyIndex, history, setNodes, setEdges]);
+
+  // 监听键盘事件
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Z 或 Cmd+Z 用于 Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      // Ctrl+Shift+Z 或 Cmd+Shift+Z 或 Ctrl+Y 用于 Redo
+      if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || 
+          ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [undo, redo]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
@@ -113,15 +256,48 @@ export default function ChatGraph() {
       prevEdges.map((edge) => ({
         ...edge,
         zIndex: 0,
+        selected: false,
         style: defaultEdgeOptions.style,
         markerEnd: defaultEdgeOptions.markerEnd
       }))
     );
   }, [setSelectedNode, setEdges]);
 
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation();
+    // 切换边的选中状态并更新样式
+    setEdges((prevEdges) => 
+      prevEdges.map((e) => {
+        if (e.id === edge.id) {
+          return {
+            ...e,
+            selected: true,
+            zIndex: 10,
+            style: edgeHighlightOptions.style,
+            markerEnd: edgeHighlightOptions.markerEnd
+          };
+        }
+        return {
+          ...e,
+          selected: false,
+          zIndex: 0,
+          style: defaultEdgeOptions.style,
+          markerEnd: defaultEdgeOptions.markerEnd
+        };
+      })
+    );
+  }, [setEdges]);
+
    const onConnect = useCallback(
-    (params: any) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: any) => {
+      setEdges((eds) => {
+        const newEdges = addEdge(params, eds);
+        // 立即保存新状态
+        setTimeout(() => saveToHistory(), 0);
+        return newEdges;
+      });
+    },
+    [setEdges, saveToHistory]
   );
 
   const doLayout = useCallback(async () => {
@@ -131,7 +307,8 @@ export default function ChatGraph() {
     setNodes(result.nodes);
     setEdges(result.edges);
     rf.fitView();
-  }, [reactFlowRef]);
+    setTimeout(() => saveToHistory(result.nodes, result.edges), 50);
+  }, [reactFlowRef, saveToHistory]);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
@@ -143,7 +320,7 @@ export default function ChatGraph() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const appendNewNode = (type: string, position: { x: number, y: number }) => {
+  const appendNewNode = useCallback((type: string, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
     const newNode: Node = {
       id: nodeId,
@@ -180,8 +357,13 @@ export default function ChatGraph() {
       };
     }
 
-    setNodes((nds) => nds.concat(newNode));
-  };
+    setNodes((nds) => {
+      const newNodes = [...nds, newNode];
+      // 保存历史记录
+      setTimeout(() => saveToHistory(newNodes), 0);
+      return newNodes;
+    });
+  }, [setNodes, saveToHistory]);
 
   const addNode = useCallback((type: string) => {
     if (!reactFlowRef.current) return;
@@ -190,14 +372,20 @@ export default function ChatGraph() {
     const canvasWidth = graphDOMRef.current?.clientWidth || 800;
     const canvasHeight = graphDOMRef.current?.clientHeight || 600;
     
-    // 将屏幕中间位置转换为画布坐标
-    const position = reactFlowRef.current.screenToFlowPosition({
-      x: (canvasWidth / 2 - NODE_WIDTH / 2 + nodeRandomOffset()),
-      y: (canvasHeight / 2 + nodeRandomOffset())
+    // 先转换为画布坐标
+    const centerPosition = reactFlowRef.current.screenToFlowPosition({
+      x: canvasWidth / 2,
+      y: canvasHeight / 2
     });
+    
+    // 然后在画布坐标上应用偏移量
+    const position = {
+      x: centerPosition.x - NODE_WIDTH / 2 + nodeRandomOffset(),
+      y: centerPosition.y + nodeRandomOffset()
+    };
 
     appendNewNode(type, position);
-  }, [setNodes]);
+  }, [appendNewNode]);
 
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -206,18 +394,101 @@ export default function ChatGraph() {
       return;
     }
 
-    const position = reactFlowRef.current.screenToFlowPosition({
-      x: (event.clientX - NODE_WIDTH / 2),
-      y: (event.clientY - 20),
+    // 先转换为画布坐标，然后再调整偏移量
+    const flowPosition = reactFlowRef.current.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
     });
+    
+    // 在画布坐标上应用偏移量
+    const position = {
+      x: flowPosition.x - NODE_WIDTH / 2,
+      y: flowPosition.y - 20
+    };
 
     appendNewNode(type, position);
-  }, [setNodes]);
+  }, [appendNewNode]);
 
   const onGraphChange = () => {
     // 监听图变化事件，获取当前图的节点和边数据，调用后台接口保存
   };
 
+  // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
+  const handleNodesChange = useCallback((changes: any) => {
+    // 检查是否是删除操作
+    const isDelete = changes.some((c: any) => c.type === 'remove');
+    
+    // 调用原始的 onNodesChange
+    onNodesChange(changes);
+    
+    // 如果是删除操作，立即保存历史记录
+    if (isDelete) {
+      setTimeout(() => saveToHistory(), 0);
+    }
+  }, [onNodesChange, saveToHistory]);
+
+  const handleEdgesChange = useCallback((changes: any) => {
+    // 检查是否是删除操作
+    const isDelete = changes.some((c: any) => c.type === 'remove');
+    
+    // 调用原始的 onEdgesChange
+    onEdgesChange(changes);
+    
+    // 如果是删除操作，立即保存历史记录
+    if (isDelete) {
+      setTimeout(() => saveToHistory(), 0);
+    }
+  }, [onEdgesChange, saveToHistory]);
+  
+  // 监听节点和边的变化，自动保存历史记录
+  useEffect(() => {
+    if (historyIndex === -1) return; // 还没有初始化
+    
+    // 为节点和边创建快照，忽略临时状态
+    const currentNodesSnapshot = JSON.stringify(nodes.map(n => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: n.data
+    })));
+    
+    const currentEdgesSnapshot = JSON.stringify(edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target
+    })));
+    
+    // 检查是否有实质性变化
+    const hasChanges = currentNodesSnapshot !== nodesSnapshotRef.current || 
+                      currentEdgesSnapshot !== edgesSnapshotRef.current;
+    
+    if (!hasChanges) return;
+    
+    // 更新快照
+    nodesSnapshotRef.current = currentNodesSnapshot;
+    edgesSnapshotRef.current = currentEdgesSnapshot;
+    
+    // 如果是暂停状态，不保存历史记录
+    if (isPaused.current) return;
+    
+    // 清除之前的定时器
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    // 设置新的防抖定时器
+    debounceTimer.current = setTimeout(() => {
+      saveToHistory();
+    }, 300);
+    
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [nodes, edges, historyIndex, saveToHistory]);
+
+  // test fetch data demo
   useEffect(()=>{
     // 请求测试数据
     fetch('./generated_graph.json', {
@@ -261,6 +532,14 @@ export default function ChatGraph() {
         // 加载完成后调用 fitView
         setTimeout(() => {
           doLayout();
+          // 布局完成后，将初始状态保存到历史记录
+          setTimeout(() => {
+            isPaused.current = true;
+            saveToHistory(graphNodes, graphEdges);
+            setTimeout(() => {
+              isPaused.current = false;
+            }, 50);
+          }, 100);
         }, 30);
       });
   }, []);
@@ -269,6 +548,11 @@ export default function ChatGraph() {
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
+            <div className="flex undo-redo">
+              <button onClick={undo} disabled={historyIndex <= 0}><Undo2 size={20} strokeWidth={1.5}/></button>
+              <button onClick={redo} disabled={historyIndex >= history.length - 1}><Redo2 size={20} strokeWidth={1.5}/></button>
+            </div>
+            <div className="divider"></div>
             <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
             <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
             <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
@@ -282,9 +566,10 @@ export default function ChatGraph() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onConnect={onConnect}
         onDrop={onDrop}
