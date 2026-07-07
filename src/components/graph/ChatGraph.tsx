@@ -8,6 +8,7 @@ import {
   ConnectionLineType,
   MarkerType,
   Controls,
+  ControlButton,
   type Node,
   type Edge,
 } from '@xyflow/react';
@@ -25,7 +26,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './style.css';
 
-import { LayoutDagIcon } from '@/components/icons';
+import { LayoutDagIcon, Undo, Redo } from '@/components/icons';
 import { useEditorContext } from '@/components/editor/EditorContext';
 import { 
   UserInputNode, 
@@ -328,34 +329,83 @@ export default function ChatGraph() {
       position: position,
       data: {}
     };
+    
+    let rawType = '';
+    let rawTitle = '';
+    let configuration = {};
 
     if (type === 'userInput') {
-      newNode.data = {
-        id: nodeId,
-        type: "embed://a2/a2.bgl.json#module:user-inputs",
-        metadata: {
-          "title": "User Input"
+      rawType = "embed://a2/a2.bgl.json#module:user-inputs";
+      rawTitle = "User Input";
+      configuration = {
+        description: {
+          role: "user",
+          parts: [
+            {
+              text: ""
+            }
+          ]
         }
       };
     }
     else if (type === 'opalGenerate') {
-      newNode.data = {
-        id: nodeId,
-        type: "embed://a2/generate.bgl.json#module:main",
-        metadata: {
-          "title": "Generate"
+      rawType = "embed://a2/generate.bgl.json#module:main";
+      rawTitle = "Generate";
+      configuration = {
+        "config$prompt": {
+          role: "user",
+          parts: [
+            {
+              text: ""
+            }
+          ]
+        },
+        "generation-mode": "agent",
+        "system-instruction": {
+          role: "user",
+          parts: [
+            {
+              text: ""
+            }
+          ]
         }
       };
     }
     else if (type === 'opalOutput') {
-      newNode.data = {
-        id: nodeId,
-        type: "embed://a2/a2.bgl.json#module:render-outputs",
-        metadata: {
-          "title": "Output"
+      rawType = "embed://a2/a2.bgl.json#module:render-outputs";
+      rawTitle = "Output";
+      configuration = {
+        text: {
+          parts: [
+            {
+              text: ""
+            }
+          ],
+          role: "user"
+        },
+        "system-instruction": {
+          role: "user",
+          parts: [
+            {
+              text: ""
+            }
+          ]
         }
       };
     }
+
+    newNode.data = {
+      id: nodeId,
+      type: rawType,
+      metadata: {
+        title: rawTitle,
+        visual: {
+          x: position.x,
+          y: position.y
+        }
+      },
+      configuration: configuration
+    };
 
     setNodes((nds) => {
       const newNodes = [...nds, newNode];
@@ -363,6 +413,7 @@ export default function ChatGraph() {
       setTimeout(() => saveToHistory(newNodes), 0);
       return newNodes;
     });
+
   }, [setNodes, saveToHistory]);
 
   const addNode = useCallback((type: string) => {
@@ -548,18 +599,20 @@ export default function ChatGraph() {
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <div className="flex undo-redo">
+            {/*<div className="flex undo-redo">
               <button onClick={undo} disabled={historyIndex <= 0}><Undo2 size={20} strokeWidth={1.5}/></button>
               <button onClick={redo} disabled={historyIndex >= history.length - 1}><Redo2 size={20} strokeWidth={1.5}/></button>
             </div>
             <div className="divider"></div>
+            */}
             <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
             <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
             <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
-            <div className="divider"></div>
+            {/*<div className="divider"></div>
             <button onClick={() => doLayout()}><LayoutDagIcon /><span>Layout</span></button>
+            */}
           </div>
       </div>
 
@@ -585,7 +638,11 @@ export default function ChatGraph() {
       >
         {/* 背景网格点 */}
         <Background color="#C5CBD3" gap={20} size={1} />
-        <Controls />
+        <Controls position="bottom-right">
+          <ControlButton onClick={() => doLayout()} title="自动布局"><LayoutDagIcon /></ControlButton>
+          <ControlButton onClick={undo} disabled={historyIndex <= 0} title="撤销"><Undo /></ControlButton>
+          <ControlButton onClick={redo} disabled={historyIndex >= history.length - 1} title="重做"><Redo /></ControlButton>
+        </Controls>
       </ReactFlow>
 
       { nodes.length === 0 && (

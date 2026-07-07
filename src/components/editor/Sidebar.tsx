@@ -24,8 +24,8 @@ Quill.register('modules/tag', TagModule);
 const StepDetail = ({stepData}: {
     stepData: NodeDataType
 }) => {
-    const { updateNode } = useReactFlow();
     console.log('>> stepData: ', stepData);
+    const { updateNode } = useReactFlow();
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
 
