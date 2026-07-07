@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
 import ChatGraph from '@/components/graph/ChatGraph';
 import { LayoutResizer } from '@/utils/util';
 import { EditorProvider, useEditorContext } from './EditorContext';
@@ -10,7 +11,9 @@ import "./style.css";
 export default function ChatGraphEditor() {
     return (
         <EditorProvider>
-            <ChatGraphEditorContent />
+            <ReactFlowProvider>
+                <ChatGraphEditorContent />
+            </ReactFlowProvider>
         </EditorProvider>
     );
 };

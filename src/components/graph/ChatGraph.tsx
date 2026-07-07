@@ -1,7 +1,6 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { 
   ReactFlow,
-  ReactFlowProvider,
   Background,
   useNodesState,
   useEdgesState,
@@ -29,10 +28,10 @@ import { useEditorContext } from '@/components/editor/EditorContext';
 import { 
   UserInputNode, 
   GenerateNode, 
-  OutputNode, 
-  type NodeTypeKey, 
-  type NodeDataType 
+  OutputNode
 } from './OpalNodes';
+import { type NodeTypeKey, type NodeDataType, type NodeRawDataType } from './types';
+
 import autoLayout from './AutoLayout';
  
 // 注册自定义节点映射
@@ -185,7 +184,7 @@ export default function ChatGraph() {
     })
       .then(rsp => rsp.json())
       .then(data => {
-        const graphNodes = data.nodes.map((node: NodeDataType): Node => {
+        const graphNodes = data.nodes.map((node: NodeRawDataType): Node => {
           const newNode: Node = {
             id: node.id,
             type: 'opalGenerate',
@@ -224,7 +223,6 @@ export default function ChatGraph() {
   }, []);
 
   return (
-    <ReactFlowProvider>
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
@@ -284,6 +282,5 @@ export default function ChatGraph() {
       </div>
 
     </div>
-    </ReactFlowProvider>
   );
 }
