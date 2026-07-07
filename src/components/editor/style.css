@@ -237,3 +237,31 @@
 .opal-node-detail-body  .ql-editor > p {
     margin-bottom: 0.5rem;
 }
+
+.custom-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  margin: 1px 2px;
+  border-radius: 99px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 0.875em;
+  line-height: 1;
+  vertical-align: middle;
+  user-select: none;
+  cursor: default;
+}
+.custom-tag:hover {
+  background: #e2e8f0;
+}
+.tag-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-size: contain;
+}
+.tag-title {
+  font-weight: 500;
+}

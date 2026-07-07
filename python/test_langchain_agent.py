@@ -34,9 +34,9 @@ from opie_tools import build_opie_tools
 # LLM 连接配置 —— 在这里填写你自己的参数
 # ===========================================================================
 
-LLM_BASE_URL = os.environ.get("OPIE_LLM_BASE_URL", "")   # 例如: "https://api.your-gateway.com/v1"
-LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "")     # 例如: "sk-xxxxxxxx"
-LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "")         # 例如: "gpt-4o" / "qwen-max" / 自建模型名
+LLM_BASE_URL = os.environ.get("OPIE_LLM_BASE_URL", "https://api.deepseek.com")   # 例如: "https://api.your-gateway.com/v1"
+LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "sk-2962d4c8755844e59524dc61ff8e8d26")     # 例如: "sk-xxxxxxxx"
+LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "deepseek-v4-flash")         # 例如: "gpt-4o" / "qwen-max" / 自建模型名
 
 # 也支持直接改这三行代替环境变量:
 # LLM_BASE_URL = "https://api.your-gateway.com/v1"
@@ -96,7 +96,7 @@ def run_single_turn_demo() -> None:
 
     user_message = "我要一个计算身高体重的BMI计算器"
     #user_message = "An app that takes a user-provided topic as input, conducts in-depth research on that topic, and then generates a snappy and compelling blog post about it."
-    #user_message = "帮我做一个客户投诉与建议分类处理工具。首先让用户输入他们的反馈内容。然后用大模型分析这段内容的意图：如果是严重投诉，就走到‘紧急处理’步骤，生成一封道歉信并给出退款方案；如果是普通产品建议，就走到‘需求池’步骤，自动将其整理成表格格式；最后不论哪种情况，都把结果展示在漂亮的 Dashboard 网页上。"
+    user_message = "帮我做一个客户投诉与建议分类处理工具。首先让用户输入他们的反馈内容。然后用大模型分析这段内容的意图：如果是严重投诉，就走到‘紧急处理’步骤，生成一封道歉信并给出退款方案；如果是普通产品建议，就走到‘需求池’步骤，自动将其整理成表格格式；最后不论哪种情况，都把结果展示在漂亮的 Dashboard 网页上。"
     print(f"\n>>> 用户: {user_message}\n")
 
     result = agent.invoke({"messages": [{"role": "user", "content": user_message}]})
