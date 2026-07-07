@@ -234,11 +234,11 @@
     padding: 1.25rem 1.75rem;
     line-height: 1.5;
 }
-.opal-node-detail-body  .ql-editor > p {
+.opal-node-detail-body .ql-editor > p {
     margin-bottom: 0.5rem;
 }
 
-.custom-tag {
+.opal-node-detail-body .ql-editor .custom-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -253,15 +253,16 @@
   user-select: none;
   cursor: default;
 }
-.custom-tag:hover {
+.opal-node-detail-body .ql-editor .custom-tag:hover {
   background: #e2e8f0;
 }
-.tag-icon {
+.opal-node-detail-body .ql-editor .custom-tag .tag-icon {
   display: inline-block;
   width: 16px;
   height: 16px;
   background-size: contain;
+  line-height: 1.0;
 }
-.tag-title {
+.opal-node-detail-body .ql-editor .custom-tag .tag-title {
   font-weight: 500;
 }

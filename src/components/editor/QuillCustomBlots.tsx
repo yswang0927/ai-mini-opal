@@ -62,6 +62,8 @@ export class TagBlot extends Embed {
 const TAG_TYPES = new Set<TagType>(['in', 'asset', 'tool']);
  
 function tryParseTag(inner: string): TagValue | null {
+  // inner形如 {{"type":"in",...}}，去掉最外层各一个 { 和 }
+  // 即可还原成合法 JSON: {"type":"in",...}
   let jsonText = inner;
   if (jsonText.startsWith('{{')) {
     jsonText = jsonText.substring(1, jsonText.length - 1);
@@ -127,6 +129,11 @@ export class TagModule {
     if (matches.length === 0) {
       return;
     }
+
+    // 记录替换前的光标位置（这里拿到的是真实文档坐标，和 m.index 是同一套坐标系）。
+    // deleteText/insertEmbed 用 silent source 时，Quill 内置的光标自动追踪
+    // 对“同一位置先删除再插入”这种组合操作并不可靠，所以这里自己算最终应处的位置。
+    let cursorIndex: number | null = null;
  
     // ⚠️ 必须从后往前替换：所有 match.index 都是基于替换前的原始文本算出来的，
     // 从后往前处理时，已经处理过的位置都在“待处理位置”的后面，
@@ -141,7 +148,24 @@ export class TagModule {
       this.quill.insertEmbed(m.index, TagBlot.blotName, value, Quill.sources.SILENT);
       // 可选：插入空格防止粘连
       this.quill.insertText(m.index + 1, ' ', Quill.sources.SILENT);
+
+      // 净变化：删除了 m.length 个字符，插入了 1 个字符（embed）
+      const shift = m.length - 1;
+      if (cursorIndex === null) {
+        // reverse 后第一个处理的就是原本最靠右的匹配，光标目标定在它后面一位
+        cursorIndex = m.index + 1;
+      } else if (m.index < cursorIndex) {
+        // 更靠左的匹配会让它右侧的一切（包括我们已经定好的目标位置）整体左移
+        cursorIndex -= shift;
+      }
     });
+
+    if (cursorIndex !== null) {
+      const targetIndex = cursorIndex;
+      requestAnimationFrame(() => {
+        this.quill.setSelection(targetIndex, 0, Quill.sources.SILENT);
+      });
+    }
   }
 }
 
