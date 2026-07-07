@@ -30,7 +30,7 @@ import {
   GenerateNode, 
   OutputNode
 } from './OpalNodes';
-import { type NodeTypeKey, type NodeDataType, type NodeRawDataType } from './types';
+import { type NodeTypeKey, type NodeRawDataType } from './types';
 
 import autoLayout from './AutoLayout';
  
@@ -57,6 +57,12 @@ const defaultEdgeOptions = {
     color: '#C5CBD3',  
   },
 };
+// 边高亮样式：黑色、粗线
+const edgeHighlightOptions = {
+  style: {...defaultEdgeOptions.style, stroke: '#000000'},
+  markerEnd: {...defaultEdgeOptions.markerEnd, color: '#000000'}
+};
+
 
 const NODE_WIDTH = 300;
 
@@ -74,9 +80,46 @@ export default function ChatGraph() {
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node);
-  }, [setSelectedNode]);
+    
+    // 高亮与该节点相关的边
+    setEdges((prevEdges) => 
+      prevEdges.map((edge) => {
+        // 检查边是否与该节点相关
+        const isRelated = edge.source === node.id || edge.target === node.id;
+        if (isRelated) {
+          return {
+            ...edge,
+            zIndex: 10,
+            style: edgeHighlightOptions.style,
+            markerEnd: edgeHighlightOptions.markerEnd
+          };
+        }
+        
+        // 其他边恢复默认样式
+        return {
+          ...edge,
+          zIndex: 0,
+          style: defaultEdgeOptions.style,
+          markerEnd: defaultEdgeOptions.markerEnd
+        };
+      })
+    );
+  }, [setSelectedNode, setEdges]);
 
-  const onConnect = useCallback(
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+    // 恢复所有边的默认样式
+    setEdges((prevEdges) => 
+      prevEdges.map((edge) => ({
+        ...edge,
+        zIndex: 0,
+        style: defaultEdgeOptions.style,
+        markerEnd: defaultEdgeOptions.markerEnd
+      }))
+    );
+  }, [setSelectedNode, setEdges]);
+
+   const onConnect = useCallback(
     (params: any) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
@@ -242,7 +285,7 @@ export default function ChatGraph() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
-        onPaneClick={() => setSelectedNode(null)}
+        onPaneClick={onPaneClick}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}

@@ -1,25 +1,25 @@
 {
   "metadata": {
-    "intent": "Takes any topic, researches it, and generates a snappy blog post about it.",
+    "intent": "自动分析客户反馈的意图，严肃投诉生成道歉信和退款方案，普通建议整理成需求池表格，最后展示在精美的 Dashboard 上。",
     "revision_intents": [],
-    "raw_intent": "Takes any topic, researches it, and generates a snappy blog post about it.",
+    "raw_intent": "自动分析客户反馈的意图，严肃投诉生成道歉信和退款方案，普通建议整理成需求池表格，最后展示在精美的 Dashboard 上。",
     "tags": [
-      "blogging",
-      "research",
-      "writing",
-      "content-creation"
+      "客户反馈",
+      "投诉处理",
+      "需求管理",
+      "分类路由"
     ],
     "parameters": {}
   },
   "assets": {},
-  "title": "Topic to Blog Post",
-  "description": "Takes any topic, researches it, and generates a snappy blog post about it.",
+  "title": "客户投诉与建议分类处理",
+  "description": "自动分析客户反馈的意图，严肃投诉生成道歉信和退款方案，普通建议整理成需求池表格，最后展示在精美的 Dashboard 上。",
   "version": "0.0.1",
   "nodes": [
     {
-      "id": "input_your_topic_0f7d25",
+      "id": "input_step_ddea4a",
       "metadata": {
-        "title": "Your Topic",
+        "title": "用户反馈",
         "visual": {
           "x": 250,
           "y": 160
@@ -28,7 +28,7 @@
         "expected_output": [
           {
             "type": "text",
-            "description": "What topic would you like to blog about? Enter any subject — from AI breakthroughs to gardening tips!",
+            "description": "请输入您的反馈内容，包括您遇到的问题或对产品的建议：",
             "list": false
           }
         ]
@@ -38,7 +38,7 @@
         "description": {
           "parts": [
             {
-              "text": "What topic would you like to blog about? Enter any subject — from AI breakthroughs to gardening tips!"
+              "text": "请输入您的反馈内容，包括您遇到的问题或对产品的建议："
             }
           ],
           "role": "user"
@@ -48,19 +48,19 @@
       }
     },
     {
-      "id": "agent_deep_researcher_51774d",
+      "id": "agent_step_c020d6",
       "metadata": {
-        "title": "Deep Researcher",
+        "title": "紧急处理",
         "visual": {
           "x": 700,
           "y": 160
         },
         "userModified": false,
-        "step_intent": "You are a thorough research assistant. Your job is to research the given topic deeply and compile a comprehensive brief for a blog post writer.\n\n1. Read the user's provided topic.\n2. Search the web extensively to gather key facts, recent developments, statistics, different perspectives, and any notable quotes or examples related to the topic.\n3. Organize the information into a structured research brief with sections: Overview, Key Facts & Data, Current Trends, Different Angles to Approach, and Notable Sources.\n4. Keep the brief factual and informative — the reader is a blog writer who needs raw material to craft a compelling post.\n\nReturn the full research brief as your output.",
+        "step_intent": "你是一位资深客户服务经理。用户提交了一条严肃投诉，内容如下。请执行以下任务：\n\n1. 阅读并理解用户的投诉内容。\n2. 以公司名义撰写一封真诚的道歉信，语气诚恳、态度谦逊，承认问题所在。\n3. 根据投诉的严重程度，制定一套合理的退款或赔偿方案（如全额退款、部分退款、优惠券补偿等），具体说明补偿内容和执行方式。\n\n注意：道歉信和退款方案要具体到用户的投诉细节，不要泛泛而谈。",
         "expected_output": [
           {
             "type": "text",
-            "description": "A structured research brief with sections: Overview, Key Facts & Data, Current Trends, Different Angles to Approach, Notable Sources.",
+            "description": "返回一封完整的道歉信以及对应的退款/赔偿方案，用清晰的分段呈现。",
             "list": false
           }
         ]
@@ -70,7 +70,7 @@
         "config$prompt": {
           "parts": [
             {
-              "text": "1. Objective: You are a thorough research assistant. Your job is to research the given topic deeply and compile a comprehensive brief for a blog post writer.\n\n1. Read the user's provided topic.\n2. Search the web extensively to gather key facts, recent developments, statistics, different perspectives, and any notable quotes or examples related to the topic.\n3. Organize the information into a structured research brief with sections: Overview, Key Facts & Data, Current Trends, Different Angles to Approach, and Notable Sources.\n4. Keep the brief factual and informative — the reader is a blog writer who needs raw material to craft a compelling post.\n\nReturn the full research brief as your output.\n\n2. Output Format: A structured research brief with sections: Overview, Key Facts & Data, Current Trends, Different Angles to Approach, Notable Sources.\n\n3. User Input / Context:\nYour Topic: {{\"type\":\"in\",\"path\":\"input_your_topic_0f7d25\",\"title\":\"Your Topic\"}}\n\nUse tools:\n{{\"type\":\"tool\",\"path\":\"embed://a2/tools.bgl.json#module:search-web\",\"title\":\"Search Web\"}} {{\"type\":\"tool\",\"path\":\"embed://a2/tools.bgl.json#module:get-webpage\",\"title\":\"Get Webpage\"}}"
+              "text": "1. Objective: 你是一位资深客户服务经理。用户提交了一条严肃投诉，内容如下。请执行以下任务：\n\n1. 阅读并理解用户的投诉内容。\n2. 以公司名义撰写一封真诚的道歉信，语气诚恳、态度谦逊，承认问题所在。\n3. 根据投诉的严重程度，制定一套合理的退款或赔偿方案（如全额退款、部分退款、优惠券补偿等），具体说明补偿内容和执行方式。\n\n注意：道歉信和退款方案要具体到用户的投诉细节，不要泛泛而谈。\n\n2. Output Format: 返回一封完整的道歉信以及对应的退款/赔偿方案，用清晰的分段呈现。\n\n3. User Input / Context:\n用户反馈: {{\"type\":\"in\",\"path\":\"input_step_ddea4a\",\"title\":\"用户反馈\"}}"
             }
           ],
           "role": "user"
@@ -89,19 +89,19 @@
       }
     },
     {
-      "id": "agent_blog_writer_450122",
+      "id": "agent_step_f73075",
       "metadata": {
-        "title": "Blog Writer",
+        "title": "需求池",
         "visual": {
-          "x": 1150,
-          "y": 160
+          "x": 700,
+          "y": 310
         },
         "userModified": false,
-        "step_intent": "You are a skilled blog writer with a knack for snappy, engaging content. Your mission is to transform the research brief you receive into a compelling blog post.\n\n1. Read the research brief provided by the Deep Researcher step.\n2. Craft a blog post that is:\n   - Attention-grabbing from the first sentence — a strong hook that pulls the reader in\n   - Well-structured with short paragraphs, subheadings, and a conversational but authoritative tone\n   - Informative but not dry — use the research facts and data to support your points, not overwhelm\n   - Concise and punchy — aim for 500-800 words, trimming any fluff\n3. End with a memorable closing paragraph that gives the reader something to think about or a call to action.\n4. Give the post a catchy title.\n\nReturn the complete blog post (title + body) as your output.",
+        "step_intent": "你是一位产品经理。用户提交了一条产品建议，内容如下。请执行以下任务：\n\n1. 阅读并理解用户的建议内容。\n2. 将其整理为规范的需求条目表格，包含以下字段：需求编号、需求描述、建议来源、优先级（高/中/低）、预期价值、备注。\n3. 如果建议中提到了具体功能或改进点，拆解为多个子需求条目；如果只是一个大致方向，合理推演出具体可实现的需求。\n\n输出格式为表格样式，每一行是一条需求。",
         "expected_output": [
           {
             "type": "text",
-            "description": "A complete blog post with a catchy title and a compelling, well-structured body (500-800 words).",
+            "description": "返回一个格式整齐的需求池表格，包含上述所有字段，每行一条需求条目。",
             "list": false
           }
         ]
@@ -111,26 +111,75 @@
         "config$prompt": {
           "parts": [
             {
-              "text": "1. Objective: You are a skilled blog writer with a knack for snappy, engaging content. Your mission is to transform the research brief you receive into a compelling blog post.\n\n1. Read the research brief provided by the Deep Researcher step.\n2. Craft a blog post that is:\n   - Attention-grabbing from the first sentence — a strong hook that pulls the reader in\n   - Well-structured with short paragraphs, subheadings, and a conversational but authoritative tone\n   - Informative but not dry — use the research facts and data to support your points, not overwhelm\n   - Concise and punchy — aim for 500-800 words, trimming any fluff\n3. End with a memorable closing paragraph that gives the reader something to think about or a call to action.\n4. Give the post a catchy title.\n\nReturn the complete blog post (title + body) as your output.\n\n2. Output Format: A complete blog post with a catchy title and a compelling, well-structured body (500-800 words).\n\n3. User Input / Context:\nDeep Researcher: {{\"type\":\"in\",\"path\":\"agent_deep_researcher_51774d\",\"title\":\"Deep Researcher\"}}"
+              "text": "1. Objective: 你是一位产品经理。用户提交了一条产品建议，内容如下。请执行以下任务：\n\n1. 阅读并理解用户的建议内容。\n2. 将其整理为规范的需求条目表格，包含以下字段：需求编号、需求描述、建议来源、优先级（高/中/低）、预期价值、备注。\n3. 如果建议中提到了具体功能或改进点，拆解为多个子需求条目；如果只是一个大致方向，合理推演出具体可实现的需求。\n\n输出格式为表格样式，每一行是一条需求。\n\n2. Output Format: 返回一个格式整齐的需求池表格，包含上述所有字段，每行一条需求条目。\n\n3. User Input / Context:\n用户反馈: {{\"type\":\"in\",\"path\":\"input_step_ddea4a\",\"title\":\"用户反馈\"}}"
             }
           ],
           "role": "user"
         },
         "generation-mode": "agent",
         "config$ask-user": false,
-        "config$list": false
+        "config$list": false,
+        "system-instruction": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "You are working as part of an AI system, so no chit-chat and no explaining what you're doing and why.\nDO NOT start with \"Okay\", or \"Alright\" or any preambles. Just the output, please."
+            }
+          ]
+        }
       }
     },
     {
-      "id": "render_blog_post_display_a09934",
+      "id": "agent_step_2ef291",
       "metadata": {
-        "title": "Blog Post Display",
+        "title": "意图分类路由",
         "visual": {
-          "x": 1600,
+          "x": 700,
+          "y": 460
+        },
+        "userModified": false,
+        "step_intent": "你是一位客户反馈分析专家。用户提交了一段反馈内容，请分析其意图并做出路由决策。\n\n分析要点：\n1. 判断反馈的性质：是严重投诉还是普通产品建议？\n2. 严重投诉的特征：用户表达了强烈不满、遭遇了经济损失或服务质量问题、要求赔偿或退款、使用了情绪化强烈的语言。\n3. 普通产品建议的特征：用户提出了改进建议、功能请求、使用体验反馈，语气平和或建设性。\n4. 如果难以判断，默认按普通建议处理。\n\n路由规则：\n- 如果识别为严重投诉，请选择【紧急处理】路由，并输出\"投诉已转紧急处理\"。\n- 如果识别为普通产品建议，请选择【需求池】路由，并输出\"建议已转入需求池\"。\n\n只需要输出路由结果说明即可。",
+        "expected_output": [
+          {
+            "type": "text",
+            "description": "返回一句话说明路由去向：\"投诉已转紧急处理\"或\"建议已转入需求池\"。",
+            "list": false
+          }
+        ]
+      },
+      "type": "embed://a2/generate.bgl.json#module:main",
+      "configuration": {
+        "config$prompt": {
+          "parts": [
+            {
+              "text": "1. Objective: 你是一位客户反馈分析专家。用户提交了一段反馈内容，请分析其意图并做出路由决策。\n\n分析要点：\n1. 判断反馈的性质：是严重投诉还是普通产品建议？\n2. 严重投诉的特征：用户表达了强烈不满、遭遇了经济损失或服务质量问题、要求赔偿或退款、使用了情绪化强烈的语言。\n3. 普通产品建议的特征：用户提出了改进建议、功能请求、使用体验反馈，语气平和或建设性。\n4. 如果难以判断，默认按普通建议处理。\n\n路由规则：\n- 如果识别为严重投诉，请选择【紧急处理】路由，并输出\"投诉已转紧急处理\"。\n- 如果识别为普通产品建议，请选择【需求池】路由，并输出\"建议已转入需求池\"。\n\n只需要输出路由结果说明即可。\n\n2. Output Format: 返回一句话说明路由去向：\"投诉已转紧急处理\"或\"建议已转入需求池\"。\n\n3. User Input / Context:\n用户反馈: {{\"type\":\"in\",\"path\":\"input_step_ddea4a\",\"title\":\"用户反馈\"}}\n\nUse tools:\n{{\"type\":\"tool\",\"path\":\"control-flow/routing\",\"instance\":\"agent_step_c020d6\",\"title\":\"紧急处理\"}} {{\"type\":\"tool\",\"path\":\"control-flow/routing\",\"instance\":\"agent_step_f73075\",\"title\":\"需求池\"}}\n\nChoose exactly one route based on the result: if serious complaint, use the \"紧急处理\" routing tool; if product suggestion, use the \"需求池\" routing tool."
+            }
+          ],
+          "role": "user"
+        },
+        "generation-mode": "agent",
+        "config$ask-user": false,
+        "config$list": false,
+        "system-instruction": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "You are working as part of an AI system, so no chit-chat and no explaining what you're doing and why.\nDO NOT start with \"Okay\", or \"Alright\" or any preambles. Just the output, please."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "render_dashboard_291c74",
+      "metadata": {
+        "title": "反馈处理 Dashboard",
+        "visual": {
+          "x": 1150,
           "y": 160
         },
         "userModified": false,
-        "step_intent": "Create an HTML page presenting: Plain text display. Show the blog post output along with the original topic above it. Clean white background. Footer wit",
+        "step_intent": "Create an HTML page presenting: 设计一个现代、专业的客户反馈处理 Dashboard，以卡片式布局呈现以下内容：\n\n顶部区域：显示\"客户反馈处理报告\"标题，以及处理时间戳。\n\n第一部分 - 用户反馈原文：用卡片展示用户输入的原始反馈内容，卡片背景用浅灰色，配对话气泡图标。",
         "expected_output": [
           {
             "list": false,
@@ -145,7 +194,7 @@
           "role": "user",
           "parts": [
             {
-              "text": "Plain text display. Show the blog post output along with the original topic above it. Clean white background. Footer with text: Generated by AI.\n\nyour_topic: {{\"type\":\"in\",\"path\":\"input_your_topic_0f7d25\",\"title\":\"Your Topic\"}}\n\nblog_writer: {{\"type\":\"in\",\"path\":\"agent_blog_writer_450122\",\"title\":\"Blog Writer\"}}"
+              "text": "设计一个现代、专业的客户反馈处理 Dashboard，以卡片式布局呈现以下内容：\n\n顶部区域：显示\"客户反馈处理报告\"标题，以及处理时间戳。\n\n第一部分 - 用户反馈原文：用卡片展示用户输入的原始反馈内容，卡片背景用浅灰色，配对话气泡图标。\n\n第二部分 - 路由结果：用醒目的彩色标签展示意图分类结果（如\"已转紧急处理\"用红色标签、\"已转入需求池\"用绿色标签），旁边标注路由去向。\n\n第三部分 - 处理结果：这里的展示内容会根据路由结果自动变化——\n- 如果走的是紧急处理路径，展示道歉信和退款方案，用温暖柔和（米色/暖橙色调）的卡片呈现，配以信封或握手图标。\n- 如果走的是需求池路径，以整洁表格样式展示需求条目，表头用深蓝色，交替行背景色，配以清单图标。\n\n底部：显示处理状态和一条简短的客服承诺语（如\"我们珍视每一位客户的声音\"）。\n\n整体配色：蓝灰主色调 + 强调色（红色用于投诉、绿色用于建议），字号层级清晰，留白舒适。\n\nstep: {{\"type\":\"in\",\"path\":\"input_step_ddea4a\",\"title\":\"用户反馈\"}}\n\nstep: {{\"type\":\"in\",\"path\":\"agent_step_2ef291\",\"title\":\"意图分类路由\"}}\n\nstep: {{\"type\":\"in\",\"path\":\"agent_step_c020d6\",\"title\":\"紧急处理\"}}\n\nstep: {{\"type\":\"in\",\"path\":\"agent_step_f73075\",\"title\":\"需求池\"}}"
             }
           ]
         },
@@ -156,28 +205,58 @@
   ],
   "edges": [
     {
-      "from": "input_your_topic_0f7d25",
-      "to": "agent_deep_researcher_51774d",
+      "from": "input_step_ddea4a",
+      "to": "agent_step_c020d6",
       "out": "context",
-      "in": "p-z-input_your_topic_0f7d25"
+      "in": "p-z-input_step_ddea4a"
     },
     {
-      "from": "agent_deep_researcher_51774d",
-      "to": "agent_blog_writer_450122",
+      "from": "input_step_ddea4a",
+      "to": "agent_step_f73075",
       "out": "context",
-      "in": "p-z-agent_deep_researcher_51774d"
+      "in": "p-z-input_step_ddea4a"
     },
     {
-      "from": "input_your_topic_0f7d25",
-      "to": "render_blog_post_display_a09934",
+      "from": "input_step_ddea4a",
+      "to": "agent_step_2ef291",
       "out": "context",
-      "in": "p-z-input_your_topic_0f7d25"
+      "in": "p-z-input_step_ddea4a"
     },
     {
-      "from": "agent_blog_writer_450122",
-      "to": "render_blog_post_display_a09934",
+      "from": "agent_step_2ef291",
+      "to": "agent_step_c020d6",
+      "out": "agent_step_c020d6",
+      "in": "p-z-agent_step_2ef291"
+    },
+    {
+      "from": "agent_step_2ef291",
+      "to": "agent_step_f73075",
+      "out": "agent_step_f73075",
+      "in": "p-z-agent_step_2ef291"
+    },
+    {
+      "from": "input_step_ddea4a",
+      "to": "render_dashboard_291c74",
       "out": "context",
-      "in": "p-z-agent_blog_writer_450122"
+      "in": "p-z-input_step_ddea4a"
+    },
+    {
+      "from": "agent_step_2ef291",
+      "to": "render_dashboard_291c74",
+      "out": "context",
+      "in": "p-z-agent_step_2ef291"
+    },
+    {
+      "from": "agent_step_c020d6",
+      "to": "render_dashboard_291c74",
+      "out": "context",
+      "in": "p-z-agent_step_c020d6"
+    },
+    {
+      "from": "agent_step_f73075",
+      "to": "render_dashboard_291c74",
+      "out": "context",
+      "in": "p-z-agent_step_f73075"
     }
   ]
 }
