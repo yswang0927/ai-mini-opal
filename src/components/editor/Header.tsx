@@ -1,17 +1,15 @@
-import { useState } from 'react';
-import { 
-    ArrowLeft, 
-    CloudUpload, 
-    Share2, 
-    EllipsisVertical, 
-    PanelRightClose, 
-    PanelRightOpen 
+import {
+    ArrowLeft,
+    CloudUpload,
+    Share2,
+    EllipsisVertical,
+    PanelRightClose,
+    PanelRightOpen
 } from 'lucide-react';
 import { useEditorContext } from './EditorContext';
 
 export default function Header() {
-    const [selectedTab, setSelectedTab] = useState('Editor');
-    const { sidebarShow, toggleSidebar } = useEditorContext();
+    const { sidebarShow, toggleSidebar, viewMode, setViewMode } = useEditorContext();
 
     return (
         <div className="editor-header">
@@ -21,8 +19,8 @@ export default function Header() {
             </div>
             <div className="editor-header-center">
                 <div className="editor-header-btn-group">
-                    <button className={selectedTab === 'Editor' ? 'selected' : ''} onClick={() => setSelectedTab('Editor')}>Editor</button>
-                    <button className={selectedTab === 'App' ? 'selected' : ''} onClick={() => setSelectedTab('App')}>App</button>
+                    <button className={viewMode === 'editor' ? 'selected' : ''} onClick={() => setViewMode('editor')}>Editor</button>
+                    <button className={viewMode === 'app' ? 'selected' : ''} onClick={() => setViewMode('app')}>App</button>
                 </div>
             </div>
             <div className="editor-header-right">
