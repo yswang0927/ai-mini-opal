@@ -892,8 +892,6 @@ class OpalGraphState:
             )
         return f'{{{{"type":"asset","path":"{asset.asset_id}","title":"{asset.title}"}}}}'
 
-        return "\n\n".join(lines)
-
     def _compile_agent_configuration(self, step: Step) -> Dict[str, Any]:
         """
         编译 agent 节点的 configuration 字段。
