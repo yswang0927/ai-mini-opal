@@ -3,7 +3,7 @@ import { useReactFlow } from '@xyflow/react';
 import Quill from 'quill';
 import { useEditorContext } from './EditorContext';
 import { ExecutorPanel } from '@/components/graph/executor';
-import type { OpalGraphJson } from '@/components/graph/executor';
+import type { OpalGraphJson, NodeExecInfo } from '@/components/graph/executor';
 import {
     NodeTypes,
     type NodeDataType,
@@ -132,6 +132,60 @@ const StepDetail = ({stepData}: {
     );
 };
 
+const ConsoleView = ({ execLog, currentNodeId }: {
+    execLog: NodeExecInfo[];
+    currentNodeId: string | null;
+}) => {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [execLog.length]);
+
+    if (execLog.length === 0 && !currentNodeId) {
+        return (
+            <div className="console-empty">
+                <p>运行 Preview 后，节点执行日志将显示在这里</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="console-view" ref={scrollRef}>
+            {execLog.map((item, idx) => (
+                <div key={`${item.nodeId}-${idx}`} className={`console-item console-item-${item.status}`}>
+                    <div className="console-item-header">
+                        <span className="console-item-status" data-status={item.status} />
+                        <span className="console-item-title">{item.title}</span>
+                    </div>
+                    {item.input && (
+                        <div className="console-item-section">
+                            <span className="console-item-label">Input</span>
+                            <pre className="console-item-content">{item.input}</pre>
+                        </div>
+                    )}
+                    {item.output && (
+                        <div className="console-item-section">
+                            <span className="console-item-label">Output</span>
+                            <pre className="console-item-content">{item.output}</pre>
+                        </div>
+                    )}
+                </div>
+            ))}
+            {currentNodeId && !execLog.find(l => l.nodeId === currentNodeId) && (
+                <div className="console-item console-item-running">
+                    <div className="console-item-header">
+                        <span className="console-item-status" data-status="running" />
+                        <span className="console-item-title">执行中...</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default function Sidebar() {
     const [selectedTab, setSelectedTab] = useState('');
     const { selectedNode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
@@ -178,13 +232,19 @@ export default function Sidebar() {
                         onRestart={doRunPreview}
                     />
                 )}
+                {selectedTab === 'Console' && (
+                    <ConsoleView
+                        execLog={execState.nodeExecLog}
+                        currentNodeId={execState.currentNodeId}
+                    />
+                )}
                 {selectedTab === 'Step' && !selectedNode && (
                     <div className="empty-state">Select a step node to edit</div>
                 )}
                 {selectedTab === 'Step' && selectedNode && (
                     <StepDetail stepData={selectedNode} />
                 )}
-                {selectedTab !== 'Preview' && selectedTab !== 'Step' && (
+                {selectedTab !== 'Preview' && selectedTab !== 'Step' && selectedTab !== 'Console' && (
                     <div className="empty-state">Your app will appear here once it's built</div>
                 )}
             </div>

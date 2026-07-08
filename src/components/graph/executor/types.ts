@@ -22,12 +22,22 @@ export interface OpalGraphJson {
 
 export type ExecutionStatus = 'idle' | 'ready' | 'waiting_input' | 'running' | 'completed' | 'error';
 
+export type NodeExecStatus = 'pending' | 'running' | 'completed' | 'error';
+
 export interface InputRequest {
   nodeId: string;
   title: string;
   description: string;
   modality: string;
   required: boolean;
+}
+
+export interface NodeExecInfo {
+  nodeId: string;
+  title: string;
+  status: NodeExecStatus;
+  input?: string;
+  output?: string;
 }
 
 export interface ExecutionState {
@@ -40,4 +50,6 @@ export interface ExecutionState {
   currentNodeTitle: string | null;
   graphTitle: string | null;
   graphDescription: string | null;
+  nodeStatuses: Record<string, NodeExecStatus>;
+  nodeExecLog: NodeExecInfo[];
 }

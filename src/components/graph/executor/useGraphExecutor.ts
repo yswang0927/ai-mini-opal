@@ -12,6 +12,8 @@ const initialState: ExecutionState = {
   currentNodeTitle: null,
   graphTitle: null,
   graphDescription: null,
+  nodeStatuses: {},
+  nodeExecLog: [],
 };
 
 export function useGraphExecutor() {

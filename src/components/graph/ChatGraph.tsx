@@ -76,7 +76,7 @@ const nodeRandomOffset = () => {
 export default function ChatGraph() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { setSelectedNode } = useEditorContext();
+  const { setSelectedNode, execState } = useEditorContext();
 
   // Undo/Redo 状态
   const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
@@ -91,6 +91,23 @@ export default function ChatGraph() {
 
   const graphDOMRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
+
+  // Apply execution status classes to nodes
+  useEffect(() => {
+    const { nodeStatuses } = execState;
+    if (!Object.keys(nodeStatuses).length) return;
+
+    setNodes(nds => nds.map(node => {
+      const status = nodeStatuses[node.id];
+      let className = '';
+      if (status === 'running') className = 'node-exec-running';
+      else if (status === 'completed') className = 'node-exec-completed';
+      else if (status === 'error') className = 'node-exec-error';
+
+      if (node.className === className) return node;
+      return { ...node, className };
+    }));
+  }, [execState.nodeStatuses, setNodes]);
 
   // 保存当前状态到历史记录
   const saveToHistory = useCallback((currentNodes?: Node[], currentEdges?: Edge[]) => {

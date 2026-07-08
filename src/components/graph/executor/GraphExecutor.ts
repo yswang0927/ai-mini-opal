@@ -1,5 +1,5 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { OpalGraphJson, OpalNode, OpalEdge, InputRequest, ExecutionState } from "./types";
+import type { OpalGraphJson, OpalNode, OpalEdge, InputRequest, ExecutionState, NodeExecStatus, NodeExecInfo } from "./types";
 import { resolvePromptTemplate } from "./promptTemplate";
 import { getLLM, RENDER_OUTPUT_SYSTEM_PROMPT } from "./llm";
 
@@ -46,6 +46,8 @@ export class GraphExecutor {
   private nodeMap: Map<string, OpalNode>;
   private executionOrder: string[];
   private nodeOutputs: Record<string, string> = {};
+  private nodeStatuses: Record<string, NodeExecStatus> = {};
+  private nodeExecLog: NodeExecInfo[] = [];
   private inputResolver: ((inputs: Record<string, string>) => void) | null = null;
   private graphTitle: string | null;
   private graphDescription: string | null;
@@ -56,38 +58,45 @@ export class GraphExecutor {
     this.executionOrder = topologicalSort(graphJson.nodes, graphJson.edges);
     this.graphTitle = graphJson.title || null;
     this.graphDescription = graphJson.description || null;
+    for (const nodeId of this.executionOrder) {
+      this.nodeStatuses[nodeId] = 'pending';
+    }
+  }
+
+  private buildState(overrides: Partial<ExecutionState>): ExecutionState {
+    return {
+      status: 'running',
+      pendingInputs: [],
+      nodeOutputs: { ...this.nodeOutputs },
+      renderedHtml: null,
+      error: null,
+      currentNodeId: null,
+      currentNodeTitle: null,
+      graphTitle: this.graphTitle,
+      graphDescription: this.graphDescription,
+      nodeStatuses: { ...this.nodeStatuses },
+      nodeExecLog: [...this.nodeExecLog],
+      ...overrides,
+    };
   }
 
   async run(onStateChange: (state: ExecutionState) => void): Promise<void> {
-    const firstNode = this.nodeMap.get(this.executionOrder[0]);
-    onStateChange({
+    onStateChange(this.buildState({
       status: 'running',
-      pendingInputs: [],
-      nodeOutputs: {},
-      renderedHtml: null,
-      error: null,
       currentNodeId: this.executionOrder[0] || null,
-      currentNodeTitle: firstNode?.metadata?.title || null,
-      graphTitle: this.graphTitle,
-      graphDescription: this.graphDescription,
-    });
+      currentNodeTitle: this.nodeMap.get(this.executionOrder[0])?.metadata?.title || null,
+    }));
 
     try {
       for (const nodeId of this.executionOrder) {
         const node = this.nodeMap.get(nodeId)!;
         const category = getNodeCategory(node);
 
-        onStateChange({
-          status: 'running',
-          pendingInputs: [],
-          nodeOutputs: { ...this.nodeOutputs },
-          renderedHtml: null,
-          error: null,
+        this.nodeStatuses[nodeId] = 'running';
+        onStateChange(this.buildState({
           currentNodeId: nodeId,
           currentNodeTitle: node.metadata?.title || nodeId,
-          graphTitle: this.graphTitle,
-          graphDescription: this.graphDescription,
-        });
+        }));
 
         if (category === 'input') {
           await this.executeInputNode(node, onStateChange);
@@ -96,21 +105,26 @@ export class GraphExecutor {
         } else {
           await this.executeOutputNode(node);
         }
+
+        this.nodeStatuses[nodeId] = 'completed';
+        onStateChange(this.buildState({
+          currentNodeId: nodeId,
+          currentNodeTitle: node.metadata?.title || nodeId,
+        }));
       }
 
       this.emitCompleted(onStateChange);
     } catch (e: any) {
-      onStateChange({
+      if (this.executionOrder.length) {
+        const lastId = this.executionOrder.find(id => this.nodeStatuses[id] === 'running');
+        if (lastId) this.nodeStatuses[lastId] = 'error';
+      }
+      onStateChange(this.buildState({
         status: 'error',
-        pendingInputs: [],
-        nodeOutputs: { ...this.nodeOutputs },
-        renderedHtml: null,
         error: e.message || String(e),
         currentNodeId: null,
         currentNodeTitle: null,
-        graphTitle: this.graphTitle,
-        graphDescription: this.graphDescription,
-      });
+      }));
     }
   }
 
@@ -137,23 +151,27 @@ export class GraphExecutor {
       required: config["p-required"] !== false,
     };
 
-    onStateChange({
+    onStateChange(this.buildState({
       status: 'waiting_input',
       pendingInputs: [inputRequest],
-      nodeOutputs: { ...this.nodeOutputs },
-      renderedHtml: null,
-      error: null,
       currentNodeId: node.id,
-      currentNodeTitle: node.metadata?.title || node.id,
-      graphTitle: this.graphTitle,
-      graphDescription: this.graphDescription,
-    });
+      currentNodeTitle: title,
+    }));
 
     const inputs = await new Promise<Record<string, string>>((resolve) => {
       this.inputResolver = resolve;
     });
 
-    this.nodeOutputs[node.id] = inputs[node.id] || "";
+    const userInput = inputs[node.id] || "";
+    this.nodeOutputs[node.id] = userInput;
+
+    this.nodeExecLog.push({
+      nodeId: node.id,
+      title,
+      status: 'completed',
+      input: description,
+      output: userInput,
+    });
   }
 
   private async executeGenerateNode(node: OpalNode): Promise<void> {
@@ -178,6 +196,14 @@ export class GraphExecutor {
       : JSON.stringify(response.content);
 
     this.nodeOutputs[node.id] = output;
+
+    this.nodeExecLog.push({
+      nodeId: node.id,
+      title: node.metadata?.title || node.id,
+      status: 'completed',
+      input: resolvedPrompt,
+      output: output.length > 2000 ? output.substring(0, 2000) + '...' : output,
+    });
   }
 
   private async executeOutputNode(node: OpalNode): Promise<void> {
@@ -198,7 +224,16 @@ export class GraphExecutor {
       ? response.content
       : String(response.content);
 
-    this.nodeOutputs[node.id] = html.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+    const cleanedHtml = html.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+    this.nodeOutputs[node.id] = cleanedHtml;
+
+    this.nodeExecLog.push({
+      nodeId: node.id,
+      title: node.metadata?.title || node.id,
+      status: 'completed',
+      input: resolvedText.length > 500 ? resolvedText.substring(0, 500) + '...' : resolvedText,
+      output: '[HTML rendered]',
+    });
   }
 
   private emitCompleted(onStateChange: (state: ExecutionState) => void) {
@@ -210,16 +245,11 @@ export class GraphExecutor {
       }
     }
 
-    onStateChange({
+    onStateChange(this.buildState({
       status: 'completed',
-      pendingInputs: [],
-      nodeOutputs: { ...this.nodeOutputs },
       renderedHtml,
-      error: null,
       currentNodeId: null,
       currentNodeTitle: null,
-      graphTitle: this.graphTitle,
-      graphDescription: this.graphDescription,
-    });
+    }));
   }
 }
