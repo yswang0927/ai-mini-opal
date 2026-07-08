@@ -3,15 +3,6 @@
   height: 100vh;
 }
 
-:root {
-  --font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-  --font-size: 0.875rem;
-  --font-size-sm: 0.75rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --bg-color: #F6F7F9;
-}
-
 body {
   font-family: var(--font-family);
   font-size: var(--font-size);

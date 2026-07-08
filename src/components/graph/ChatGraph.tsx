@@ -34,9 +34,10 @@ import {
   OutputNode
 } from './OpalNodes';
 import { type NodeTypeKey, type NodeRawDataType } from './types';
+import { type OpalGraphJson, type OpalNode, type OpalEdge } from './executor/types';
 
 import autoLayout from './AutoLayout';
- 
+
 // 注册自定义节点映射
 const nodeTypes: Record<NodeTypeKey, any> = {
   userInput: UserInputNode,
@@ -72,11 +73,19 @@ const NODE_WIDTH = 300;
 const nodeRandomOffset = () => {
   return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
 };
- 
-export default function ChatGraph() {
+
+interface ChatGraphProps {
+  graphData?: OpalGraphJson;
+  onGraphChange?: (data: OpalGraphJson) => void;
+}
+
+export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { setSelectedNode, execState } = useEditorContext();
+  
+  // Previous graph data for comparison
+  const prevGraphDataRef = useRef<OpalGraphJson | null>(null);
 
   // Undo/Redo 状态
   const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
@@ -84,30 +93,13 @@ export default function ChatGraph() {
   const isPaused = useRef(false);
   const lastSavedNodesRef = useRef<string>('');
   const lastSavedEdgesRef = useRef<string>('');
-    // 防抖函数，用于延迟保存历史记录（处理节点拖拽等连续变化）
+  // 防抖函数，用于延迟保存历史记录（处理节点拖拽等连续变化）
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const nodesSnapshotRef = useRef<string>('');
   const edgesSnapshotRef = useRef<string>('');
 
   const graphDOMRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
-
-  // Apply execution status classes to nodes
-  useEffect(() => {
-    const { nodeStatuses } = execState;
-    if (!Object.keys(nodeStatuses).length) return;
-
-    setNodes(nds => nds.map(node => {
-      const status = nodeStatuses[node.id];
-      let className = '';
-      if (status === 'running') className = 'node-exec-running';
-      else if (status === 'completed') className = 'node-exec-completed';
-      else if (status === 'error') className = 'node-exec-error';
-
-      if (node.className === className) return node;
-      return { ...node, className };
-    }));
-  }, [execState.nodeStatuses, setNodes]);
 
   // 保存当前状态到历史记录
   const saveToHistory = useCallback((currentNodes?: Node[], currentEdges?: Edge[]) => {
@@ -260,6 +252,7 @@ export default function ChatGraph() {
         return {
           ...edge,
           zIndex: 0,
+          selected: false,
           style: defaultEdgeOptions.style,
           markerEnd: defaultEdgeOptions.markerEnd
         };
@@ -306,7 +299,7 @@ export default function ChatGraph() {
     );
   }, [setEdges]);
 
-   const onConnect = useCallback(
+  const onConnect = useCallback(
     (params: any) => {
       setEdges((eds) => {
         const newEdges = addEdge(params, eds);
@@ -477,10 +470,6 @@ export default function ChatGraph() {
     appendNewNode(type, position);
   }, [appendNewNode]);
 
-  const onGraphChange = () => {
-    // 监听图变化事件，获取当前图的节点和边数据，调用后台接口保存
-  };
-
   // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
   const handleNodesChange = useCallback((changes: any) => {
     // 检查是否是删除操作
@@ -507,7 +496,111 @@ export default function ChatGraph() {
       setTimeout(() => saveToHistory(), 0);
     }
   }, [onEdgesChange, saveToHistory]);
-  
+
+  // Load graph data when graphData prop changes
+  useEffect(() => {
+    if (graphData && graphData !== prevGraphDataRef.current) {
+      prevGraphDataRef.current = graphData;
+      
+      const graphNodes = (graphData.nodes || []).map((node: NodeRawDataType): Node => {
+        const newNode: Node = {
+          id: node.id,
+          type: 'opalGenerate',
+          position: { x: node.metadata.visual?.x || 0, y: node.metadata.visual?.y || 0 },
+          data: node
+        };
+        const nodeType = node.type || '';
+        if (nodeType.includes('embed://a2/generate.bgl.json')) {
+          newNode.type = 'opalGenerate';
+        } 
+        else if (nodeType.includes('module:render-outputs')) {
+          newNode.type = 'opalOutput';
+        }
+        else if (nodeType.includes('module:user-inputs')) {
+          newNode.type = 'userInput';
+        }
+        return newNode;
+      });
+
+      const graphEdges = (graphData.edges || []).map((edge: any): Edge => {
+        return {
+          id: edge.id || `${edge.from}-${edge.to}`,
+          source: edge.from || edge.source,
+          target: edge.to || edge.target
+        };
+      });
+
+      setNodes(graphNodes);
+      setEdges(graphEdges);
+
+      // 加载完成后调用 fitView
+      setTimeout(() => {
+        doLayout();
+        // 布局完成后，将初始状态保存到历史记录
+        setTimeout(() => {
+          isPaused.current = true;
+          saveToHistory(graphNodes, graphEdges);
+          setTimeout(() => {
+            isPaused.current = false;
+          }, 50);
+        }, 100);
+      }, 30);
+    }
+  }, [graphData, setNodes, setEdges, doLayout, saveToHistory]);
+
+  // Apply execution status classes to nodes
+  useEffect(() => {
+    const { nodeStatuses } = execState;
+    if (!Object.keys(nodeStatuses).length) return;
+
+    setNodes(nds => nds.map(node => {
+      const status = nodeStatuses[node.id];
+      let className = '';
+      if (status === 'running') className = 'node-exec-running';
+      else if (status === 'completed') className = 'node-exec-completed';
+      else if (status === 'error') className = 'node-exec-error';
+
+      if (node.className === className) return node;
+      return { ...node, className };
+    }));
+  }, [execState.nodeStatuses, setNodes]);
+
+  // Watch for node/edge changes and notify parent
+  useEffect(() => {
+    if (onGraphChange && nodes.length > 0) {
+      // Convert ReactFlow nodes to OpalNode format
+      const opalNodes: OpalNode[] = nodes.map((node): OpalNode => {
+        const nodeData = node.data as Partial<OpalNode>;
+        return {
+          id: node.id,
+          type: nodeData.type || '',
+          metadata: nodeData.metadata || {},
+          configuration: nodeData.configuration || {}
+        };
+      });
+      
+      // Convert ReactFlow edges to OpalEdge format
+      const opalEdges: OpalEdge[] = edges.map((edge): OpalEdge => {
+        return {
+          from: edge.source,
+          to: edge.target,
+          out: '',
+          in: ''
+        };
+      });
+      
+      const graphDataToSave: OpalGraphJson = {
+        metadata: {},
+        title: '',
+        description: '',
+        nodes: opalNodes,
+        edges: opalEdges
+      };
+      
+      onGraphChange(graphDataToSave);
+    }
+  }, [nodes, edges, onGraphChange]);
+
   // 监听节点和边的变化，自动保存历史记录
   useEffect(() => {
     if (historyIndex === -1) return; // 还没有初始化
@@ -556,80 +649,15 @@ export default function ChatGraph() {
     };
   }, [nodes, edges, historyIndex, saveToHistory]);
 
-  // test fetch data demo
-  useEffect(()=>{
-    // 请求测试数据
-    fetch('./generated_graph.json', {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(rsp => rsp.json())
-      .then(data => {
-        const graphNodes = data.nodes.map((node: NodeRawDataType): Node => {
-          const newNode: Node = {
-            id: node.id,
-            type: 'opalGenerate',
-            position: { x: node.metadata.visual?.x || 0, y: node.metadata.visual?.y || 0 },
-            data: node
-          };
-          const nodeType = node.type || '';
-          if (nodeType.includes('embed://a2/generate.bgl.json')) {
-            newNode.type = 'opalGenerate';
-          } 
-          else if (nodeType.includes('module:render-outputs')) {
-            newNode.type = 'opalOutput';
-          }
-          else if (nodeType.includes('module:user-inputs')) {
-            newNode.type = 'userInput';
-          }
-          return newNode;
-        });
-
-        const graphEdges = data.edges.map((edge: any): Edge => {
-          return {
-            id: `${edge.from}-${edge.to}`,
-            source: edge.from,
-            target: edge.to
-          };
-        });
-
-        setNodes(graphNodes);
-        setEdges(graphEdges);
-
-        // 加载完成后调用 fitView
-        setTimeout(() => {
-          doLayout();
-          // 布局完成后，将初始状态保存到历史记录
-          setTimeout(() => {
-            isPaused.current = true;
-            saveToHistory(graphNodes, graphEdges);
-            setTimeout(() => {
-              isPaused.current = false;
-            }, 50);
-          }, 100);
-        }, 30);
-      });
-  }, []);
-
   return (
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            {/*<div className="flex undo-redo">
-              <button onClick={undo} disabled={historyIndex <= 0}><Undo2 size={20} strokeWidth={1.5}/></button>
-              <button onClick={redo} disabled={historyIndex >= history.length - 1}><Redo2 size={20} strokeWidth={1.5}/></button>
-            </div>
-            <div className="divider"></div>
-            */}
             <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
             <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
             <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
-            {/*<div className="divider"></div>
-            <button onClick={() => doLayout()}><LayoutDagIcon /><span>Layout</span></button>
-            */}
           </div>
       </div>
 

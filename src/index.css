@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color-scheme: light;
   font-synthesis: none;
@@ -5,6 +7,52 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  --font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  --font-size: 0.875rem;
+  --font-size-sm: 0.75rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --bg-color: #F6F7F9;
+  --padding: 10px;
+  --padding-xs: 2px;
+  --padding-sm: 6px;
+  --padding-md: 16px;
+  --padding-lg: 20px;
+  --gap: 6px;
+  --gap-xs: 2px;
+  --gap-sm: 4px;
+  --gap-md: 8px;
+  --gap-lg: 12px;
+  --radius: 6px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+}
+
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+* {
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+*::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #888;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 html {
@@ -57,7 +105,7 @@ button {
   justify-content: center;
   flex-wrap: nowrap;
   white-space: nowrap;
-  gap: 8px;
+  gap: var(--gap-md);
   line-height: 1.4;
   cursor: pointer;
   user-select: none;
@@ -71,28 +119,6 @@ button svg {
 table {
   border-collapse: collapse;
   border-spacing: 0;
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-* {
-  scrollbar-width: thin;
-}
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-*::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-*::-webkit-scrollbar-thumb {
-  border-radius: 4px;
-  background: #888;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
 }
 
 .absolute {
@@ -109,6 +135,12 @@ table {
   top: 0;
   right: 0;
   bottom: 0;
+}
+.inset-1 {
+  left: 1px;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
 }
 .left-0 {
   left: 0;
@@ -150,6 +182,21 @@ table {
 }
 .justify-end {
   justify-content: flex-end;
+}
+.gap {
+  gap: var(--gap);
+}
+.gap-xs {
+  gap: var(--gap-xs);
+}
+.gap-sm {
+  gap: var(--gap-sm);
+}
+.gap-md {
+  gap: var(--gap-md);
+}
+.gap-lg {
+  gap: var(--gap-lg);
 }
 .nowrap {
   flex-wrap: nowrap;

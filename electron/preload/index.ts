@@ -23,6 +23,21 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // ...
 })
 
+interface App {
+  id: string
+  title: string
+  description: string
+  thumbnailUrl?: string
+  tags?: string[]
+}
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  readFile: (filepath: string): Promise<string | null> => ipcRenderer.invoke('read_file', filepath),
+  writeFile: (filepath: string, content: string): Promise<boolean> => ipcRenderer.invoke('write_file', filepath, content),
+  getDataDir: (): Promise<string> => ipcRenderer.invoke('get-data-dir'),
+  listApps: (): Promise<App[]> => ipcRenderer.invoke('list-apps'),
+})
+
 // --------- Preload scripts loading ---------
 function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
   return new Promise(resolve => {

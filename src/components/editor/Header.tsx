@@ -6,15 +6,17 @@ import {
     PanelRightClose,
     PanelRightOpen
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useEditorContext } from './EditorContext';
 
 export default function Header() {
+    const navigate = useNavigate();
     const { sidebarShow, toggleSidebar, viewMode, setViewMode } = useEditorContext();
 
     return (
         <div className="editor-header">
             <div className="editor-header-left">
-                <button className="nav-back"><ArrowLeft size={20} strokeWidth={1.25} /></button>
+                <button className="nav-back" onClick={() => navigate('/')}><ArrowLeft size={20} strokeWidth={1.25} /></button>
                 <input type="text" className="nav-title-input" autoComplete="off" required placeholder="Untitled app" />
             </div>
             <div className="editor-header-center">

@@ -1,0 +1,119 @@
+import { v4 as uuidv4 } from 'uuid';
+
+export interface AppData {
+  id: string
+  title: string
+  description: string
+  thumbnailUrl?: string
+  tags?: string[]
+}
+
+const SETTINGS_FILE = "settings.json";
+
+const getUUID = () => {
+  return uuidv4().replace(/-/g, '');
+};
+
+class Api {
+  /**
+   * 获取应用列表
+   */
+  async listApps(): Promise<AppData[]> {
+    try {
+      return await window.electronAPI.listApps();
+    } catch(e) {
+      return [];
+    }
+  }
+
+  /**
+   * 读取文件内容
+   */
+  async readFile(filepath: string): Promise<string | null> {
+    return await window.electronAPI.readFile(filepath);
+  }
+
+  /**
+   * 写入文件内容
+   */
+  async writeFile(filepath: string, content: string): Promise<boolean> {
+    return await window.electronAPI.writeFile(filepath, content);
+  }
+
+  /**
+   * 获取数据目录路径
+   */
+  async getDataDir(): Promise<string> {
+    return await window.electronAPI.getDataDir();
+  }
+
+  /**
+   * 创建新应用
+   */
+  async createApp(): Promise<string> {
+    const id = getUUID();
+    const initialData = {
+      title: 'Untitled app',
+      description: '',
+      version: "0.0.1",
+      nodes: [],
+      edges: []
+    }
+    await this.writeFile(`apps/${id}.json`, JSON.stringify(initialData, null, 2));
+    return id;
+  }
+
+  async getAppData(appId:string): Promise<any> {
+    try {
+      const appContent = await this.readFile(`apps/${appId}.json`);
+      if (appContent === null) {
+        return {};
+      }
+      return JSON.parse(appContent);
+    } catch(e) {
+      return {};
+    }
+  }
+
+  async saveAppData(appId: string, appData: any): Promise<boolean> {
+    try {
+      await this.writeFile(`apps/${appId}.json`, JSON.stringify(appData, null, 2));
+      return true;
+    } catch(e) {
+      console.error('Failed to save app data:', e);
+      return false;
+    }
+  }
+
+  /**
+   * 加载配置
+   */
+  async loadSettings(): Promise<any> {
+    try {
+      const content = await this.readFile(SETTINGS_FILE);
+      if (content === null) {
+        return {};
+      }
+      return JSON.parse(content);
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+      return {};
+    }
+  }
+
+  /**
+   * 保存配置
+   */
+  async saveSettings(settings: any): Promise<boolean> {
+    try {
+      await this.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+      return true;
+    } catch (e) {
+      console.error('Failed to save settings:', e);
+      return false;
+    }
+  }
+}
+
+// 导出单例实例
+export const api = new Api();
