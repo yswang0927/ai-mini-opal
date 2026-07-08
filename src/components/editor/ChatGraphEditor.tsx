@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import ChatGraph from '@/components/graph/ChatGraph';
-import { useGraphExecutor, ExecutorPanel } from '@/components/graph/executor';
+import { ExecutorPanel } from '@/components/graph/executor';
 import type { OpalGraphJson } from '@/components/graph/executor';
 import { LayoutResizer } from '@/utils/util';
 import { EditorProvider, useEditorContext } from './EditorContext';
@@ -24,8 +24,7 @@ export default function ChatGraphEditor() {
 function ChatGraphEditorContent() {
     const sidebarRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
-    const { sidebarShow, viewMode, setViewMode } = useEditorContext();
-    const { execState, execute, submitInput, reset } = useGraphExecutor();
+    const { sidebarShow, viewMode, setViewMode, execState, execute, submitInput, resetExecutor } = useEditorContext();
 
     useEffect(() => {
         resizerRef.current?.destroy();
@@ -56,9 +55,9 @@ function ChatGraphEditorContent() {
     }, [viewMode]);
 
     const handleCloseApp = useCallback(() => {
-        reset();
+        resetExecutor();
         setViewMode('editor');
-    }, [reset, setViewMode]);
+    }, [resetExecutor, setViewMode]);
 
     return (
         <div className="opal-editor">

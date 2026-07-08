@@ -1,13 +1,19 @@
-const TEMPLATE_REGEX = /\{\{"type":"in","path":"([^"]+)","title":"([^"]+)"\}\}/g;
+const TEMPLATE_REGEX = /\{\{(.*?)\}\}/g;
 
 export function resolvePromptTemplate(
   template: string,
   nodeOutputs: Record<string, string>
 ): string {
-  console.log('>> nodeOutputs: ', nodeOutputs);
-  const resolved = template.replace(TEMPLATE_REGEX, (_match, path: string, _title: string) => {
-    return nodeOutputs[path] ?? `[未获取到: ${path}]`;
+  console.log('>> nodeOutputs: \n', nodeOutputs);
+  const resolved = template.replace(TEMPLATE_REGEX, (match, inner: string) => {
+    try {
+      const obj = JSON.parse(`{${inner}}`);
+      if (obj.type === 'in' && obj.path) {
+        return nodeOutputs[obj.path] ?? `[未获取到: ${obj.path}]`;
+      }
+    } catch {}
+    return match;
   });
-  console.log('>> resolved template: ', resolved);
+  console.log('>> resolvedPromptTemplate: \n', resolved);
   return resolved;
 }

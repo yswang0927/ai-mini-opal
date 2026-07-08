@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { X } from "lucide-react";
 import type { ExecutionState, InputRequest } from "./types";
 
 interface ExecutorPanelProps {
@@ -16,7 +17,7 @@ export default function ExecutorPanel({ execState, onSubmitInput, onClose }: Exe
     <div className="executor-panel">
       <div className="executor-panel-header">
         <span className="executor-title">App Preview</span>
-        <button className="executor-close" onClick={onClose}>&times;</button>
+        <button className="executor-close" onClick={onClose}><X size={20} strokeWidth={1.5} /></button>
       </div>
 
       <div className="executor-panel-body">

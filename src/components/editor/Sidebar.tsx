@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import Quill from 'quill';
 import { useEditorContext } from './EditorContext';
-import { 
-    NodeTypes, 
-    type NodeDataType, 
-    type NodeRawConfigurationType, 
-    type NodeTypeKey 
+import { ExecutorPanel } from '@/components/graph/executor';
+import type { OpalGraphJson } from '@/components/graph/executor';
+import {
+    NodeTypes,
+    type NodeDataType,
+    type NodeRawConfigurationType,
+    type NodeTypeKey
 } from '@/components/graph/types';
 
 import "quill/dist/quill.core.css";
@@ -132,26 +134,60 @@ const StepDetail = ({stepData}: {
 
 export default function Sidebar() {
     const [selectedTab, setSelectedTab] = useState('');
-    const { selectedNode } = useEditorContext();
+    const { selectedNode, execState, execute, submitInput, resetExecutor } = useEditorContext();
 
     useEffect(() => {
         setSelectedTab(selectedNode !== null ? 'Step' : '');
     }, [selectedNode]);
 
+    const handleRunPreview = useCallback(async () => {
+        if (execState.status !== 'idle') return;
+        try {
+            const rsp = await fetch('./generated_graph.json');
+            const graphJson: OpalGraphJson = await rsp.json();
+            await execute(graphJson);
+        } catch (e: any) {
+            console.error('Failed to load graph:', e);
+        }
+    }, [execute, execState.status]);
+
+    const handlePreviewTab = useCallback(() => {
+        setSelectedTab('Preview');
+        handleRunPreview();
+    }, [handleRunPreview]);
+
+    const handleCloseApp = useCallback(() => {
+        resetExecutor();
+    }, [resetExecutor]);
+
     return (
         <div className="editor-side">
             <div className="editor-side-header">
                 <div className="editor-side-nav">
-                    <button className={selectedTab === 'Preview' ? 'selected' : ''} onClick={() => setSelectedTab('Preview')}>Preview</button>
+                    <button className={selectedTab === 'Preview' ? 'selected' : ''} onClick={handlePreviewTab}>Preview</button>
                     <button className={selectedTab === 'Console' ? 'selected' : ''} onClick={() => setSelectedTab('Console')}>Console</button>
                     <button className={selectedTab === 'Step' ? 'selected' : ''} onClick={() => setSelectedTab('Step')}>Step</button>
                     <button className={selectedTab === 'Theme' ? 'selected' : ''} onClick={() => setSelectedTab('Theme')}>Theme</button>
                 </div>
             </div>
 
-            <div className="editor-side-body">
-                {!selectedNode && (<div className="empty-state">Your app will appear here once it's built</div>)}
-                { selectedNode && (<StepDetail stepData={selectedNode} />)}
+            <div className="relative editor-side-body">
+                {selectedTab === 'Preview' && (
+                    <ExecutorPanel
+                        execState={execState}
+                        onSubmitInput={submitInput}
+                        onClose={handleCloseApp}
+                    />
+                )}
+                {selectedTab === 'Step' && !selectedNode && (
+                    <div className="empty-state">Select a step node to edit</div>
+                )}
+                {selectedTab === 'Step' && selectedNode && (
+                    <StepDetail stepData={selectedNode} />
+                )}
+                {selectedTab !== 'Preview' && selectedTab !== 'Step' && (
+                    <div className="empty-state">Your app will appear here once it's built</div>
+                )}
             </div>
         </div>
     );

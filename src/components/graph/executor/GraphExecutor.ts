@@ -1,7 +1,7 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { OpalGraphJson, OpalNode, OpalEdge, InputRequest, ExecutionState } from "./types";
 import { resolvePromptTemplate } from "./promptTemplate";
-import { getLLM, OUTPUT_SYSTEM_PROMPT } from "./llm";
+import { getLLM, RENDER_OUTPUT_SYSTEM_PROMPT } from "./llm";
 
 function topologicalSort(nodes: OpalNode[], edges: OpalEdge[]): string[] {
   const inDegree: Record<string, number> = {};
@@ -174,15 +174,7 @@ export class GraphExecutor {
     const resolvedText = resolvePromptTemplate(textTemplate, this.nodeOutputs);
 
     const llm = getLLM();
-    let systemPrompt = `You are an expert HTML/CSS developer. Generate a complete, self-contained HTML page based on the user's design requirements. The page must:
-- Be a single HTML file with inline CSS and no external dependencies
-- Use modern CSS (flexbox/grid) for layout
-- Be responsive and visually polished
-- Include all content data directly in the HTML
-- Use UTF-8 encoding
-- Output ONLY the HTML code, no explanations`;
-    // test new prompt
-    //systemPrompt = OUTPUT_SYSTEM_PROMPT;
+    const systemPrompt = RENDER_OUTPUT_SYSTEM_PROMPT;
 
     const messages = [
       new SystemMessage(systemPrompt),
