@@ -1,14 +1,15 @@
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type { ExecutionState, InputRequest } from "./types";
 
 interface ExecutorPanelProps {
   execState: ExecutionState;
   onSubmitInput: (inputs: Record<string, string>) => void;
-  onClose: () => void;
+  onStart: () => void;
+  onRestart: () => void;
 }
 
-export default function ExecutorPanel({ execState, onSubmitInput, onClose }: ExecutorPanelProps) {
+export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRestart }: ExecutorPanelProps) {
   const { status, pendingInputs, renderedHtml, error, nodeOutputs } = execState;
 
   if (status === 'idle') return null;
@@ -17,10 +18,17 @@ export default function ExecutorPanel({ execState, onSubmitInput, onClose }: Exe
     <div className="executor-panel">
       <div className="executor-panel-header">
         <span className="executor-title">App Preview</span>
-        <button className="executor-close" onClick={onClose}><X size={20} strokeWidth={1.5} /></button>
+        <button className="executor-close" onClick={onRestart} title="Restart app"><RotateCcw size={20} strokeWidth={1.5} /></button>
       </div>
 
       <div className="executor-panel-body">
+        {status === 'ready' && (
+          <SplashView
+            title={execState.graphTitle}
+            description={execState.graphDescription}
+            onStart={onStart}
+          />
+        )}
         {status === 'running' && <RunningView title={execState.currentNodeTitle} />}
         {status === 'waiting_input' && (
           <InputCollector inputs={pendingInputs} onSubmit={onSubmitInput} />
@@ -33,6 +41,20 @@ export default function ExecutorPanel({ execState, onSubmitInput, onClose }: Exe
         )}
         {status === 'error' && <ErrorView error={error} />}
       </div>
+    </div>
+  );
+}
+
+function SplashView({ title, description, onStart }: {
+  title: string | null;
+  description: string | null;
+  onStart: () => void;
+}) {
+  return (
+    <div className="executor-splash">
+      <h2 className="executor-splash-title">{title || 'Untitled App'}</h2>
+      {description && <p className="executor-splash-desc">{description}</p>}
+      <button className="executor-start-btn" onClick={onStart}>开始</button>
     </div>
   );
 }

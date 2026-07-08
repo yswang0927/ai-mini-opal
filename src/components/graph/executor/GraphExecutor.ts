@@ -47,11 +47,15 @@ export class GraphExecutor {
   private executionOrder: string[];
   private nodeOutputs: Record<string, string> = {};
   private inputResolver: ((inputs: Record<string, string>) => void) | null = null;
+  private graphTitle: string | null;
+  private graphDescription: string | null;
 
   constructor(graphJson: OpalGraphJson) {
     this.graphJson = graphJson;
     this.nodeMap = new Map(graphJson.nodes.map(n => [n.id, n]));
     this.executionOrder = topologicalSort(graphJson.nodes, graphJson.edges);
+    this.graphTitle = graphJson.title || null;
+    this.graphDescription = graphJson.description || null;
   }
 
   async run(onStateChange: (state: ExecutionState) => void): Promise<void> {
@@ -64,6 +68,8 @@ export class GraphExecutor {
       error: null,
       currentNodeId: this.executionOrder[0] || null,
       currentNodeTitle: firstNode?.metadata?.title || null,
+      graphTitle: this.graphTitle,
+      graphDescription: this.graphDescription,
     });
 
     try {
@@ -79,6 +85,8 @@ export class GraphExecutor {
           error: null,
           currentNodeId: nodeId,
           currentNodeTitle: node.metadata?.title || nodeId,
+          graphTitle: this.graphTitle,
+          graphDescription: this.graphDescription,
         });
 
         if (category === 'input') {
@@ -100,6 +108,8 @@ export class GraphExecutor {
         error: e.message || String(e),
         currentNodeId: null,
         currentNodeTitle: null,
+        graphTitle: this.graphTitle,
+        graphDescription: this.graphDescription,
       });
     }
   }
@@ -135,6 +145,8 @@ export class GraphExecutor {
       error: null,
       currentNodeId: node.id,
       currentNodeTitle: node.metadata?.title || node.id,
+      graphTitle: this.graphTitle,
+      graphDescription: this.graphDescription,
     });
 
     const inputs = await new Promise<Record<string, string>>((resolve) => {
@@ -206,6 +218,8 @@ export class GraphExecutor {
       error: null,
       currentNodeId: null,
       currentNodeTitle: null,
+      graphTitle: this.graphTitle,
+      graphDescription: this.graphDescription,
     });
   }
 }

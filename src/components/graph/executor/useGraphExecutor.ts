@@ -10,16 +10,31 @@ const initialState: ExecutionState = {
   error: null,
   currentNodeId: null,
   currentNodeTitle: null,
+  graphTitle: null,
+  graphDescription: null,
 };
 
 export function useGraphExecutor() {
   const [execState, setExecState] = useState<ExecutionState>(initialState);
   const executorRef = useRef<GraphExecutor | null>(null);
+  const graphRef = useRef<OpalGraphJson | null>(null);
 
-  const execute = useCallback(async (graphJson: OpalGraphJson) => {
+  const loadGraph = useCallback((graphJson: OpalGraphJson) => {
+    graphRef.current = graphJson;
+    setExecState({
+      ...initialState,
+      status: 'ready',
+      graphTitle: graphJson.title || null,
+      graphDescription: graphJson.description || null,
+    });
+  }, []);
+
+  const start = useCallback(async () => {
+    const graphJson = graphRef.current;
+    if (!graphJson) return;
     const executor = new GraphExecutor(graphJson);
     executorRef.current = executor;
-    setExecState({ ...initialState, status: 'running' });
+    setExecState(prev => ({ ...prev, status: 'running' }));
     await executor.run(setExecState);
   }, []);
 
@@ -30,8 +45,9 @@ export function useGraphExecutor() {
 
   const reset = useCallback(() => {
     executorRef.current = null;
+    graphRef.current = null;
     setExecState(initialState);
   }, []);
 
-  return { execState, execute, submitInput, reset };
+  return { execState, loadGraph, start, submitInput, reset };
 }

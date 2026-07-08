@@ -166,3 +166,44 @@
   flex: 1;
   min-height: 0;
 }
+
+.executor-splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.executor-splash-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 12px;
+}
+
+.executor-splash-desc {
+  font-size: 15px;
+  color: #6b7280;
+  margin: 0 0 32px;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.executor-start-btn {
+  padding: 12px 36px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.executor-start-btn:hover {
+  background: #4f46e5;
+}

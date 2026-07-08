@@ -24,7 +24,7 @@ export default function ChatGraphEditor() {
 function ChatGraphEditorContent() {
     const sidebarRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
-    const { sidebarShow, viewMode, setViewMode, execState, execute, submitInput, resetExecutor } = useEditorContext();
+    const { sidebarShow, viewMode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
     useEffect(() => {
         resizerRef.current?.destroy();
@@ -40,24 +40,20 @@ function ChatGraphEditorContent() {
 
     const handleRunApp = useCallback(async () => {
         try {
+            resetExecutor();
             const rsp = await fetch('./generated_graph.json');
             const graphJson: OpalGraphJson = await rsp.json();
-            await execute(graphJson);
+            loadGraph(graphJson);
         } catch (e: any) {
             console.error('Failed to load graph:', e);
         }
-    }, [execute]);
+    }, [loadGraph, resetExecutor]);
 
     useEffect(() => {
         if (viewMode === 'app' && execState.status === 'idle') {
             handleRunApp();
         }
     }, [viewMode]);
-
-    const handleCloseApp = useCallback(() => {
-        resetExecutor();
-        setViewMode('editor');
-    }, [resetExecutor, setViewMode]);
 
     return (
         <div className="opal-editor">
@@ -86,7 +82,8 @@ function ChatGraphEditorContent() {
                         <ExecutorPanel
                             execState={execState}
                             onSubmitInput={submitInput}
-                            onClose={handleCloseApp}
+                            onStart={startExecution}
+                            onRestart={handleRunApp}
                         />
                     </div>
                 )}

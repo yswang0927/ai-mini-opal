@@ -134,31 +134,29 @@ const StepDetail = ({stepData}: {
 
 export default function Sidebar() {
     const [selectedTab, setSelectedTab] = useState('');
-    const { selectedNode, execState, execute, submitInput, resetExecutor } = useEditorContext();
+    const { selectedNode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
     useEffect(() => {
         setSelectedTab(selectedNode !== null ? 'Step' : '');
     }, [selectedNode]);
 
-    const handleRunPreview = useCallback(async () => {
-        if (execState.status !== 'idle') return;
+    const doRunPreview = useCallback(async () => {
+        resetExecutor();
         try {
             const rsp = await fetch('./generated_graph.json');
             const graphJson: OpalGraphJson = await rsp.json();
-            await execute(graphJson);
+            loadGraph(graphJson);
         } catch (e: any) {
             console.error('Failed to load graph:', e);
         }
-    }, [execute, execState.status]);
+    }, [loadGraph, resetExecutor]);
 
     const handlePreviewTab = useCallback(() => {
         setSelectedTab('Preview');
-        handleRunPreview();
-    }, [handleRunPreview]);
-
-    const handleCloseApp = useCallback(() => {
-        resetExecutor();
-    }, [resetExecutor]);
+        if (execState.status === 'idle') {
+            doRunPreview();
+        }
+    }, [doRunPreview, execState.status]);
 
     return (
         <div className="editor-side">
@@ -176,7 +174,8 @@ export default function Sidebar() {
                     <ExecutorPanel
                         execState={execState}
                         onSubmitInput={submitInput}
-                        onClose={handleCloseApp}
+                        onStart={startExecution}
+                        onRestart={doRunPreview}
                     />
                 )}
                 {selectedTab === 'Step' && !selectedNode && (

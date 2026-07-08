@@ -20,7 +20,7 @@ export interface OpalGraphJson {
   edges: OpalEdge[];
 }
 
-export type ExecutionStatus = 'idle' | 'waiting_input' | 'running' | 'completed' | 'error';
+export type ExecutionStatus = 'idle' | 'ready' | 'waiting_input' | 'running' | 'completed' | 'error';
 
 export interface InputRequest {
   nodeId: string;
@@ -38,4 +38,6 @@ export interface ExecutionState {
   error: string | null;
   currentNodeId: string | null;
   currentNodeTitle: string | null;
+  graphTitle: string | null;
+  graphDescription: string | null;
 }
