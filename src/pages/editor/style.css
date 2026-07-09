@@ -7,8 +7,8 @@
 .layout-header {
     position: relative;
     z-index: 4;
-    height: 2.875rem;
-    background-color: var(--bg-color);
+    height: 50px;
+    background-color: #fff;
     border-bottom: 1px solid rgb(226, 226, 226);
 }
 

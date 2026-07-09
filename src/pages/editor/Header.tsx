@@ -8,8 +8,10 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEditorContext } from './EditorContext';
+import { useL10n } from "@/l10n";
 
 export default function Header() {
+    const { t } = useL10n();
     const navigate = useNavigate();
     const { sidebarShow, toggleSidebar, viewMode, setViewMode } = useEditorContext();
 
@@ -21,14 +23,14 @@ export default function Header() {
             </div>
             <div className="editor-header-center">
                 <div className="editor-header-btn-group">
-                    <button className={viewMode === 'editor' ? 'selected' : ''} onClick={() => setViewMode('editor')}>Editor</button>
-                    <button className={viewMode === 'app' ? 'selected' : ''} onClick={() => setViewMode('app')}>App</button>
+                    <button className={viewMode === 'editor' ? 'selected' : ''} onClick={() => setViewMode('editor')}>{t('画布')}</button>
+                    <button className={viewMode === 'app' ? 'selected' : ''} onClick={() => setViewMode('app')}>{t('应用')}</button>
                 </div>
             </div>
             <div className="editor-header-right">
-                <div style={{ fontSize: "var(--font-size-sm)" }}>Saved</div>
-                <button className="nav-publish"><CloudUpload size={18} strokeWidth={1.5} /> <span>发布</span></button>
-                <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>分享</span></button>
+                <div style={{ fontSize: "var(--font-size-sm)" }}>{t('已保存')}</div>
+                {/*<button className="nav-publish"><CloudUpload size={18} strokeWidth={1.5} /> <span>{t('发布')}</span></button>*/}
+                <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
                 <button><EllipsisVertical size={18} strokeWidth={1.5} /></button>
                 <div style={{marginLeft: '0.5rem'}}>
                     <button onClick={toggleSidebar}>{ (sidebarShow ? <PanelRightClose size={18} strokeWidth={1.5} /> : <PanelRightOpen size={18} strokeWidth={1.5} />) }</button>

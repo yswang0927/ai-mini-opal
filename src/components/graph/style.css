@@ -5,12 +5,18 @@
     display: none !important;
 }
 .react-flow__node .opal-node {
+    --node-radius: 12px;
     position: relative;
     background: #fff;
     width: 300px;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
+    border-radius: var(--node-radius);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    box-shadow: var(--shadow-2);
+    --glow-radius: var(--node-radius);
+    --glow-size: 4px;
+}
+.react-flow__node .opal-node:hover {
+    box-shadow: var(--shadow-3);
 }
 .react-flow__node.selected .opal-node {
     outline: 2px solid #000 !important;
@@ -23,8 +29,8 @@
     font-weight: 600;
     font-size: 16px;
     color: #1C2127;
-    border-top-left-radius: inherit;
-    border-top-right-radius: inherit;
+    border-top-left-radius: var(--node-radius);
+    border-top-right-radius: var(--node-radius);
 }
 .react-flow__node .opal-node-header-title {
     gap: 8px;
@@ -38,8 +44,8 @@
     color: #334155;
     line-height: 1.5;
     min-height: 60px;
-    border-bottom-left-radius: inherit;
-    border-bottom-right-radius: inherit;
+    border-bottom-left-radius: var(--node-radius);
+    border-bottom-right-radius: var(--node-radius);
 }
 .react-flow__node .opal-node-body .missing {
     color: rgba(0, 0, 0, 0.6);

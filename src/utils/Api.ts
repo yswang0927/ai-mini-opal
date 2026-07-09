@@ -1,17 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-
-export interface AppData {
-  id: string
-  title: string
-  description: string
-  thumbnailUrl?: string
-  tags?: string[]
-}
+import { type AppData } from '@/types';
 
 const SETTINGS_FILE = "settings.json";
 
 const getUUID = () => {
-  return uuidv4().replace(/-/g, '');
+  //return uuidv4().replace(/-/g, '');
+  return uuidv4();
 };
 
 class Api {

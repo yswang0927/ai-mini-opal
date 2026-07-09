@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { CaretRightIcon } from '@/components/icons'
+import { CaretRightIcon } from '@/utils/icons'
 import { NodeTypes, type NodeDataType, type NodeTypeKey } from './types';
 
 

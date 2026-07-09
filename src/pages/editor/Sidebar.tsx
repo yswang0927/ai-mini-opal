@@ -7,13 +7,14 @@ import type { OpalGraphJson, NodeExecInfo } from '@/components/graph/executor';
 import {
     NodeTypes,
     type NodeDataType,
-    type NodeRawConfigurationType,
     type NodeTypeKey
 } from '@/components/graph/types';
+import { useL10n } from "@/l10n";
+
+import { TagBlot, TagModule, quillContentToText } from './QuillCustomBlots';
 
 import "quill/dist/quill.core.css";
 
-import { TagBlot, TagModule, quillContentToText } from './QuillCustomBlots';
 
 Quill.register('formats/tag', TagBlot);
 Quill.register('modules/tag', TagModule);
@@ -28,6 +29,7 @@ const StepDetail = ({stepData}: {
 }) => {
     console.log('>> stepData: ', stepData);
     const { updateNode } = useReactFlow();
+    const { t } = useL10n();
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
 
@@ -136,6 +138,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
     execLog: NodeExecInfo[];
     currentNodeId: string | null;
 }) => {
+    const { t } = useL10n();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -147,7 +150,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
     if (execLog.length === 0 && !currentNodeId) {
         return (
             <div className="console-empty">
-                <p>运行 Preview 后，节点执行日志将显示在这里</p>
+                <p>{t('运行预览后，节点执行日志将显示在这里')}</p>
             </div>
         );
     }
@@ -178,7 +181,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
                 <div className="console-item console-item-running">
                     <div className="console-item-header">
                         <span className="console-item-status" data-status="running" />
-                        <span className="console-item-title">执行中...</span>
+                        <span className="console-item-title">{t('执行中...')}</span>
                     </div>
                 </div>
             )}
@@ -187,6 +190,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 };
 
 export default function Sidebar() {
+    const { t } = useL10n();
     const [selectedTab, setSelectedTab] = useState('');
     const { selectedNode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
@@ -216,10 +220,10 @@ export default function Sidebar() {
         <div className="editor-side">
             <div className="editor-side-header">
                 <div className="editor-side-nav">
-                    <button className={selectedTab === 'Preview' ? 'selected' : ''} onClick={handlePreviewTab}>Preview</button>
-                    <button className={selectedTab === 'Console' ? 'selected' : ''} onClick={() => setSelectedTab('Console')}>Console</button>
-                    <button className={selectedTab === 'Step' ? 'selected' : ''} onClick={() => setSelectedTab('Step')}>Step</button>
-                    <button className={selectedTab === 'Theme' ? 'selected' : ''} onClick={() => setSelectedTab('Theme')}>Theme</button>
+                    <button className={selectedTab === 'Preview' ? 'selected' : ''} onClick={handlePreviewTab}>{t('预览应用')}</button>
+                    <button className={selectedTab === 'Console' ? 'selected' : ''} onClick={() => setSelectedTab('Console')}>{t('控制台')}</button>
+                    <button className={selectedTab === 'Step' ? 'selected' : ''} onClick={() => setSelectedTab('Step')}>{t('节点')}</button>
+                    <button className={selectedTab === 'Theme' ? 'selected' : ''} onClick={() => setSelectedTab('Theme')}>{t('主题')}</button>
                 </div>
             </div>
 
@@ -239,13 +243,13 @@ export default function Sidebar() {
                     />
                 )}
                 {selectedTab === 'Step' && !selectedNode && (
-                    <div className="empty-state">Select a step node to edit</div>
+                    <div className="empty-state">{t('请选择一个节点编辑')}</div>
                 )}
                 {selectedTab === 'Step' && selectedNode && (
                     <StepDetail stepData={selectedNode} />
                 )}
                 {selectedTab !== 'Preview' && selectedTab !== 'Step' && selectedTab !== 'Console' && (
-                    <div className="empty-state">Your app will appear here once it's built</div>
+                    <div className="empty-state">{t('您的应用在构建完成后将在这里显示')}</div>
                 )}
             </div>
         </div>

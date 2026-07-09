@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Home from '@/components/Home'
-import ChatGraphEditor from '@/components/editor/ChatGraphEditor'
+import Home from '@/pages/Home'
+import ChatGraphEditor from '@/pages/editor/ChatGraphEditor'
 
+import "@blueprintjs/core/lib/css/blueprint.css";
 import "./App.css"
 
 function App() {

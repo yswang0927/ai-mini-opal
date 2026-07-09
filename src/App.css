@@ -69,3 +69,59 @@ button, input[type="text"], input[type="password"], textarea {
   height: 2px;
   width: 32px;
 }
+
+/* ======================================================
+  核心效果:边框流光 (glow-border)
+  原理:
+  1. 元素本身设为 position: relative,作为定位参考
+  2. ::before 伪元素铺满整个区域(inset 为负值扩出边框宽度)
+  3. 伪元素背景是一个旋转的 conic-gradient(锥形渐变),
+    渐变里只有一小段是亮色,其余透明,看起来像一条光在跑
+  4. 用 mask 做"镂空":只保留边框那一圈宽度,中间挖空
+    (mask-composite: exclude 让两层 mask 做异或运算)
+  5. animation 让 conic-gradient 持续旋转 => 光沿边框流动
+  不依赖任何 JS,任意宽高的矩形都适用,只需改 --glow-*变量
+  ====================================================== */
+.glow-border {
+  --glow-size: 2px; /* 流光边框粗细 */
+  --glow-speed: 2s; /* 转一圈的时长 */
+  --glow-color1: #5eead4;
+  --glow-color2: #818cf8;
+  --glow-color3: #f472b6;
+  --glow-radius: 14px;
+
+  position: relative;
+  border-radius: var(--glow-radius);
+  isolation: isolate; /* 防止 z-index:-1 的伪元素跑到父级背景之下 */
+}
+.glow-border::before{
+  content: "";
+  position: absolute;
+  inset: calc(var(--glow-size) * -1);
+  border-radius: inherit;
+  z-index: -1;
+  padding: var(--glow-size);
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    transparent 0%,
+    var(--glow-color1) 8%,
+    var(--glow-color2) 16%,
+    var(--glow-color3) 24%,
+    transparent 34%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: glow-rotate var(--glow-speed) linear infinite;
+  filter: blur(0.3px);
+}
+/* 用 @property 注册 --angle 才能被 animation 平滑插值旋转 */
+@property --angle{
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes glow-rotate{
+  to { --angle: 360deg; }
+}

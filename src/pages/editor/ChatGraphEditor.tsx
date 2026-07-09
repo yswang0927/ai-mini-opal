@@ -4,14 +4,14 @@ import { ReactFlowProvider } from '@xyflow/react';
 import ChatGraph from '@/components/graph/ChatGraph';
 import { ExecutorPanel } from '@/components/graph/executor';
 import type { OpalGraphJson } from '@/components/graph/executor';
-import { LayoutResizer } from '@/utils/util';
+import { LayoutResizer } from '@/utils';
 import { EditorProvider, useEditorContext } from './EditorContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import { api } from '@/utils/Api';
 
 import "./style.css";
-import "../graph/executor/executor.css";
+import "../../components/graph/executor/executor.css";
 
 export default function ChatGraphEditor() {
     return (
@@ -57,7 +57,7 @@ function ChatGraphEditorContent() {
 
     // Handle graph changes and save
     const handleGraphChange = useCallback((graphData: OpalGraphJson) => {
-        setAppData(graphData);
+        /*setAppData(graphData);
         
         // Debounce saving
         if (saveTimerRef.current) {
@@ -68,7 +68,7 @@ function ChatGraphEditorContent() {
             if (id) {
                 saveAppData(id, graphData);
             }
-        }, 1000); // Save after 1 second of inactivity
+        }, 1000);*/ // Save after 1 second of inactivity
     }, [id]);
 
     const saveAppData = useCallback(async (appId: string, graphData: OpalGraphJson) => {

@@ -16,9 +16,11 @@
     "pretest": "vite build --mode=test",
     "test": "vitest run",
     "test:e2e": "pnpm pretest && playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "extract-l10n": "node scripts/extract-l10n.js"
   },
   "dependencies": {
+    "@blueprintjs/core": "^6.17.1",
     "@langchain/core": "^1.2.1",
     "@langchain/langgraph": "^1.4.7",
     "@langchain/openai": "^1.5.3",
@@ -30,7 +32,6 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
-    "tailwindcss": "^4.3.0",
     "uuid": "^14.0.1"
   },
   "devDependencies": {

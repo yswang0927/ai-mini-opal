@@ -19,15 +19,15 @@ import {
   MessageSquareText, 
   SquarePlus, 
   SendHorizontal,
-  Undo2, 
+  Undo2,
   Redo2
 } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
 import './style.css';
 
-import { LayoutDagIcon, Undo, Redo } from '@/components/icons';
-import { useEditorContext } from '@/components/editor/EditorContext';
+import { LayoutDagIcon, Undo, Redo } from '@/utils/icons';
+import { useEditorContext } from '@/pages/editor/EditorContext';
 import { 
   UserInputNode, 
   GenerateNode, 
@@ -35,7 +35,7 @@ import {
 } from './OpalNodes';
 import { type NodeTypeKey, type NodeRawDataType } from './types';
 import { type OpalGraphJson, type OpalNode, type OpalEdge } from './executor/types';
-
+import { useL10n } from "@/l10n";
 import autoLayout from './AutoLayout';
 
 // 注册自定义节点映射
@@ -80,6 +80,7 @@ interface ChatGraphProps {
 }
 
 export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) {
+  const { t } = useL10n();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { setSelectedNode, execState } = useEditorContext();
@@ -653,11 +654,11 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>User Input</span></button>
-            <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>Generate</span></button>
-            <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>Output</span></button>
+            <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
+            <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
+            <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
             <div className="divider"></div>
-            <button><SquarePlus size={20} strokeWidth={1.5}/><span>Add Assets</span></button>
+            <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
           </div>
       </div>
 
@@ -684,29 +685,29 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         {/* 背景网格点 */}
         <Background color="#C5CBD3" gap={20} size={1} />
         <Controls position="bottom-right">
-          <ControlButton onClick={() => doLayout()} title="自动布局"><LayoutDagIcon /></ControlButton>
-          <ControlButton onClick={undo} disabled={historyIndex <= 0} title="撤销"><Undo /></ControlButton>
-          <ControlButton onClick={redo} disabled={historyIndex >= history.length - 1} title="重做"><Redo /></ControlButton>
+          <ControlButton onClick={() => doLayout()} title={t('自动布局')}><LayoutDagIcon /></ControlButton>
+          <ControlButton onClick={undo} disabled={historyIndex <= 0} title={t('撤销')}><Undo /></ControlButton>
+          <ControlButton onClick={redo} disabled={historyIndex >= history.length - 1} title={t('重做')}><Redo /></ControlButton>
         </Controls>
       </ReactFlow>
 
       { nodes.length === 0 && (
       <div className="absolute inset-0 flex items-center justify-center graph-empty-state">
         <div className="empty-state-top">
-          Add a step to get started.
+          {t('添加一个步骤开始')}
         </div>
         <div>
-          <h3>Let's build your app!</h3>
-          <h4>Take a look at our <a href="#">demo video</a></h4>
+          <h3>{t('构建你的应用')}</h3>
+          <h4>{t('查看我们的')} <a href="#">{t('演示视频')}</a></h4>
         </div>
         <div className="empty-state-bottom">
-          ... or type what your want to build
+          ... <span>{t('或输入你想构建的内容')}</span>
         </div>
       </div>)}
 
       <div className="graph-chatbox">
         <div className="graph-chatbox-input flex items-center">
-          <textarea rows={1} placeholder="Describe what you want to build"></textarea>
+          <textarea rows={1} placeholder={t('描述你想构建的内容')}></textarea>
           <button className="graph-chatbox-submit"><SendHorizontal size={24} strokeWidth={1.5} /></button>
         </div>
       </div>
