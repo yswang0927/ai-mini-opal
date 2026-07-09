@@ -72,11 +72,21 @@ def _make_get_overview_tool(graph: OpalGraphState) -> StructuredTool:
 # ===========================================================================
 
 class _CreateInputStepArgs(BaseModel):
-    title: str = Field(..., description="节点标题,简短明确,如'Height Cm'、'User Email'。用户在画布上看到的就是这个标题。")
-    question_text: str = Field(..., description="向用户展示的提问文案,如'Enter your height in centimeters.'")
+    title: str = Field(..., description="节点标题,简短明确,如'Height Cm'、'User Email'、'Upload File'。用户在画布上看到的就是这个标题。")
+    question_text: str = Field(..., description="向用户展示的提问文案,如'Enter your height in centimeters.'或'Upload your Excel file'。")
     modality: str = Field(
         "Any",
-        description="期望的输入模态:Text/Any/Image/Audio。大多数场景用'Any'即可,除非明确要求特定输入类型。",
+        description=(
+            "期望的输入模态,可选值:\n"
+            "- 'Text': 纯文本输入(如姓名、邮箱、数字)\n"
+            "- 'Image': 图片上传(如头像、照片、截图)\n"
+            "- 'Audio': 音频上传(如语音消息、录音)\n"
+            "- 'Any': 任意类型输入,包括文件上传(Excel/PDF/Word等文档、图片、音频、视频等)\n"
+            "关键规则:\n"
+            "• 当用户明确提到'上传文件'、'选择文件'、'导入Excel/PDF/Word'等,必须设置为'Any'或对应的专用类型\n"
+            "• 'Any'是最灵活的选择,支持文件上传+文本输入的组合场景\n"
+            "• 纯文本场景(如输入姓名、数字)才用'Text'"
+        ),
     )
     required: bool = Field(
         True,
@@ -98,9 +108,15 @@ def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
         func=_run,
         name="create_input_step",
         description=(
-            "创建一个向用户询问信息的输入节点。用于收集用户需要提供的原始数据"
-            "(数字、文本、选择等)。这是图的起点节点,通常没有上游连接。"
-            "返回值包含新节点的 step_id,后续创建下游节点时需要引用它。"
+            "创建一个向用户询问信息的输入节点。用于收集用户需要提供的原始数据:\n"
+            "• 文本输入(数字、姓名、邮箱等) → modality='Text'\n"
+            "• 文件上传(Excel/PDF/Word文档、CSV等) → modality='Any'\n"
+            "• 图片上传(照片、截图、设计稿等) → modality='Image'\n"
+            "• 音频上传(语音消息、录音等) → modality='Audio'\n"
+            "• 混合输入(文本+文件都接受) → modality='Any'\n"
+            "关键识别规则:当用户提到'上传'、'导入'、'选择文件'、'Excel文件'、'PDF'等关键词时,"
+            "必须使用 modality='Any' 或对应的专用类型,而不是默认的'Text'。\n"
+            "这是图的起点节点,通常没有上游连接。返回值包含新节点的 step_id,后续创建下游节点时需要引用它。"
         ),
         args_schema=_CreateInputStepArgs,
     )
