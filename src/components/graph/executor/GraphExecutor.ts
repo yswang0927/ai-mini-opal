@@ -1,5 +1,7 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { OpalGraphJson, OpalNode, OpalEdge, InputRequest, ExecutionState, NodeExecStatus, NodeExecInfo } from "./types";
+import type { OpalJson, OpalNode, OpalEdge } from "@/types";
+import { OpalNodeType } from "@/types";
+import type { InputRequest, ExecutionState, NodeExecStatus, NodeExecInfo } from "./types";
 import { resolvePromptTemplate } from "./promptTemplate";
 import { getLLM, RENDER_OUTPUT_SYSTEM_PROMPT } from "./llm";
 
@@ -35,14 +37,14 @@ function topologicalSort(nodes: OpalNode[], edges: OpalEdge[]): string[] {
 
 function getNodeCategory(node: OpalNode): 'input' | 'generate' | 'output' {
   const type = node.type || '';
-  if (type.includes('module:user-inputs')) return 'input';
-  if (type.includes('generate.bgl.json')) return 'generate';
-  if (type.includes('module:render-outputs')) return 'output';
+  if (type === OpalNodeType.UserInputs) return 'input';
+  if (type === OpalNodeType.AgentGenerate) return 'generate';
+  if (type === OpalNodeType.RenderOutputs) return 'output';
   return 'generate';
 }
 
 export class GraphExecutor {
-  private graphJson: OpalGraphJson;
+  private graphJson: OpalJson;
   private nodeMap: Map<string, OpalNode>;
   private executionOrder: string[];
   private nodeOutputs: Record<string, string> = {};
@@ -52,12 +54,13 @@ export class GraphExecutor {
   private graphTitle: string | null;
   private graphDescription: string | null;
 
-  constructor(graphJson: OpalGraphJson) {
+  constructor(graphJson: OpalJson) {
     this.graphJson = graphJson;
     this.nodeMap = new Map(graphJson.nodes.map(n => [n.id, n]));
     this.executionOrder = topologicalSort(graphJson.nodes, graphJson.edges);
     this.graphTitle = graphJson.title || null;
     this.graphDescription = graphJson.description || null;
+
     for (const nodeId of this.executionOrder) {
       this.nodeStatuses[nodeId] = 'pending';
     }
@@ -117,7 +120,9 @@ export class GraphExecutor {
     } catch (e: any) {
       if (this.executionOrder.length) {
         const lastId = this.executionOrder.find(id => this.nodeStatuses[id] === 'running');
-        if (lastId) this.nodeStatuses[lastId] = 'error';
+        if (lastId) {
+          this.nodeStatuses[lastId] = 'error';
+        }
       }
       onStateChange(this.buildState({
         status: 'error',
@@ -140,7 +145,7 @@ export class GraphExecutor {
     onStateChange: (state: ExecutionState) => void
   ): Promise<void> {
     const config = node.configuration || {};
-    const description = config.description?.parts?.[0]?.text || node.metadata?.title || "请输入";
+    const description = config.description?.content || node.metadata?.title || "请输入";
     const title = node.metadata?.title || node.id;
 
     const inputRequest: InputRequest = {
@@ -176,8 +181,8 @@ export class GraphExecutor {
 
   private async executeGenerateNode(node: OpalNode): Promise<void> {
     const config = node.configuration || {};
-    const promptTemplate = config["config$prompt"]?.parts?.[0]?.text || "";
-    const systemTemplate = config["system-instruction"]?.parts?.[0]?.text || "";
+    const promptTemplate = config["config$prompt"]?.content || "";
+    const systemTemplate = config["system-instruction"]?.content || "";
 
     const resolvedPrompt = resolvePromptTemplate(promptTemplate, this.nodeOutputs);
     const resolvedSystem = systemTemplate
@@ -192,8 +197,8 @@ export class GraphExecutor {
 
     const response = await llm.invoke(messages);
     const output = typeof response.content === 'string'
-      ? response.content
-      : JSON.stringify(response.content);
+                          ? response.content
+                          : JSON.stringify(response.content);
 
     this.nodeOutputs[node.id] = output;
 
@@ -208,7 +213,7 @@ export class GraphExecutor {
 
   private async executeOutputNode(node: OpalNode): Promise<void> {
     const config = node.configuration || {};
-    const textTemplate = config.text?.parts?.[0]?.text || "";
+    const textTemplate = config.text?.content || "";
     const resolvedText = resolvePromptTemplate(textTemplate, this.nodeOutputs);
 
     const llm = getLLM();

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
-import type { OpalGraphJson, ExecutionState } from "./types";
+import type { OpalJson } from "@/types";
+import type { ExecutionState } from "./types";
 import { GraphExecutor } from "./GraphExecutor";
 
 const initialState: ExecutionState = {
@@ -19,9 +20,9 @@ const initialState: ExecutionState = {
 export function useGraphExecutor() {
   const [execState, setExecState] = useState<ExecutionState>(initialState);
   const executorRef = useRef<GraphExecutor | null>(null);
-  const graphRef = useRef<OpalGraphJson | null>(null);
+  const graphRef = useRef<OpalJson | null>(null);
 
-  const loadGraph = useCallback((graphJson: OpalGraphJson) => {
+  const loadGraph = useCallback((graphJson: OpalJson) => {
     graphRef.current = graphJson;
     setExecState({
       ...initialState,

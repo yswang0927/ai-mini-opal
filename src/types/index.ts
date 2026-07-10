@@ -66,7 +66,7 @@ export interface OpalNodeMetadata {
 }
 
 export interface OpalNodeInstruction {
-  parts: Array<{ text: string }>;
+  content: string;
   role: string;
 }
 

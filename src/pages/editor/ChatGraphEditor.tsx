@@ -25,6 +25,7 @@ export default function ChatGraphEditor() {
 
 function ChatGraphEditorContent() {
     const { id } = useParams<{ id: string }>();
+
     const sidebarDomRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
     const { sidebarShow, viewMode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
@@ -41,7 +42,7 @@ function ChatGraphEditorContent() {
             // If app data has graph content, load it
             if (appData && appData.nodes && appData.edges) {
                 setAppData(appData as OpalJson);
-                //loadGraph(appData as OpalJson);
+                loadGraph(appData as OpalJson);
             }
         } catch (e: any) {
             console.error('Failed to load app data:', e);

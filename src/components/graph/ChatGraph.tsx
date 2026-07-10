@@ -193,11 +193,7 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
       configuration = {
         description: {
           role: "user",
-          parts: [
-            {
-              text: ""
-            }
-          ]
+          content: ""
         }
       };
     }
@@ -207,20 +203,12 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
       configuration = {
         "config$prompt": {
           role: "user",
-          parts: [
-            {
-              text: ""
-            }
-          ]
+          content: ""
         },
         "generation-mode": "agent",
         "system-instruction": {
           role: "user",
-          parts: [
-            {
-              text: ""
-            }
-          ]
+          content: ""
         }
       };
     }
@@ -229,20 +217,12 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
       rawTitle = t("输出");
       configuration = {
         text: {
-          parts: [
-            {
-              text: ""
-            }
-          ],
+          content: "",
           role: "user"
         },
         "system-instruction": {
           role: "user",
-          parts: [
-            {
-              text: ""
-            }
-          ]
+          content: ""
         }
       };
     }
@@ -335,6 +315,7 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
 
   // 传入的 graphData 上图
   useEffect(() => {
+    console.log('>>> init graph data', graphData);
     if (graphData) {
       const flowNodes = (graphData.nodes || []).map((gNode: OpalNode): FlowNode => {
         const newNode: FlowNode = {
@@ -358,9 +339,11 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
       setEdges(flowEdges);
 
       // 加载完成后调用 fitView
-      setTimeout(() => {
-        doLayout();
-      }, 30);
+      if (flowNodes.length > 0) {
+        setTimeout(() => {
+          doLayout();
+        }, 30);
+      }
     }
   }, [graphData, setNodes, setEdges, doLayout]);
 
@@ -407,9 +390,9 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
     <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDomRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-node-type={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
-            <button data-node-type={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
-            <button data-node-type={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
+            <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
+            <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
+            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
           </div>

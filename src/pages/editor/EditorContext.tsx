@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useGraphExecutor } from '@/components/graph/executor';
 import type { ExecutionState, OpalGraphJson } from '@/components/graph/executor';
+import type { OpalJson } from '@/types';
 
 type ViewMode = 'editor' | 'app';
 
@@ -12,7 +13,7 @@ type EditorContextValue = {
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
     execState: ExecutionState;
-    loadGraph: (graphJson: OpalGraphJson) => void;
+    loadGraph: (graphJson: OpalJson) => void;
     startExecution: () => Promise<void>;
     submitInput: (inputs: Record<string, string>) => void;
     resetExecutor: () => void;

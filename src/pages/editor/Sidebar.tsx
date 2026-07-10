@@ -48,7 +48,6 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
     const typeName = stepData.type;
     const nodeTypeStyle = NodeTypesStyle[typeName];
 
-
     useEffect(() => {
         // 组件卸载时，必须取消尚未执行的防抖，防止内存泄漏或闭包报错
         return () => {
@@ -87,17 +86,16 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
                 targetKey = 'text';
             }
 
-            // 2. 如果匹配到了对应的类型，进行统一的安全赋值
+            // 如果匹配到了对应的类型，进行统一的安全赋值
             if (targetKey) {
                 stepData.configuration ??= {};
-                stepData.configuration[targetKey] ??= {};
-                stepData.configuration[targetKey].parts ??= [{}];
-                stepData.configuration[targetKey].parts[0] ??= {};
-                // 将修改后的 desc 赋值回去
-                stepData.configuration[targetKey].parts[0].text = text;
+                stepData.configuration[targetKey] ??= {content:"", role:"user"};
+                stepData.configuration[targetKey].content = text;
+
+                // 更新节点配置
+                updateNode(stepData.id, {data: stepData});
             }
-            // 更新节点配置
-            updateNode(stepData.id, {data: stepData});
+
         }, 300);
 
         quill.on(Quill.events.TEXT_CHANGE, handleTextChange);
@@ -120,13 +118,13 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
 
         let desc = '';
         if (OpalNodeType.UserInputs === typeName) {
-            desc = stepData.configuration?.description?.parts[0].text || '';
+            desc = stepData.configuration?.description?.content || '';
         }
         else if (OpalNodeType.AgentGenerate === typeName) {
-            desc = stepData.configuration?.config$prompt?.parts[0].text || '';
+            desc = stepData.configuration?.config$prompt?.content || '';
         }
         else if (OpalNodeType.RenderOutputs === typeName) {
-            desc = stepData.configuration?.text?.parts[0].text || '';
+            desc = stepData.configuration?.text?.content || '';
         }
 
         quill.setText(desc, Quill.sources.API);

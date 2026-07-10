@@ -1,25 +1,3 @@
-export interface OpalNode {
-  id: string;
-  type: string;
-  metadata: any;
-  configuration: any;
-}
-
-export interface OpalEdge {
-  from: string;
-  to: string;
-  out: string;
-  in: string;
-}
-
-export interface OpalGraphJson {
-  metadata: any;
-  title: string;
-  description: string;
-  nodes: OpalNode[];
-  edges: OpalEdge[];
-}
-
 export type ExecutionStatus = 'idle' | 'ready' | 'waiting_input' | 'running' | 'completed' | 'error';
 
 export type NodeExecStatus = 'pending' | 'running' | 'completed' | 'error';

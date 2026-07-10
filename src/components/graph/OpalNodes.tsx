@@ -16,13 +16,13 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   
   let desc = '';
   if (nodeType === OpalNodeType.UserInputs) {
-    desc = rawData.configuration?.description?.parts[0].text || '';
+    desc = rawData.configuration?.description?.content || '';
   }
   else if (nodeType === OpalNodeType.AgentGenerate) {
-    desc = rawData.metadata.step_intent || rawData.configuration?.config$prompt?.parts[0].text || '';
+    desc = rawData.metadata.step_intent || rawData.configuration?.config$prompt?.content || '';
   }
   else if (nodeType === OpalNodeType.RenderOutputs) {
-    desc = rawData.metadata.step_intent || rawData.configuration?.text?.parts[0].text || '';
+    desc = rawData.metadata.step_intent || rawData.configuration?.text?.content || '';
   }
   if (desc.length > 100) {
     desc = desc.substring(0, 100) + '...';

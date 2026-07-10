@@ -224,7 +224,7 @@ def _slugify(title: str) -> str:
 
 
 def _short_hash() -> str:
-    return uuid.uuid4().hex[:6]
+    return uuid.uuid4().hex[:8]
 
 
 @dataclass
@@ -252,7 +252,7 @@ class Step:
 
     # --- render 专属 ---
     design_brief: Optional[str] = None
-    render_mode: str = "Auto"  # v4新增:对应 p-render-mode,可选 "Auto" / "Manual layout"
+    render_mode: str = "Auto"  # v4新增:对应 p-render-mode,可选 "Auto" / "ManualLayout"
 
     # --- 通用 ---
     user_modified: bool = False  # v3新增:新建默认False,edit_step后置True(见 6.1 节修正)
@@ -270,7 +270,7 @@ class OpalGraphState:
     def __init__(self) -> None:
         self.steps: Dict[str, Step] = {}
         self.assets: Dict[str, Asset] = {}
-        self.title: str = "Untitled Opal"
+        self.title: str = "Untitled App"
         self.description: str = ""
         self.tags: List[str] = []
 
@@ -352,7 +352,7 @@ class OpalGraphState:
         text_content: Optional[str] = None,
     ) -> Asset:
         """
-        登记一个资产引用(见文件顶部【重要边界声明】—— 这不是真正的文件上传,
+        登记一个资产引用 —— 这不是真正的文件上传,
         而是把一个已经存在的资源"告知"图状态,使其可以被节点引用)。
         """
         try:
@@ -415,7 +415,11 @@ class OpalGraphState:
     # 创建节点
     # ------------------------------------------------------------------
     def add_input_step(
-        self, title: str, question_text: str, modality: str = "Any", required: bool = True
+        self,
+        title: str,
+        question_text: str,
+        modality: str = "Any",
+        required: bool = True
     ) -> Step:
         step_id = self._new_id("input", title)
         step = Step(
@@ -451,7 +455,7 @@ class OpalGraphState:
 
         if routes:
             for r in routes:
-                self._require_step(r["target_step_id"])  # 校验路由目标必须已存在(方案1)
+                self._require_step(r["target_step_id"])  # 校验路由目标必须已存在
 
         for aid in (asset_ids or []):
             self._require_asset(aid)  # 校验引用的资产必须已登记
@@ -499,8 +503,8 @@ class OpalGraphState:
         render_mode: str = "Auto",
     ) -> Step:
         # v4修正:不再强制要求创建时就有非空 parents。routing 场景下,
-        # 目标节点(如这里的 render 节点)往往需要先于指向它的 agent 节点
-        # 创建("方案1":路由目标必须先存在),此时它天然还没有 parents。
+        # 目标节点(如这里的 render 节点)往往需要先于指向它的 agent 节点创建,
+        # 此时它天然还没有 parents。
         # 允许先创建"空壳"节点,后续用 manage_connection 或 edit_step
         # 补充数据来源。只有当 design_brief 完全没有任何数据来源
         # (parents 和 asset_ids 都为空)时,才在这里给出提醒而非阻断。
@@ -510,9 +514,9 @@ class OpalGraphState:
         for aid in (asset_ids or []):
             self._require_asset(aid)  # 校验引用的资产必须已登记
 
-        if render_mode not in ("Auto", "Manual layout"):
+        if render_mode not in ("Auto", "ManualLayout"):
             raise GraphValidationError(
-                f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'Manual layout'"
+                f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
             )
 
         # --- 6.3 节校验:媒体节点连线完整性(v4:资产也算合法媒体来源) ---
@@ -619,9 +623,9 @@ class OpalGraphState:
         if render_mode is not None:
             if step.step_type != StepType.RENDER:
                 raise GraphValidationError("render_mode 字段仅适用于 render 类型节点。")
-            if render_mode not in ("Auto", "Manual layout"):
+            if render_mode not in ("Auto", "ManualLayout"):
                 raise GraphValidationError(
-                    f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'Manual layout'"
+                    f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
                 )
             step.render_mode = render_mode
 
@@ -684,9 +688,7 @@ class OpalGraphState:
                     raise GraphValidationError("添加 route 连线时必须提供 route_label。")
                 source.routes.append({"target_step_id": target_step_id, "label": route_label})
             elif action == "remove":
-                source.routes = [
-                    r for r in source.routes if r["target_step_id"] != target_step_id
-                ]
+                source.routes = [r for r in source.routes if r["target_step_id"] != target_step_id]
             else:
                 raise GraphValidationError(f"未知 action='{action}'")
         else:
@@ -855,7 +857,7 @@ class OpalGraphState:
         """
         config: Dict[str, Any] = {
             "config$prompt": {
-                "parts": [{"text": self._compile_agent_prompt_text(step)}],
+                "content": self._compile_agent_prompt_text(step),
                 "role": "user",
             },
             "generation-mode": "agent",
@@ -869,7 +871,7 @@ class OpalGraphState:
         if step.terse_mode:
             config["system-instruction"] = {
                 "role": "user",
-                "parts": [{"text": AGENT_TERSE_SYSTEM_INSTRUCTION}],
+                "content": AGENT_TERSE_SYSTEM_INSTRUCTION,
             }
 
         if step.generation_capabilities and step.generation_capabilities != ["text"]:
@@ -915,11 +917,11 @@ class OpalGraphState:
                     "type": EMBED_URI_INPUT,
                     "configuration": {
                         "description": {
-                            "parts": [{"text": step.question_text}],
+                            "content": step.question_text,
                             "role": "user",
                         },
                         "p-modality": step.modality,
-                        "p-required": step.required,  # v4新增,确认字段
+                        "p-required": step.required,
                     },
                 }
 
@@ -949,9 +951,9 @@ class OpalGraphState:
                     for p in step.parents:
                         parent = self.steps.get(p)
                         parent_title = parent.title if parent else p
-                        var_name = _slugify(parent_title)
+                        #var_name = _slugify(parent_title)
                         ctx_lines.append(
-                            f'{var_name}: {{{{"type":"in","path":"{p}","title":"{parent_title}"}}}}'
+                            f'{parent_title}: {{{{"type":"in","path":"{p}","title":"{parent_title}"}}}}'
                         )
                     brief_text = brief_text + "\n\n" + "\n\n".join(ctx_lines)
 
@@ -970,11 +972,11 @@ class OpalGraphState:
                     f"Create an HTML page presenting: {step.design_brief[:120]}"
                 )
                 base_metadata["expected_output"] = [
-                    {"list": False, "description": "HTML code for a rendered result page", "type": "text"}
+                    {"type": "text", "description": "HTML code for a rendered result page", "list": False}
                 ]
 
                 render_config: Dict[str, Any] = {
-                    "text": {"role": "user", "parts": [{"text": brief_text}]},
+                    "text": {"role": "user", "content": brief_text},
                     "p-render-mode": step.render_mode,  # v4修正:此前硬编码"Auto"
                     "b-render-model-name": "gemini-flash",
                 }
@@ -987,7 +989,7 @@ class OpalGraphState:
                 if step.user_modified:
                     render_config["system-instruction"] = {
                         "role": "user",
-                        "parts": [{"text": RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE}],
+                        "content": RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE,
                     }
 
                 node = {
@@ -1087,7 +1089,8 @@ class OpalGraphState:
                 raise AssertionError(f"未知 AssetKind: {asset.kind}")
 
             compiled[asset.asset_id] = {
-                "data": [{"parts": [part], "role": "user"}],
+                #"data": [{"parts": [part], "role": "user"}],
+                "data": [{"role": "user", **part}],
                 "metadata": {
                     "title": asset.title,
                     "type": asset_type,
