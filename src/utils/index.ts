@@ -1,3 +1,157 @@
+/**
+ * 防抖函数返回值接口，扩展了取消和立即执行的方法
+ */
+export interface DebouncedFunction<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  /** 取消尚未执行的定时器，防止内存泄漏 */
+  cancel(): void;
+  /** 立即强制触发一次执行 */
+  flush(...args: Parameters<T>): ReturnType<T> | undefined;
+}
+
+/**
+ * 工业级防抖函数
+ * @param func 目标执行函数
+ * @param wait 触发延迟时间 (ms)
+ * @param immediate 是否在延迟开始前立即调用
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  immediate = false
+): DebouncedFunction<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: Parameters<T> | null = null;
+  let lastThis: any = null;
+
+  const debounced: DebouncedFunction<T> = function (this: any, ...args: Parameters<T>) {
+    lastArgs = args;
+    lastThis = this;
+
+    const invokeFunc = () => {
+      if (lastArgs) {
+        func.apply(lastThis, lastArgs);
+        lastArgs = lastThis = null;
+      }
+    };
+
+    const isInvokingImmediate = immediate && !timeoutId;
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      if (!immediate) {
+        invokeFunc();
+      }
+    }, wait);
+
+    if (isInvokingImmediate) {
+      invokeFunc();
+    }
+  };
+
+  // 取消执行
+  debounced.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = null;
+    lastArgs = lastThis = null;
+  };
+
+  // 立即刷出执行
+  debounced.flush = function (this: any, ...args: Parameters<T>) {
+    debounced.cancel();
+    return func.apply(this, args);
+  };
+
+  return debounced;
+}
+
+export interface ThrottledFunction<T extends (...args: any[]) => any> {
+  (...args: Parameters<T>): void;
+  cancel(): void;
+}
+
+export interface ThrottleOptions {
+  /** 是否调用处于节流开始前的边界（首次触发是否立即执行，默认 true） */
+  leading?: boolean;
+  /** 是否调用处于节流结束后的边界（结束后是否再补执行一次，默认 true） */
+  trailing?: boolean;
+}
+
+/**
+ * 工业级节流函数
+ * @param func 目标执行函数
+ * @param wait 节流窗口时间 (ms)
+ * @param options 配置项 { leading, trailing }
+ */
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number,
+  options: ThrottleOptions = {}
+): ThrottledFunction<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: Parameters<T> | null = null;
+  let lastThis: any = null;
+  let previous = 0;
+
+  const leading = options.leading !== false;
+  const trailing = options.trailing !== false;
+
+  const throttled: ThrottledFunction<T> = function (this: any, ...args: Parameters<T>) {
+    const now = Date.now();
+    
+    // 如果是第一次触发且不需要 leading 执行，把 previous 挪到当前时间，使其不会触发 immediate invoke
+    if (!previous && !leading) {
+      previous = now;
+    }
+
+    // 距离下次执行还需要等待的时间
+    const remaining = wait - (now - previous);
+    lastArgs = args;
+    lastThis = this;
+
+    const invokeFunc = () => {
+      previous = leading ? Date.now() : 0;
+      timeoutId = null;
+      if (lastArgs) {
+        func.apply(lastThis, lastArgs);
+        lastArgs = lastThis = null;
+      }
+    };
+
+    // 情况 1：达到了 wait 时间，或者系统时间被篡改（remaining > wait）
+    if (remaining <= 0 || remaining > wait) {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      previous = now;
+      func.apply(lastThis, lastArgs);
+      lastArgs = lastThis = null;
+    } 
+    // 情况 2：未达到 wait 时间，但允许 trailing 补尾巴执行
+    else if (!timeoutId && trailing) {
+      timeoutId = setTimeout(invokeFunc, remaining);
+    }
+  };
+
+  throttled.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    previous = 0;
+    timeoutId = null;
+    lastArgs = lastThis = null;
+  };
+
+  return throttled;
+}
+
 
 /**
  * 布局resize通用函数, 用于拖动手柄resize 左|右|上|下 区域的大小.

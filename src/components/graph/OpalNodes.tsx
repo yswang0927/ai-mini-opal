@@ -1,23 +1,27 @@
 import { Handle, Position } from '@xyflow/react';
 import { CaretRightIcon } from '@/utils/icons'
-import { NodeTypes, type NodeDataType, type NodeTypeKey } from './types';
+import { OpalNodeType } from '@/types';
+import { NodeTypesStyle, type FlowNode } from './types';
 
 
 const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
-  nodeData: NodeDataType,
-  nodeType: NodeTypeKey,
+  nodeData: FlowNode,
+  nodeType: OpalNodeType,
   hasInput: boolean,
   hasOutput: boolean,
 }) => {
+
   const rawData = nodeData.data;
+  const title = rawData.metadata.title || '';
+  
   let desc = '';
-  if ('userInput' === nodeData.type) {
+  if (nodeType === OpalNodeType.UserInputs) {
     desc = rawData.configuration?.description?.parts[0].text || '';
   }
-  else if ('opalGenerate' === nodeData.type) {
+  else if (nodeType === OpalNodeType.AgentGenerate) {
     desc = rawData.metadata.step_intent || rawData.configuration?.config$prompt?.parts[0].text || '';
   }
-  else if ('opalOutput' === nodeData.type) {
+  else if (nodeType === OpalNodeType.RenderOutputs) {
     desc = rawData.metadata.step_intent || rawData.configuration?.text?.parts[0].text || '';
   }
   if (desc.length > 100) {
@@ -26,10 +30,10 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
 
   return (
     <div className="opal-node">
-      <div className="opal-node-header" style={{ backgroundColor: NodeTypes[nodeType].bgColor }}>
+      <div className="opal-node-header" style={{ backgroundColor: NodeTypesStyle[nodeType].bgColor }}>
         <div className="flex-1 flex items-center opal-node-header-title" title={nodeData.id}>
-          <span className="opal-node-header-icon">{ NodeTypes[nodeType].icon }</span>
-          <div className="flex-1 text-ellipsis">{rawData.metadata.title}</div>
+          <span className="opal-node-header-icon">{ NodeTypesStyle[nodeType].icon }</span>
+          <div className="flex-1 text-ellipsis">{title}</div>
         </div>
         <button className="node-run-btn"><CaretRightIcon /></button>
       </div>
@@ -48,22 +52,22 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
 };
 
 // 1. 用户输入节点 (黄色 Header)
-export const UserInputNode = (data: NodeDataType) => {
+export const UserInputNode = (data: FlowNode) => {
   return (
-    <BaseNode nodeData={data} nodeType="userInput" hasInput={false} hasOutput={true} />
+    <BaseNode nodeData={data} nodeType={OpalNodeType.UserInputs} hasInput={false} hasOutput={true} />
   );
 };
 
 // 2. AI生成节点 (蓝色 Header)
-export const GenerateNode = (data: NodeDataType) => {
+export const GenerateNode = (data: FlowNode) => {
   return (
-    <BaseNode nodeData={data} nodeType="opalGenerate" hasInput={true} hasOutput={true} />
+    <BaseNode nodeData={data} nodeType={OpalNodeType.AgentGenerate} hasInput={true} hasOutput={true} />
   );
 };
 
 // 3. 输出节点 (绿色 Header)
-export const OutputNode = (data: NodeDataType) => {
+export const OutputNode = (data: FlowNode) => {
   return (
-    <BaseNode nodeData={data} nodeType="opalOutput" hasInput={true} hasOutput={true} />
+    <BaseNode nodeData={data} nodeType={OpalNodeType.RenderOutputs} hasInput={true} hasOutput={true} />
   );
 };

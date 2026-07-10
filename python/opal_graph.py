@@ -6,9 +6,7 @@ Opie 图状态管理 + 后端编译器。
 
 这个模块不涉及任何 LLM / LangChain 逻辑,是纯粹的状态机 + 编译器:
 - OpalGraphState 维护当前图的内存表示(节点、连线)。
-- compile_to_opal_json() 把内存表示编译成与 Google Opal 实际导出格式
-  对齐的 JSON 结构(embed:// URI、坐标、config$prompt 拼接、
-  system-instruction 固定模板等实现细节都在这里落地)。
+- compile_to_opal_json() 把内存表示编译成与 Google Opal 实际导出格式对齐的 JSON 结构。
 
 设计对应关系(见设计文档 opie-tool-schema-design.md):
 - 2.2 create_input_step  -> add_input_step()
@@ -20,34 +18,6 @@ Opie 图状态管理 + 后端编译器。
 - 2.8 set_graph_metadata -> set_metadata()
 - 6.1 render系统指令固定模板 -> RENDER_SYSTEM_INSTRUCTION 常量
 - 6.3 媒体连线校验 -> validate_render_media_parents()
-
-【版本历史 / 假设边界】
-v1: 只有 BMI 一份样本,tools/chat/memory/routes 字段完全靠猜测占位。
-
-v3: 补充了 5 份真实 Opal 导出样本,修正了两处明确错误(tools是inline占位符;
-render节点的system-instruction是服务端默认值不应写入)。
-
-v4(当前版本): 补充了一份官方"全节点/全资产/全工具"kitchen-sink测试样本,
-带来三处重大修正:
-  1. **routing 的真实机制被证实,此前的实现完全错误**——路由不是独立的
-     `<a>`/route边体系,而是复用 tool 占位符:
-     {{"type":"tool","path":"control-flow/routing","instance":"<目标step_id>","title":"<目标节点标题>"}}
-     对应的 edge 的 out 字段值是目标节点 id 本身,不是字符串 "route"。
-  2. **新增 Assets(资产)体系**——graph级别的资源池(上传文件/Google Doc/
-     YouTube链接/纯文本/手绘),节点通过 {{"type":"asset","path":"<asset_id>",
-     "mimeType":"...","title":"..."}} 占位符引用。此前完全没建模。
-  3. search-maps / code-execution 两个工具的 path 被验证命中此前的推测;
-     新确认 input 节点的 p-required 字段、render 节点的 p-render-mode
-     还有 "Manual layout" 这个取值。
-
-仍然是推断、未被样本直接证实的部分(标注在对应代码位置):
-  - generation-capabilities / p-aspect-ratio 等图像生成相关字段(仅1个样本)
-  - config$list 字段的确切语义(仅1个样本)
-  - get-weather / search-internal / search-enterprise 三个工具的 path
-    (按已确认工具的命名风格类推,尚未见到真实样本)
-  - 多路由(3个以上分支)场景下 routing 占位符的排列方式(目前只见过单路由样本)
-
-拿到更多真实样本或官方 schema 后,优先核实上面这几项。
 """
 
 from __future__ import annotations
@@ -60,36 +30,22 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 
-# ---------------------------------------------------------------------------
-# 常量:embed:// URI 映射(来自真实 Opal 导出样本,已确认)
-# ---------------------------------------------------------------------------
+EMBED_URI_INPUT = "user-inputs"
+EMBED_URI_AGENT = "agent-generate"
+EMBED_URI_RENDER = "render-outputs"
 
-EMBED_URI_INPUT = "embed://a2/a2.bgl.json#module:user-inputs"
-EMBED_URI_AGENT = "embed://a2/generate.bgl.json#module:main"
-EMBED_URI_RENDER = "embed://a2/a2.bgl.json#module:render-outputs"
-
-# ---------------------------------------------------------------------------
+# ------------------------------------------
 # 常量:工具 path 映射表(基于多份真实样本修正)
-#
-# 【修正说明 v3】之前版本假设工具是通过 configuration 里一个独立字段挂载的
-# (如 attached-tools),这是错的。真实机制是:工具引用是 inline 写在
-# config$prompt 文本里的占位符,格式统一为:
-#     {{"type":"tool","path":"<TOOL_PATH>","title":"<Display Title>"}}
-# 但 <TOOL_PATH> 的命名空间在不同工具之间并不一致 —— search-web/get-webpage
-# 用 embed://a2/tools.bgl.json#module:X 这种路径,而 memory 用完全不同的
-# function-group/use-memory。下表只有 search-web / get-webpage / memory
-# 三项是从真实样本里直接观察到的,其余是按前者的命名风格类推的占位猜测,
-# 用 confirmed=False 标注,接入真实后端前建议单独验证。
-# ---------------------------------------------------------------------------
+# ------------------------------------------
 
 TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
     "search-web": {
-        "path": "embed://a2/tools.bgl.json#module:search-web",
+        "path": "search-web",
         "display_title": "Search Web",
         "confirmed": True,
     },
     "get-webpage": {
-        "path": "embed://a2/tools.bgl.json#module:get-webpage",
+        "path": "get-webpage",
         "display_title": "Get Webpage",
         "confirmed": True,
     },
@@ -98,29 +54,14 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
         "display_title": "Use Memory",
         "confirmed": True,
     },
-    "search-maps": {
-        "path": "embed://a2/tools.bgl.json#module:search-maps",
-        "display_title": "Search Maps",
-        "confirmed": True,  # v4确认
-    },
     "code-execution": {
-        "path": "embed://a2/tools.bgl.json#module:code-execution",
+        "path": "code-execution",
         "display_title": "Code Execution",
         "confirmed": True,  # v4确认
     },
-    "get-weather": {
-        "path": "embed://a2/tools.bgl.json#module:get-weather",
-        "display_title": "Get Weather",
-        "confirmed": False,
-    },
     "search-internal": {
-        "path": "embed://a2/tools.bgl.json#module:search-internal",
+        "path": "search-internal",
         "display_title": "Search Internal",
-        "confirmed": False,
-    },
-    "search-enterprise": {
-        "path": "embed://a2/tools.bgl.json#module:search-enterprise",
-        "display_title": "Search Enterprise",
         "confirmed": False,
     },
 }

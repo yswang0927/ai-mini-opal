@@ -1,6 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
     ArrowLeft,
-    CloudUpload,
     Share2,
     EllipsisVertical,
     PanelRightClose,
@@ -9,17 +9,24 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useEditorContext } from './EditorContext';
 import { useL10n } from "@/l10n";
+import type { OpalJson } from '@/types';
 
-export default function Header() {
+export default function Header({ appData }: { appData?: OpalJson }) {
     const { t } = useL10n();
     const navigate = useNavigate();
     const { sidebarShow, toggleSidebar, viewMode, setViewMode } = useEditorContext();
+    const [title, setTitle] = useState('Untitled app');
+
+    useEffect(() => {
+        setTitle(appData?.title || 'Untitled app');
+    }, [appData]);
 
     return (
         <div className="editor-header">
             <div className="editor-header-left">
                 <button className="nav-back" onClick={() => navigate('/')}><ArrowLeft size={20} strokeWidth={1.25} /></button>
-                <input type="text" className="nav-title-input" autoComplete="off" required placeholder="Untitled app" />
+                <input type="text" className="nav-title-input" autoComplete="off" required placeholder="Untitled app" 
+                    value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div className="editor-header-center">
                 <div className="editor-header-btn-group">
@@ -29,7 +36,6 @@ export default function Header() {
             </div>
             <div className="editor-header-right">
                 <div style={{ fontSize: "var(--font-size-sm)" }}>{t('已保存')}</div>
-                {/*<button className="nav-publish"><CloudUpload size={18} strokeWidth={1.5} /> <span>{t('发布')}</span></button>*/}
                 <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
                 <button><EllipsisVertical size={18} strokeWidth={1.5} /></button>
                 <div style={{marginLeft: '0.5rem'}}>

@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import ChatGraph from '@/components/graph/ChatGraph';
 import { ExecutorPanel } from '@/components/graph/executor';
-import type { OpalGraphJson } from '@/components/graph/executor';
 import { LayoutResizer } from '@/utils';
+import type { OpalJson } from '@/types';
 import { EditorProvider, useEditorContext } from './EditorContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -24,54 +24,42 @@ export default function ChatGraphEditor() {
 };
 
 function ChatGraphEditorContent() {
-  const { id } = useParams<{ id: string }>();
-  const sidebarDomRef = useRef<HTMLDivElement | null>(null);
-  const resizerRef = useRef<LayoutResizer>(null);
-  const { sidebarShow, viewMode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
-  
-  // Current app data state
-  const [appData, setAppData] = useState<OpalGraphJson | undefined>(undefined);
-  
-  // Debounce timer for saving
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const { id } = useParams<{ id: string }>();
+    const sidebarDomRef = useRef<HTMLDivElement | null>(null);
+    const resizerRef = useRef<LayoutResizer>(null);
+    const { sidebarShow, viewMode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
-    // Load app data when id changes
-    useEffect(() => {
-        if (id) {
-            loadAppData(id);
-        }
-    }, [id]);
+    // Current app data state
+    const [appData, setAppData] = useState<OpalJson | undefined>(undefined);
+
+    // Debounce timer for saving
+    const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const loadAppData = useCallback(async (appId: string) => {
         try {
             const appData = await api.getAppData(appId);
             // If app data has graph content, load it
             if (appData && appData.nodes && appData.edges) {
-                setAppData(appData as OpalGraphJson);
-                loadGraph(appData as OpalGraphJson);
+                setAppData(appData as OpalJson);
+                //loadGraph(appData as OpalJson);
             }
         } catch (e: any) {
             console.error('Failed to load app data:', e);
         }
     }, [loadGraph]);
 
-    // Handle graph changes and save
-    const handleGraphChange = useCallback((graphData: OpalGraphJson) => {
-        /*setAppData(graphData);
-        
-        // Debounce saving
-        if (saveTimerRef.current) {
-            clearTimeout(saveTimerRef.current);
+    useEffect(() => {
+        if (id) {
+            loadAppData(id);
         }
-        
-        saveTimerRef.current = setTimeout(() => {
-            if (id) {
-                saveAppData(id, graphData);
-            }
-        }, 1000);*/ // Save after 1 second of inactivity
     }, [id]);
 
-    const saveAppData = useCallback(async (appId: string, graphData: OpalGraphJson) => {
+    // Handle graph changes and save
+    const handleGraphChange = useCallback((graphData: OpalJson) => {
+        console.log('changed-graph-data: ', graphData);
+    }, [id]);
+
+    const saveAppData = useCallback(async (appId: string, graphData: OpalJson) => {
         try {
             // Get current app data to preserve title, description, etc.
             const currentAppData = await api.getAppData(appId);
@@ -85,28 +73,14 @@ function ChatGraphEditorContent() {
         }
     }, []);
 
-    useEffect(() => {
-        resizerRef.current?.destroy();
-        resizerRef.current = new LayoutResizer({
-            key: 'opal-flow-editor-resize',
-            trigger: sidebarDomRef.current!.querySelector<HTMLElement>('.layout-resizer')!,
-            target: sidebarDomRef.current!
-        });
-        return () => {
-            resizerRef.current?.destroy();
-            if (saveTimerRef.current) {
-                clearTimeout(saveTimerRef.current);
-            }
-        };
-    }, []);
-
+    
     const handleRunApp = useCallback(async () => {
         try {
             resetExecutor();
             if (id) {
                 const appData = await api.getAppData(id);
                 if (appData && appData.nodes && appData.edges) {
-                    loadGraph(appData as OpalGraphJson);
+                    //loadGraph(appData as OpalJson);
                 }
             }
         } catch (e: any) {
@@ -120,10 +94,30 @@ function ChatGraphEditorContent() {
         }
     }, [viewMode, handleRunApp]);
 
+
+    useEffect(() => {
+        resizerRef.current?.destroy();
+        
+        if (viewMode === 'editor') {
+            resizerRef.current = new LayoutResizer({
+                key: 'opal-flow-editor-resize',
+                trigger: sidebarDomRef.current!.querySelector<HTMLElement>('.layout-resizer')!,
+                target: sidebarDomRef.current!
+            });
+        }
+
+        return () => {
+            resizerRef.current?.destroy();
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+            }
+        };
+    }, [viewMode]);
+
     return (
         <div className="opal-editor">
             <div className="layout-header">
-                <Header />
+                <Header appData={appData} />
             </div>
 
             <div className="layout-body">

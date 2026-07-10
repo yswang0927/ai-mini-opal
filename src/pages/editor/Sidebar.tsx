@@ -1,16 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import Quill from 'quill';
-import { useEditorContext } from './EditorContext';
 import { ExecutorPanel } from '@/components/graph/executor';
-import type { OpalGraphJson, NodeExecInfo } from '@/components/graph/executor';
-import {
-    NodeTypes,
-    type NodeDataType,
-    type NodeTypeKey
-} from '@/components/graph/types';
+import type { NodeExecInfo } from '@/components/graph/executor';
+import { NodeTypesStyle } from '@/components/graph/types';
+import { type OpalNode, OpalNodeType } from '@/types';
 import { useL10n } from "@/l10n";
+import { debounce } from '@/utils';
 
+import { useEditorContext } from './EditorContext';
 import { TagBlot, TagModule, quillContentToText } from './QuillCustomBlots';
 
 import "quill/dist/quill.core.css";
@@ -21,38 +19,48 @@ Quill.register('modules/tag', TagModule);
 
 
 /**
- * 步骤节点详情
- * {id, type, data: {id, metadata, configuration}}
+ * 步骤节点数据详情
+ * {id, type, metadata, configuration}
  */
-const StepDetail = ({stepData}: {
-    stepData: NodeDataType
-}) => {
-    console.log('>> stepData: ', stepData);
-    const { updateNode } = useReactFlow();
+const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
     const { t } = useL10n();
+    const { updateNode } = useReactFlow();
+
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
 
-    const typeName = stepData.type as NodeTypeKey;
-    const nodeType = NodeTypes[typeName];
-    const rawData = stepData.data;
+    const [title, setTitle] = useState('');
 
-    let desc = '';
-    if ('userInput' === typeName) {
-        desc = rawData.configuration?.description?.parts[0].text || '';
-    }
-    else if ('opalGenerate' === typeName) {
-        desc = rawData.configuration?.config$prompt?.parts[0].text || '';
-    }
-    else if ('opalOutput' === typeName) {
-        desc = rawData.configuration?.text?.parts[0].text || '';
-    }
+    const titleChangeTrigger = useMemo(() => {
+        return debounce((newTitle: string) => {
+            // 更新节点配置
+            const newData = { ...stepData, metadata: { ...stepData.metadata, title: newTitle } };
+            updateNode(stepData.id, {data: newData});
+        }, 300);
+    }, [stepData, updateNode]);
+
+    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newTitle = e.target.value;
+        setTitle(newTitle);
+        titleChangeTrigger(newTitle);
+    };
+
+    const typeName = stepData.type;
+    const nodeTypeStyle = NodeTypesStyle[typeName];
+
+
+    useEffect(() => {
+        // 组件卸载时，必须取消尚未执行的防抖，防止内存泄漏或闭包报错
+        return () => {
+            titleChangeTrigger.cancel();
+        };
+    }, [titleChangeTrigger]);
 
     useEffect(() => {
         if (!quillDomRef.current || quillRef.current) return;
 
         const quill = quillRef.current = new Quill(quillDomRef.current, {
-            placeholder: 'Type your prompt here. Use @ to include other content.',
+            placeholder: t('在此输入您的提示，使用 @ 来包含其他内容。'),
             theme: 'snow',
             modules: {
                 toolbar: false,
@@ -61,50 +69,42 @@ const StepDetail = ({stepData}: {
             },
         });
 
-        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        const handleTextChange = (_delta: any, _oldDelta: any, source: string) => {
+        const handleTextChange = debounce((_delta: any, _oldDelta: any, source: string) => {
             // 只有真正的用户输入才需要保存：
             if (source !== 'user') {
                 return;
             }
 
-            if (debounceTimer) {
-                clearTimeout(debounceTimer);
+            const text = quillContentToText(quill);
+            let targetKey = '';
+            if (OpalNodeType.UserInputs === typeName) {
+                targetKey = 'description';
             }
-            debounceTimer = setTimeout(() => {
-                const text = quillContentToText(quill);
-                let targetKey = '';
-                if ('userInput' === typeName) {
-                    targetKey = 'description';
-                }
-                else if ('opalGenerate' === typeName) {
-                    targetKey = 'config$prompt';
-                }
-                else if ('opalOutput' === typeName) {
-                    targetKey = 'text';
-                }
+            else if (OpalNodeType.AgentGenerate === typeName) {
+                targetKey = 'config$prompt';
+            }
+            else if (OpalNodeType.RenderOutputs === typeName) {
+                targetKey = 'text';
+            }
 
-                // 2. 如果匹配到了对应的类型，进行统一的安全赋值
-                if (targetKey) {
-                    rawData.configuration ??= {};
-                    rawData.configuration[targetKey] ??= {};
-                    rawData.configuration[targetKey].parts ??= [{}];
-                    rawData.configuration[targetKey].parts[0] ??= {};
-                    // 将修改后的 desc 赋值回去
-                    rawData.configuration[targetKey].parts[0].text = text;
-                }
-                // TODO 更新节点配置
-                //updateNode(stepData.id, rawData);
-            }, 200);
-        };
+            // 2. 如果匹配到了对应的类型，进行统一的安全赋值
+            if (targetKey) {
+                stepData.configuration ??= {};
+                stepData.configuration[targetKey] ??= {};
+                stepData.configuration[targetKey].parts ??= [{}];
+                stepData.configuration[targetKey].parts[0] ??= {};
+                // 将修改后的 desc 赋值回去
+                stepData.configuration[targetKey].parts[0].text = text;
+            }
+            // 更新节点配置
+            updateNode(stepData.id, {data: stepData});
+        }, 300);
 
         quill.on(Quill.events.TEXT_CHANGE, handleTextChange);
 
         return () => {
             quill.off(Quill.events.TEXT_CHANGE, handleTextChange);
-            if (debounceTimer) {
-                clearTimeout(debounceTimer);
-            }
+            handleTextChange.cancel();
             quillRef.current = null;
         };
     }, []);
@@ -115,17 +115,32 @@ const StepDetail = ({stepData}: {
         if (!quill) {
             return;
         }
+        
+        setTitle(stepData.metadata.title || '');
+
+        let desc = '';
+        if (OpalNodeType.UserInputs === typeName) {
+            desc = stepData.configuration?.description?.parts[0].text || '';
+        }
+        else if (OpalNodeType.AgentGenerate === typeName) {
+            desc = stepData.configuration?.config$prompt?.parts[0].text || '';
+        }
+        else if (OpalNodeType.RenderOutputs === typeName) {
+            desc = stepData.configuration?.text?.parts[0].text || '';
+        }
+
         quill.setText(desc, Quill.sources.API);
         quill.history.clear(); // 避免 Ctrl+Z 撤回到上一个 step 的内容
-    }, [stepData.id]);
+    }, [stepData]);
 
     return (
         <div className="flex h-full flex-col opal-node-detail">
-            <div className="flex items-center opal-node-detail-header" 
-                data-nodetype={stepData.type} 
-                style={{ gap: '8px', backgroundColor: nodeType.bgColor}}>
-                <span style={{lineHeight:"1"}}>{ nodeType?.icon }</span> 
-                <div>{stepData.data.metadata.title}</div>
+            <div className="flex items-center gap-md opal-node-detail-header" 
+                data-nodetype={stepData.type} style={{ backgroundColor: nodeTypeStyle.bgColor }}>
+                <span style={{lineHeight:"1"}}>{ nodeTypeStyle.icon }</span> 
+                <div className="flex-1">
+                    <input type="text" className="step-title-input" autoComplete="off" required value={title} onChange={handleTitleChange} />
+                </div>
             </div>
             <div className="relative flex-1 opal-node-detail-body">
                 <div className="absolute inset-0"><div ref={quillDomRef}></div></div>
@@ -200,13 +215,13 @@ export default function Sidebar() {
 
     const doRunPreview = useCallback(async () => {
         resetExecutor();
-        try {
+        /*try {
             const rsp = await fetch('./generated_graph.json');
             const graphJson: OpalGraphJson = await rsp.json();
             loadGraph(graphJson);
         } catch (e: any) {
             console.error('Failed to load graph:', e);
-        }
+        }*/
     }, [loadGraph, resetExecutor]);
 
     const handlePreviewTab = useCallback(() => {
@@ -246,7 +261,7 @@ export default function Sidebar() {
                     <div className="empty-state">{t('请选择一个节点编辑')}</div>
                 )}
                 {selectedTab === 'Step' && selectedNode && (
-                    <StepDetail stepData={selectedNode} />
+                    <StepDetailView key={selectedNode.id} stepData={selectedNode} />
                 )}
                 {selectedTab !== 'Preview' && selectedTab !== 'Step' && selectedTab !== 'Console' && (
                     <div className="empty-state">{t('您的应用在构建完成后将在这里显示')}</div>

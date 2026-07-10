@@ -23,26 +23,25 @@ import {
   Redo2
 } from 'lucide-react';
 
+import type { OpalJson, OpalNode, OpalEdge } from '@/types';
+import { OpalNodeType } from '@/types';
+import { useL10n } from "@/l10n";
+import { LayoutDagIcon, Undo, Redo } from '@/utils/icons';
+import { useEditorContext } from '@/pages/editor/EditorContext';
+
+import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
+import { type FlowNode } from './types';
+import autoLayout from './AutoLayout';
+
 import '@xyflow/react/dist/style.css';
 import './style.css';
 
-import { LayoutDagIcon, Undo, Redo } from '@/utils/icons';
-import { useEditorContext } from '@/pages/editor/EditorContext';
-import { 
-  UserInputNode, 
-  GenerateNode, 
-  OutputNode
-} from './OpalNodes';
-import { type NodeTypeKey, type NodeRawDataType } from './types';
-import { type OpalGraphJson, type OpalNode, type OpalEdge } from './executor/types';
-import { useL10n } from "@/l10n";
-import autoLayout from './AutoLayout';
 
 // 注册自定义节点映射
-const nodeTypes: Record<NodeTypeKey, any> = {
-  userInput: UserInputNode,
-  opalGenerate: GenerateNode,
-  opalOutput: OutputNode,
+const customNodeTypes: Record<OpalNodeType, any> = {
+  [OpalNodeType.UserInputs]: UserInputNode,
+  [OpalNodeType.AgentGenerate]: GenerateNode,
+  [OpalNodeType.RenderOutputs]: OutputNode,
 };
 
 // 全局边线默认样式：灰色、虚线、平滑贝塞尔曲线
@@ -55,7 +54,7 @@ const defaultEdgeOptions = {
     strokeDasharray: '5,5',
   },
   markerEnd: {
-    type: MarkerType.ArrowClosed, // 闭合实心箭头
+    type: MarkerType.ArrowClosed,
     width: 16, 
     height: 16, 
     color: '#C5CBD3',  
@@ -67,7 +66,6 @@ const edgeHighlightOptions = {
   markerEnd: {...defaultEdgeOptions.markerEnd, color: '#000000'}
 };
 
-
 const NODE_WIDTH = 300;
 
 const nodeRandomOffset = () => {
@@ -75,165 +73,21 @@ const nodeRandomOffset = () => {
 };
 
 interface ChatGraphProps {
-  graphData?: OpalGraphJson;
-  onGraphChange?: (data: OpalGraphJson) => void;
+  graphData?: OpalJson;
+  onGraphChange?: (data: OpalJson) => void;
 }
 
 export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) {
   const { t } = useL10n();
+  const graphDomRef = useRef<HTMLDivElement>(null);
+  const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { setSelectedNode, execState } = useEditorContext();
   
-  // Previous graph data for comparison
-  const prevGraphDataRef = useRef<OpalGraphJson | null>(null);
-
-  // Undo/Redo 状态
-  const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const isPaused = useRef(false);
-  const lastSavedNodesRef = useRef<string>('');
-  const lastSavedEdgesRef = useRef<string>('');
-  // 防抖函数，用于延迟保存历史记录（处理节点拖拽等连续变化）
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const nodesSnapshotRef = useRef<string>('');
-  const edgesSnapshotRef = useRef<string>('');
-
-  const graphDOMRef = useRef<HTMLDivElement>(null);
-  const reactFlowRef = useRef<any>(null);
-
-  // 保存当前状态到历史记录
-  const saveToHistory = useCallback((currentNodes?: Node[], currentEdges?: Edge[]) => {
-    if (isPaused.current) return;
-    
-    const nodesToSave = currentNodes || nodes;
-    const edgesToSave = currentEdges || edges;
-    
-    // 深拷贝以避免引用问题，并忽略临时的选中/高亮状态
-    const normalizedNodes = nodesToSave.map(node => ({
-      ...node,
-      selected: false,
-      style: undefined,
-      zIndex: undefined
-    }));
-    const normalizedEdges = edgesToSave.map(edge => ({
-      ...edge,
-      selected: false,
-      style: undefined,
-      markerEnd: undefined,
-      zIndex: undefined
-    }));
-    
-    const nodesStr = JSON.stringify(normalizedNodes);
-    const edgesStr = JSON.stringify(normalizedEdges);
-    
-    // 避免保存重复的状态
-    if (nodesStr === lastSavedNodesRef.current && edgesStr === lastSavedEdgesRef.current) {
-      return;
-    }
-    
-    lastSavedNodesRef.current = nodesStr;
-    lastSavedEdgesRef.current = edgesStr;
-    
-    setHistory(prevHistory => {
-      const newHistory = prevHistory.slice(0, historyIndex + 1);
-      newHistory.push({ 
-        nodes: JSON.parse(nodesStr), 
-        edges: JSON.parse(edgesStr) 
-      });
-      
-      // 限制历史记录数量为 50
-      if (newHistory.length > 50) {
-        newHistory.shift();
-        return newHistory;
-      }
-      return newHistory;
-    });
-    
-    setHistoryIndex(prevIndex => {
-      const newIndex = prevIndex + 1;
-      return newIndex > 49 ? 49 : newIndex;
-    });
-  }, [nodes, edges, historyIndex]);
-
-  // Undo 操作
-  const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      isPaused.current = true;
-      const newIndex = historyIndex - 1;
-      const historyItem = history[newIndex];
-      
-      if (historyItem) {
-        setNodes(historyItem.nodes);
-        setEdges(historyItem.edges);
-        setHistoryIndex(newIndex);
-        
-        // 更新最后保存的引用
-        lastSavedNodesRef.current = JSON.stringify(historyItem.nodes.map(n => ({
-          ...n, selected: false, style: undefined, zIndex: undefined
-        })));
-        lastSavedEdgesRef.current = JSON.stringify(historyItem.edges.map(e => ({
-          ...e, selected: false, style: undefined, markerEnd: undefined, zIndex: undefined
-        })));
-      }
-      
-      setTimeout(() => {
-        isPaused.current = false;
-      }, 50);
-    }
-  }, [historyIndex, history, setNodes, setEdges]);
-
-  // Redo 操作
-  const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      isPaused.current = true;
-      const newIndex = historyIndex + 1;
-      const historyItem = history[newIndex];
-      
-      if (historyItem) {
-        setNodes(historyItem.nodes);
-        setEdges(historyItem.edges);
-        setHistoryIndex(newIndex);
-        
-        // 更新最后保存的引用
-        lastSavedNodesRef.current = JSON.stringify(historyItem.nodes.map(n => ({
-          ...n, selected: false, style: undefined, zIndex: undefined
-        })));
-        lastSavedEdgesRef.current = JSON.stringify(historyItem.edges.map(e => ({
-          ...e, selected: false, style: undefined, markerEnd: undefined, zIndex: undefined
-        })));
-      }
-      
-      setTimeout(() => {
-        isPaused.current = false;
-      }, 50);
-    }
-  }, [historyIndex, history, setNodes, setEdges]);
-
-  // 监听键盘事件
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Z 或 Cmd+Z 用于 Undo
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-      // Ctrl+Shift+Z 或 Cmd+Shift+Z 或 Ctrl+Y 用于 Redo
-      if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || 
-          ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
-        e.preventDefault();
-        redo();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [undo, redo]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node);
+    setSelectedNode(node.data || null);
     
     // 高亮与该节点相关的边
     setEdges((prevEdges) => 
@@ -300,39 +154,27 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
     );
   }, [setEdges]);
 
-  const onConnect = useCallback(
-    (params: any) => {
+  const onConnect = useCallback((params: any) => {
       setEdges((eds) => {
         const newEdges = addEdge(params, eds);
-        // 立即保存新状态
-        setTimeout(() => saveToHistory(), 0);
         return newEdges;
       });
     },
-    [setEdges, saveToHistory]
+    [setEdges]
   );
 
   const doLayout = useCallback(async () => {
-    if (!reactFlowRef.current) return;
+    if (!reactFlowRef.current) {
+      return;
+    }
     const rf = reactFlowRef.current;
     const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
     setNodes(result.nodes);
     setEdges(result.edges);
     rf.fitView();
-    setTimeout(() => saveToHistory(result.nodes, result.edges), 50);
-  }, [reactFlowRef, saveToHistory]);
+  }, [setNodes, setEdges]);
 
-  const onDragStart = (event: React.DragEvent, nodeType: string) => {
-    event.dataTransfer.setData('application/reactflow/type', nodeType);
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const appendNewNode = useCallback((type: string, position: { x: number, y: number }) => {
+  const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
     const newNode: Node = {
       id: nodeId,
@@ -345,9 +187,9 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
     let rawTitle = '';
     let configuration = {};
 
-    if (type === 'userInput') {
-      rawType = "embed://a2/a2.bgl.json#module:user-inputs";
-      rawTitle = "User Input";
+    if (type === OpalNodeType.UserInputs) {
+      rawType = OpalNodeType.UserInputs;
+      rawTitle = t("用户输入");
       configuration = {
         description: {
           role: "user",
@@ -359,9 +201,9 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         }
       };
     }
-    else if (type === 'opalGenerate') {
-      rawType = "embed://a2/generate.bgl.json#module:main";
-      rawTitle = "Generate";
+    else if (type === OpalNodeType.AgentGenerate) {
+      rawType = OpalNodeType.AgentGenerate;
+      rawTitle = t("AI生成");
       configuration = {
         "config$prompt": {
           role: "user",
@@ -382,9 +224,9 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         }
       };
     }
-    else if (type === 'opalOutput') {
-      rawType = "embed://a2/a2.bgl.json#module:render-outputs";
-      rawTitle = "Output";
+    else if (type === OpalNodeType.RenderOutputs) {
+      rawType = OpalNodeType.RenderOutputs;
+      rawTitle = t("输出");
       configuration = {
         text: {
           parts: [
@@ -420,19 +262,17 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
 
     setNodes((nds) => {
       const newNodes = [...nds, newNode];
-      // 保存历史记录
-      setTimeout(() => saveToHistory(newNodes), 0);
       return newNodes;
     });
 
-  }, [setNodes, saveToHistory]);
+  }, [setNodes]);
 
-  const addNode = useCallback((type: string) => {
+  const addNode = useCallback((type: OpalNodeType) => {
     if (!reactFlowRef.current) return;
     
     // 计算画布中间位置
-    const canvasWidth = graphDOMRef.current?.clientWidth || 800;
-    const canvasHeight = graphDOMRef.current?.clientHeight || 600;
+    const canvasWidth = graphDomRef.current?.clientWidth || 800;
+    const canvasHeight = graphDomRef.current?.clientHeight || 600;
     
     // 先转换为画布坐标
     const centerPosition = reactFlowRef.current.screenToFlowPosition({
@@ -448,6 +288,17 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
 
     appendNewNode(type, position);
   }, [appendNewNode]);
+
+
+  const onDragStart = (event: React.DragEvent, nodeType: OpalNodeType) => {
+    event.dataTransfer.setData('application/reactflow/type', nodeType);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -468,62 +319,34 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
       y: flowPosition.y - 20
     };
 
-    appendNewNode(type, position);
+    appendNewNode(type as OpalNodeType, position);
   }, [appendNewNode]);
 
   // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
   const handleNodesChange = useCallback((changes: any) => {
-    // 检查是否是删除操作
-    const isDelete = changes.some((c: any) => c.type === 'remove');
-    
     // 调用原始的 onNodesChange
     onNodesChange(changes);
-    
-    // 如果是删除操作，立即保存历史记录
-    if (isDelete) {
-      setTimeout(() => saveToHistory(), 0);
-    }
-  }, [onNodesChange, saveToHistory]);
+  }, [onNodesChange]);
 
   const handleEdgesChange = useCallback((changes: any) => {
-    // 检查是否是删除操作
-    const isDelete = changes.some((c: any) => c.type === 'remove');
-    
     // 调用原始的 onEdgesChange
     onEdgesChange(changes);
-    
-    // 如果是删除操作，立即保存历史记录
-    if (isDelete) {
-      setTimeout(() => saveToHistory(), 0);
-    }
-  }, [onEdgesChange, saveToHistory]);
+  }, [onEdgesChange]);
 
-  // Load graph data when graphData prop changes
+  // 传入的 graphData 上图
   useEffect(() => {
-    if (graphData && graphData !== prevGraphDataRef.current) {
-      prevGraphDataRef.current = graphData;
-      
-      const graphNodes = (graphData.nodes || []).map((node: NodeRawDataType): Node => {
-        const newNode: Node = {
-          id: node.id,
-          type: 'opalGenerate',
-          position: { x: node.metadata.visual?.x || 0, y: node.metadata.visual?.y || 0 },
-          data: node
+    if (graphData) {
+      const flowNodes = (graphData.nodes || []).map((gNode: OpalNode): FlowNode => {
+        const newNode: FlowNode = {
+          id: gNode.id,
+          type: gNode.type,
+          position: { x: gNode.metadata.visual?.x || 0, y: gNode.metadata.visual?.y || 0 },
+          data: gNode
         };
-        const nodeType = node.type || '';
-        if (nodeType.includes('embed://a2/generate.bgl.json')) {
-          newNode.type = 'opalGenerate';
-        } 
-        else if (nodeType.includes('module:render-outputs')) {
-          newNode.type = 'opalOutput';
-        }
-        else if (nodeType.includes('module:user-inputs')) {
-          newNode.type = 'userInput';
-        }
         return newNode;
       });
 
-      const graphEdges = (graphData.edges || []).map((edge: any): Edge => {
+      const flowEdges = (graphData.edges || []).map((edge: any): Edge => {
         return {
           id: edge.id || `${edge.from}-${edge.to}`,
           source: edge.from || edge.source,
@@ -531,56 +354,31 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         };
       });
 
-      setNodes(graphNodes);
-      setEdges(graphEdges);
+      setNodes(flowNodes);
+      setEdges(flowEdges);
 
       // 加载完成后调用 fitView
       setTimeout(() => {
         doLayout();
-        // 布局完成后，将初始状态保存到历史记录
-        setTimeout(() => {
-          isPaused.current = true;
-          saveToHistory(graphNodes, graphEdges);
-          setTimeout(() => {
-            isPaused.current = false;
-          }, 50);
-        }, 100);
       }, 30);
     }
-  }, [graphData, setNodes, setEdges, doLayout, saveToHistory]);
+  }, [graphData, setNodes, setEdges, doLayout]);
 
-  // Apply execution status classes to nodes
+  // 监听图的变化, 回调自动保存
   useEffect(() => {
-    const { nodeStatuses } = execState;
-    if (!Object.keys(nodeStatuses).length) return;
-
-    setNodes(nds => nds.map(node => {
-      const status = nodeStatuses[node.id];
-      let className = '';
-      if (status === 'running') className = 'node-exec-running';
-      else if (status === 'completed') className = 'node-exec-completed';
-      else if (status === 'error') className = 'node-exec-error';
-
-      if (node.className === className) return node;
-      return { ...node, className };
-    }));
-  }, [execState.nodeStatuses, setNodes]);
-
-  // Watch for node/edge changes and notify parent
-  useEffect(() => {
-    if (onGraphChange && nodes.length > 0) {
-      // Convert ReactFlow nodes to OpalNode format
-      const opalNodes: OpalNode[] = nodes.map((node): OpalNode => {
-        const nodeData = node.data as Partial<OpalNode>;
-        return {
-          id: node.id,
-          type: nodeData.type || '',
-          metadata: nodeData.metadata || {},
-          configuration: nodeData.configuration || {}
-        };
+    if (onGraphChange) {
+      const opalNodes: OpalNode[] = nodes.map((fNode): OpalNode => {
+        const position = fNode.position;
+        const rawData = fNode.data as OpalNode;
+        if (rawData.metadata) {
+          rawData.metadata.visual = {
+            x: position.x,
+            y: position.y
+          };
+        }
+        return rawData;
       });
       
-      // Convert ReactFlow edges to OpalEdge format
       const opalEdges: OpalEdge[] = edges.map((edge): OpalEdge => {
         return {
           from: edge.source,
@@ -590,73 +388,28 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         };
       });
       
-      const graphDataToSave: OpalGraphJson = {
-        metadata: {},
-        title: '',
-        description: '',
-        nodes: opalNodes,
-        edges: opalEdges
-      };
-      
-      onGraphChange(graphDataToSave);
+      if (graphData) {
+        graphData.nodes = opalNodes;
+        graphData.edges = opalEdges;
+        onGraphChange(graphData);
+      } else {
+        onGraphChange({
+          title: '',
+          description: '',
+          nodes: opalNodes,
+          edges: opalEdges
+        });
+      }
     }
   }, [nodes, edges, onGraphChange]);
 
-  // 监听节点和边的变化，自动保存历史记录
-  useEffect(() => {
-    if (historyIndex === -1) return; // 还没有初始化
-    
-    // 为节点和边创建快照，忽略临时状态
-    const currentNodesSnapshot = JSON.stringify(nodes.map(n => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: n.data
-    })));
-    
-    const currentEdgesSnapshot = JSON.stringify(edges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target
-    })));
-    
-    // 检查是否有实质性变化
-    const hasChanges = currentNodesSnapshot !== nodesSnapshotRef.current || 
-                      currentEdgesSnapshot !== edgesSnapshotRef.current;
-    
-    if (!hasChanges) return;
-    
-    // 更新快照
-    nodesSnapshotRef.current = currentNodesSnapshot;
-    edgesSnapshotRef.current = currentEdgesSnapshot;
-    
-    // 如果是暂停状态，不保存历史记录
-    if (isPaused.current) return;
-    
-    // 清除之前的定时器
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    
-    // 设置新的防抖定时器
-    debounceTimer.current = setTimeout(() => {
-      saveToHistory();
-    }, 300);
-    
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, [nodes, edges, historyIndex, saveToHistory]);
-
   return (
-    <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDOMRef}>
+    <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDomRef}>
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-node-type="userInput" draggable onDragStart={(e) => onDragStart(e, 'userInput')} onClick={() => addNode('userInput')}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
-            <button data-node-type="opalGenerate" draggable onDragStart={(e) => onDragStart(e, 'opalGenerate')} onClick={() => addNode('opalGenerate')}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
-            <button data-node-type="opalOutput" draggable onDragStart={(e) => onDragStart(e, 'opalOutput')} onClick={() => addNode('opalOutput')}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
+            <button data-node-type={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
+            <button data-node-type={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
+            <button data-node-type={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
           </div>
@@ -674,7 +427,7 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         onDrop={onDrop}
         onDragOver={onDragOver}
         onInit={(instance) => reactFlowRef.current = instance}
-        nodeTypes={nodeTypes}
+        nodeTypes={customNodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         nodeDragThreshold={5}
         snapToGrid={true}
@@ -686,8 +439,6 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         <Background color="#C5CBD3" gap={20} size={1} />
         <Controls position="bottom-right">
           <ControlButton onClick={() => doLayout()} title={t('自动布局')}><LayoutDagIcon /></ControlButton>
-          <ControlButton onClick={undo} disabled={historyIndex <= 0} title={t('撤销')}><Undo /></ControlButton>
-          <ControlButton onClick={redo} disabled={historyIndex >= history.length - 1} title={t('重做')}><Redo /></ControlButton>
         </Controls>
       </ReactFlow>
 

@@ -35,4 +35,5 @@ export default {
   "确定要删除应用 [{name}] 吗? 删除后将无法恢复。": "Are you sure you want to delete the app [{name}]? This action cannot be undone.",
   "取消": "Cancel",
   "确定": "Confirm",
+  "在此输入您的提示，使用 @ 来包含其他内容。": "Type your prompt here. Use @ to include other content.",
 };
