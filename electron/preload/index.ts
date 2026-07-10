@@ -34,6 +34,7 @@ interface App {
 contextBridge.exposeInMainWorld('electronAPI', {
   readFile: (filepath: string): Promise<string | null> => ipcRenderer.invoke('read_file', filepath),
   writeFile: (filepath: string, content: string): Promise<boolean> => ipcRenderer.invoke('write_file', filepath, content),
+  deleteFile: (filepath: string): Promise<boolean> => ipcRenderer.invoke('delete_file', filepath),
   getDataDir: (): Promise<string> => ipcRenderer.invoke('get-data-dir'),
   listApps: (): Promise<App[]> => ipcRenderer.invoke('list-apps'),
 })

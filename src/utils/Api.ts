@@ -9,6 +9,7 @@ const getUUID = () => {
 };
 
 class Api {
+
   /**
    * 获取应用列表
    */
@@ -32,6 +33,10 @@ class Api {
    */
   async writeFile(filepath: string, content: string): Promise<boolean> {
     return await window.electronAPI.writeFile(filepath, content);
+  }
+
+  async deleteFile(filepath: string): Promise<boolean> {
+    return await window.electronAPI.deleteFile(filepath);
   }
 
   /**
@@ -75,6 +80,35 @@ class Api {
       return true;
     } catch(e) {
       console.error('Failed to save app data:', e);
+      return false;
+    }
+  }
+
+  /**
+   * 删除应用
+   */
+  async deleteApp(appId: string): Promise<boolean> {
+    try {
+      await this.deleteFile(`apps/${appId}.json`);
+      return true;
+    } catch (e) {
+      console.error('Failed to delete app:', e);
+      return false;
+    }
+  }
+
+  /**
+   * 复制应用
+   */
+  async duplicateApp(appId: string): Promise<boolean> {
+    try {
+      const appData = await this.getAppData(appId);
+      const newId = getUUID();
+      appData.title = `${appData.title} (Copy)`;
+      await this.saveAppData(newId, appData);
+      return true;
+    } catch (e) {
+      console.error('Failed to duplicate app:', e);
       return false;
     }
   }

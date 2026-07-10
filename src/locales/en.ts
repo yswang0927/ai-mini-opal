@@ -23,11 +23,16 @@ export default {
   "添加资产": "Add Assets",
   "演示视频": "Demo Video",
   "用户输入": "User Input",
-  "画布": "Canvas",
+  "画布": "Editor",
   "自动布局": "Auto Layout",
   "节点": "Step",
   "请选择一个节点编辑": "Select a Step to edit",
   "运行预览后，节点执行日志将显示在这里": "Step execution logs will appear here after running the preview",
   "重做": "Redo",
-  "预览应用": "Preview"
+  "预览应用": "Preview",
+  "删除": "Delete",
+  "复制副本": "Duplicate",
+  "确定要删除应用 [{name}] 吗? 删除后将无法恢复。": "Are you sure you want to delete the app [{name}]? This action cannot be undone.",
+  "取消": "Cancel",
+  "确定": "Confirm",
 };

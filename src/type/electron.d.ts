@@ -10,6 +10,7 @@ interface ElectronAPI {
   listApps: () => Promise<App[]>
   readFile: (filepath: string) => Promise<string | null>
   writeFile: (filepath: string, content: string) => Promise<boolean>
+  deleteFile: (filepath: string) => Promise<boolean>
   getDataDir: () => Promise<string>
 }
 

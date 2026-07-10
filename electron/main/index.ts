@@ -50,8 +50,9 @@ const indexHtml = path.join(RENDERER_DIST, 'index.html');
 async function createWindow() {
   win = new BrowserWindow({
     title: 'Main window',
-    width: 1200,
+    width: 1400,
     height: 800,
+    autoHideMenuBar: VITE_DEV_SERVER_URL ? false : true,
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
       preload,
@@ -173,31 +174,60 @@ ipcMain.handle('write_file', async (_, filepath: string, content: string) => {
   }
 });
 
+// Delete file (relative to userData)
+ipcMain.handle('delete_file', async (_, filepath: string) => {
+  const userDataPath = app.getPath('userData')
+  const fullPath = path.join(userDataPath, filepath)
+  try {
+    if (existsSync(fullPath)) {
+      await fs.unlink(fullPath);
+    }
+    return true;
+  } catch (e) {
+    throw new Error(`Failed to delete file ${filepath}: ${e}`);
+  }
+});
+
 // List all JSON files in apps directory
 ipcMain.handle('list-apps', async () => {
   const userDataPath = app.getPath('userData');
   const appsDir = path.join(userDataPath, 'apps');
+  
   // Ensure apps directory exists
   await fs.mkdir(appsDir, { recursive: true });
+  
   try {
     const files = await fs.readdir(appsDir);
     const jsonFiles = files.filter(file => file.endsWith('.json'));
     const apps = [];
+    
     for (const file of jsonFiles) {
       const filePath = path.join(appsDir, file);
       try {
-        const content = await fs.readFile(filePath, 'utf-8');
+        // 1. 同时获取文件内容和文件状态（包含修改时间）
+        const [content, stat] = await Promise.all([
+          fs.readFile(filePath, 'utf-8'),
+          fs.stat(filePath)
+        ]);
+        
         const data = JSON.parse(content);
         apps.push({
           id: file.replace('.json', ''),
           title: data.title || 'Untitled App',
-          description: data.description || ''
+          description: data.description || '',
+          mtime: stat.mtime // 2. 保存修改时间用于排序
         });
       } catch (e) {
         console.error(`Failed to read ${file}:`, e);
       }
     }
-    return apps;
+    
+    // 3. 按照修改时间降序排序 (b - a 表示降序，即最新的在前)
+    apps.sort((a, b) => b.mtime - a.mtime);
+    
+    // 4. 如果不需要把 mtime 返回给前端，可以在这里将其清理掉（可选）
+    return apps.map(({ mtime, ...appData }) => appData);
+    
   } catch (e) {
     console.error('Failed to list apps:', e);
     return [];

@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Plus } from 'lucide-react';
-import { Button, Card, Elevation } from "@blueprintjs/core";
+import { 
+  Alert,
+  Button, 
+  Card, 
+  Elevation, 
+  PopoverNext, 
+  Menu, 
+  MenuItem, 
+  MenuDivider,
+  Tooltip
+} from "@blueprintjs/core";
 import { api } from '@/utils/Api';
 import { type AppData } from '@/types';
 import { Logo, Spinner } from '@/utils/icons';
@@ -9,12 +19,17 @@ import { useL10n } from "@/l10n";
 
 import './home.css';
 
+type ActionType = 'delete' | 'duplicate' | 'rename' | 'pin';
+
 export default function Home() {
   const { t } = useL10n();
   const navigate = useNavigate();
   const [apps, setApps] = useState<AppData[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  // 用于菜单操作的状态
+  const [activeApp, setActiveApp] = useState<AppData|null>(null);
+  const [activeAction, setActiveAction] = useState<ActionType|null>(null);
 
   const loadApps = async () => {
     try {
@@ -23,11 +38,7 @@ export default function Home() {
     } catch (e) {
       console.error('Failed to load apps:', e);
     }
-  }
-
-  useEffect(() => {
-    loadApps();
-  }, [])
+  };
 
   const handleCreateApp = async () => {
     setCreating(true);
@@ -45,10 +56,49 @@ export default function Home() {
     navigate(`/editor/${id}`);
   };
 
+  const handleDeleteApp = async (id: string) => {
+    if (!id) return;
+    try {
+      await api.deleteApp(id);
+      setApps(prevApps => prevApps.filter(app => app.id !== id));
+    } catch (e) {
+      console.error('Failed to delete app:', e);
+    }
+  };
+
+  const handleDuplicateApp = async (id: string) => {
+    if (!id) return;
+    try {
+      await api.duplicateApp(id);
+      loadApps();
+    } catch (e) {
+      console.error('Failed to duplicate app:', e);
+    }
+  };
+
+  const openAction = (app: AppData, action: ActionType) => {
+    setActiveApp(app);
+    setActiveAction(action);
+
+    if (action === 'duplicate') {
+      handleDuplicateApp(app.id);
+      closeAction();
+    }
+  };
+
+  const closeAction = () => {
+    setActiveApp(null);
+    setActiveAction(null);
+  };
+
+  useEffect(() => {
+    loadApps();
+  }, []);
+
   return (
     <div>
       {/* Header */}
-      <header className="home-header flex items-center justify-between">
+      <header className="home-header flex items-center justify-between blur">
         <div className="flex items-center gap-md">
           <div className="flex items-center justify-center logo-wrapper">
             <Logo />
@@ -57,9 +107,9 @@ export default function Home() {
         </div>
 
         <div>
-          <Button variant="minimal" onClick={() => setIsSettingsOpen(true)}>
-            <Settings size={20} strokeWidth={1.5} />
-          </Button>
+          <Tooltip content="打开设置" placement="bottom">
+            <Button variant="minimal" icon="cog" onClick={() => setIsSettingsOpen(true)} />
+          </Tooltip>
         </div>
       </header>
 
@@ -71,6 +121,7 @@ export default function Home() {
           <div className="flex padding-md justify-end">
             <Button className="create-new-app"
               onClick={handleCreateApp}
+              size="medium"
               disabled={creating}
             >
               <span className="bp6-icon"> { creating ? <Spinner /> : <Plus size={16} strokeWidth={2} /> }</span>
@@ -79,25 +130,37 @@ export default function Home() {
           </div>
 
           {/* Card Grid */}
-          <div>
-            <div className="gallery-grid">
-              {apps.map((app) => (
-                <Card className="app-board"
-                  key={app.id}
-                  interactive={true}
-                  elevation={Elevation.TWO}
-                  onClick={() => handleOpenApp(app.id)}
-                >
-                  <div className="flex items-center justify-center board-thumbnail">
-                    <Logo/>
-                  </div>
-                  <div className="board-info">
-                    <div className="board-title">{app.title}</div>
-                    <div className="board-desc">{app.description || 'No description'}</div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+          <div className="gallery-grid">
+            {apps.map((app) => (
+              <Card className="app-board"
+                key={app.id}
+                interactive={true}
+                elevation={Elevation.TWO}
+                onClick={() => handleOpenApp(app.id)}
+              >
+                <div className="flex items-center justify-center board-thumbnail">
+                  <Logo/>
+                </div>
+                
+                <div className="board-info">
+                  <div className="board-title">{app.title}</div>
+                  <div className="board-desc">{app.description || 'No description'}</div>
+                </div>
+
+                <div className="board-actions" onClick={(e) => e.stopPropagation()}>
+                  <PopoverNext placement='bottom' content={
+                    <Menu>
+                      <MenuItem icon="trash" text={t('删除')} intent="danger" onClick={() => openAction(app, 'delete')} />
+                      <MenuDivider />
+                      <MenuItem icon="duplicate" text={t('复制副本')} onClick={() => openAction(app, 'duplicate')} />
+                    </Menu>
+                  }>
+                    <Button variant="minimal" icon="more" />
+                  </PopoverNext>
+
+                </div>
+              </Card>
+            ))}
           </div>
 
           {apps.length === 0 && !creating && (
@@ -109,6 +172,22 @@ export default function Home() {
         </div>
       </main>
       
+      <Alert
+        canEscapeKeyCancel={true}
+        canOutsideClickCancel={true}
+        cancelButtonText={t('取消')}
+        confirmButtonText={t('删除')}
+        icon="trash"
+        intent="danger"
+        isOpen={activeAction === 'delete' && activeApp !== null}
+        onCancel={closeAction}
+        onConfirm={() => {
+          handleDeleteApp(activeApp?.id || '');
+          closeAction();
+        }}
+      >
+        <p>{t('确定要删除应用 [{name}] 吗? 删除后将无法恢复。', {'name': activeApp?.title || ''})}</p>
+      </Alert>
     </div>
   )
 }

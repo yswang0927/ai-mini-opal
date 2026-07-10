@@ -18,6 +18,7 @@
     height: 100%;
     width: 100%;
     z-index: -1;
+    display: none;
 }
 
 .logo-wrapper {
@@ -36,22 +37,13 @@
     font-weight: 600;
 }
 
-.gallery-wrapper {
-    margin: 0 auto;
-    width: 100%;
-    max-width: 1200px;
-    padding-top: 80px;
-}
-.gallery-wrapper h1 {
-    font-size: 2rem;
-    margin-bottom: 2rem;
-}
 button.create-new-app {
     background-color: #000 !important;
     color: #fff !important;
     border-radius: 64px;
     padding-right: 12px;
     padding-left: 12px;
+    height: 2.5rem;
 }
 button.create-new-app .bp6-icon {
     color: #fff !important;
@@ -62,6 +54,22 @@ button.create-new-app > .bp6-button-text {
     align-items: center;
 }
 
+.gallery-wrapper {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1200px;
+    padding: 80px 60px;
+}
+.gallery-wrapper h1 {
+    font-size: 2rem;
+    margin: 0 auto;
+    margin-bottom: 2rem;
+    max-width: 560px;
+    text-align: center;
+    font-family: var(--font-family-en-title);
+    font-variation-settings: "slnt" 0, "wdth" 100, "GRAD" 0, "ROND" 100;
+}
+
 .gallery-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -69,11 +77,13 @@ button.create-new-app > .bp6-button-text {
     column-gap: 2rem;
     row-gap: 1.5rem;
     margin-bottom: 2rem;
+    padding-top: 2rem;
 }
 .gallery-grid .app-board {
     position: relative;
     border-radius: var(--radius-lg);
     min-height: 260px;
+    min-width: 200px;
     cursor: pointer;
     overflow: hidden;
 }
@@ -118,4 +128,19 @@ button.create-new-app > .bp6-button-text {
 .gallery-grid .board-thumbnail svg {
     width: 60%;
     height: auto;
+}
+.gallery-grid .board-actions {
+    position: absolute;
+    right: 0.5rem;
+    top: 0.5rem;
+    z-index: 2;
+    display: flex;
+    gap: 0.5rem;
+    --bp-typography-color-muted: #fff;
+}
+.gallery-grid .board-actions button {
+    color: #fff;
+}
+.gallery-grid .board-actions button .bp6-icon-more {
+    transform: rotate(90deg);
 }
