@@ -26,6 +26,12 @@ export default defineConfig(({ command }) => {
         '@': path.join(__dirname, 'src'),
       },
     },
+    build: {
+      rolldownOptions: {
+        // 告诉打包工具：遇到 web-worker 不要报错，把它当做外部依赖忽略掉
+        external: ['web-worker'],
+      },
+    },
     plugins: [
       react(),
       svgr(),

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useGraphExecutor } from '@/components/graph/executor';
-import type { ExecutionState, OpalGraphJson } from '@/components/graph/executor';
+import type { ExecutionState } from '@/components/graph/executor';
 import type { OpalJson } from '@/types';
 
 type ViewMode = 'editor' | 'app';
@@ -12,6 +12,8 @@ type EditorContextValue = {
     setSelectedNode: (node: any) => void;
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
+    graphData: OpalJson | null;
+    setGraphData: (data: OpalJson | null) => void;
     execState: ExecutionState;
     loadGraph: (graphJson: OpalJson) => void;
     startExecution: () => Promise<void>;
@@ -25,6 +27,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     const [sidebarShow, setSidebarShow] = useState(true);
     const [selectedNode, setSelectedNode] = useState<any>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('editor');
+    const [graphData, setGraphData] = useState<OpalJson | null>(null);
     const { execState, loadGraph, start: startExecution, submitInput, reset: resetExecutor } = useGraphExecutor();
 
     const toggleSidebar = () => {
@@ -33,11 +36,10 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
     return (
         <EditorContext.Provider value={{
-            sidebarShow,
-            toggleSidebar,
-            selectedNode,
-            setSelectedNode,
+            sidebarShow, toggleSidebar,
+            selectedNode, setSelectedNode,
             viewMode, setViewMode,
+            graphData, setGraphData,
             execState, loadGraph, startExecution, submitInput, resetExecutor,
             }}
         >

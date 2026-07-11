@@ -28,10 +28,8 @@ function ChatGraphEditorContent() {
 
     const sidebarDomRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
-    const { sidebarShow, viewMode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
-
-    // Current app data state
-    const [appData, setAppData] = useState<OpalJson | undefined>(undefined);
+    const { sidebarShow, viewMode, setGraphData, execState, 
+        loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
     // Debounce timer for saving
     const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,8 +39,8 @@ function ChatGraphEditorContent() {
             const appData = await api.getAppData(appId);
             // If app data has graph content, load it
             if (appData && appData.nodes && appData.edges) {
-                setAppData(appData as OpalJson);
-                loadGraph(appData as OpalJson);
+                setGraphData(appData as OpalJson);
+                //loadGraph(appData as OpalJson);
             }
         } catch (e: any) {
             console.error('Failed to load app data:', e);
@@ -118,14 +116,14 @@ function ChatGraphEditorContent() {
     return (
         <div className="opal-editor">
             <div className="layout-header">
-                <Header appData={appData} />
+                <Header />
             </div>
 
             <div className="layout-body">
                 {viewMode === 'editor' && (
                     <>
                         <div className="layout-main">
-                            <ChatGraph graphData={appData} onGraphChange={handleGraphChange} />
+                            <ChatGraph graphId={id} onGraphChange={handleGraphChange} />
                         </div>
 
                         <div ref={sidebarDomRef} className={`layout-sidebar${sidebarShow ? '' : ' is-hidden'}`}>

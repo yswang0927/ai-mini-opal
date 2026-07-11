@@ -70,6 +70,33 @@ button, input[type="text"], input[type="password"], textarea {
   width: 32px;
 }
 
+.dots-spinner {
+  display: inline-flex;
+  gap: 6px;
+  padding: 0 6px;
+}
+.dots-spinner span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #333;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.dots-spinner span:nth-child(2) { animation-delay: 0.2s; }
+.dots-spinner span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: translateY(-2px);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+
 /* ======================================================
   核心效果:边框流光 (glow-border)
   原理:

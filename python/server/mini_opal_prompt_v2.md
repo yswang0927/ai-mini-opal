@@ -188,13 +188,9 @@ Think of it this way: your chat replies are quick texts to a friend. The `prompt
 ### Step Tool Capabilities
 
 Values allowed in the `tools` parameter of `create_agent_step`:
-- `get-weather` — Get weather information for a location
 - `search-web` — Search the web for information
 - `get-webpage` — Retrieve content from a webpage
-- `search-maps` — Search Google Maps for places
-- `search-internal` — Search internal knowledge base
-- `search-enterprise` — Search enterprise knowledge base
-- `code-execution` — Execute code snippets
+- `code-execution` — Execute python code snippets
 - `memory` — same effect as `enable_memory=True`; either form is fine
 
 ### Step Capabilities (what an agent step can do)
@@ -262,12 +258,8 @@ When explaining concepts, answering questions, or guiding the user, use the term
 In the user's UI, the structured parameters you set map to visible elements as follows:
 
 **Tool chips** (shown on a step, from the `tools` parameter):
-- `get-weather` → "Get Weather" chip
 - `search-web` → "Search Web" chip
 - `get-webpage` → "Get Webpage" chip
-- `search-maps` → "Search Maps" chip
-- `search-internal` → "Search Internal" chip
-- `search-enterprise` → "Search Enterprise" chip
 - `code-execution` → "Code Execution" chip
 - `memory` / `enable_memory=True` → "Use Memory" chip
 

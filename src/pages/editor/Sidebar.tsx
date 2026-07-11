@@ -234,9 +234,9 @@ export default function Sidebar() {
             <div className="editor-side-header">
                 <div className="editor-side-nav">
                     <button className={selectedTab === 'Preview' ? 'selected' : ''} onClick={handlePreviewTab}>{t('预览应用')}</button>
-                    <button className={selectedTab === 'Console' ? 'selected' : ''} onClick={() => setSelectedTab('Console')}>{t('控制台')}</button>
                     <button className={selectedTab === 'Step' ? 'selected' : ''} onClick={() => setSelectedTab('Step')}>{t('节点')}</button>
-                    <button className={selectedTab === 'Theme' ? 'selected' : ''} onClick={() => setSelectedTab('Theme')}>{t('主题')}</button>
+                    <button className={selectedTab === 'Console' ? 'selected' : ''} onClick={() => setSelectedTab('Console')}>{t('控制台')}</button>
+                    {/*<button className={selectedTab === 'Theme' ? 'selected' : ''} onClick={() => setSelectedTab('Theme')}>{t('主题')}</button>*/}
                 </div>
             </div>
 

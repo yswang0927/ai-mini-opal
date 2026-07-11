@@ -96,6 +96,7 @@ class _CreateInputStepArgs(BaseModel):
 
 def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
     def _run(title: str, question_text: str, modality: str = "Any", required: bool = True) -> str:
+        print(f" >>> Tools<create_input_step> invoked: {title} - {question_text}")
         try:
             step = graph.add_input_step(
                 title=title, question_text=question_text, modality=modality, required=required
@@ -210,6 +211,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         routes: Optional[List[Dict[str, str]]] = None,
         asset_ids: Optional[List[str]] = None,
     ) -> str:
+        print(f" >>> Tools<create_agent_step> invoked: {title}")
         try:
             step = graph.add_agent_step(
                 title=title,
@@ -234,7 +236,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         func=_run,
         name="create_agent_step",
         description=(
-            "创建一个自主Agentic计算/生成节点,由Gemini驱动完成一个目标性任务"
+            "创建一个自主Agentic计算/生成节点,由LLM驱动完成一个目标性任务"
             "(计算、分析、生成文本/图像/视频/音频、多轮对话等)。这是图里最核心的节点类型。"
             "返回值包含新节点的 step_id。"
         ),
@@ -289,6 +291,7 @@ def _make_create_render_step_tool(graph: OpalGraphState) -> StructuredTool:
         asset_ids: Optional[List[str]] = None,
         render_mode: str = "Auto",
     ) -> str:
+        print(f" >>> Tools<create_render_step> invoked: {title}")
         try:
             step = graph.add_render_step(
                 title=title,
@@ -340,6 +343,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
         asset_ids: Optional[List[str]] = None,
         render_mode: Optional[str] = None,
     ) -> str:
+        print(f" >>> Tools<edit_step> invoked: {step_id}({title})")
         try:
             step = graph.edit_step(
                 step_id=step_id,
@@ -374,6 +378,7 @@ class _RemoveStepArgs(BaseModel):
 
 def _make_remove_step_tool(graph: OpalGraphState) -> StructuredTool:
     def _run(step_id: str) -> str:
+        print(f" >>> Tools<remove_step> invoked: {step_id}")
         try:
             graph.remove_step(step_id)
             return _ok({"removed_step_id": step_id})
@@ -410,6 +415,7 @@ def _make_manage_connection_tool(graph: OpalGraphState) -> StructuredTool:
         target_step_id: str,
         route_label: Optional[str] = None,
     ) -> str:
+        print(f" >>> Tools<manage_connection> invoked: {source_step_id} -> {target_step_id}")
         try:
             graph.manage_connection(
                 action=action,
@@ -451,6 +457,7 @@ def _make_set_graph_metadata_tool(graph: OpalGraphState) -> StructuredTool:
         description: Optional[str] = None,
         tags: Optional[List[str]] = None,
     ) -> str:
+        print(f" >>> Tools<set_graph_metadata> invoked: {title} {description}")
         result = graph.set_metadata(title=title, description=description, tags=tags)
         return _ok(result)
 

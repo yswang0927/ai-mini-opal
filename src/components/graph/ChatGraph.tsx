@@ -22,11 +22,14 @@ import {
   Undo2,
   Redo2
 } from 'lucide-react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm'
 
 import type { OpalJson, OpalNode, OpalEdge } from '@/types';
 import { OpalNodeType } from '@/types';
 import { useL10n } from "@/l10n";
-import { LayoutDagIcon, Undo, Redo } from '@/utils/icons';
+import DotsSpinner from '@/components/DotsSpinner';
+import { LayoutDagIcon, Undo, Redo, Spinner } from '@/utils/icons';
 import { useEditorContext } from '@/pages/editor/EditorContext';
 
 import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
@@ -73,18 +76,25 @@ const nodeRandomOffset = () => {
 };
 
 interface ChatGraphProps {
+  graphId?: string;
   graphData?: OpalJson;
   onGraphChange?: (data: OpalJson) => void;
 }
 
-export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) {
+export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
   const { t } = useL10n();
   const graphDomRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { setSelectedNode, execState } = useEditorContext();
-  
+  const { setSelectedNode, graphData, setGraphData, execState } = useEditorContext();
+
+  const [chatInput, setChatInput] = useState<string>('');
+  const [chatting, setChatting] = useState<boolean>(false);
+  const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
+  const chatListDomRef = useRef(null);
+  const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
+
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node.data || null);
@@ -127,6 +137,7 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         markerEnd: defaultEdgeOptions.markerEnd
       }))
     );
+
   }, [setSelectedNode, setEdges]);
 
   const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
@@ -386,13 +397,58 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
     }
   }, [nodes, edges, onGraphChange]);
 
+  const handleChatSubmit = () => {
+    const userInput = chatInput.trim();
+    if (userInput === '') return;
+
+    setChatListCollapsed(false);
+    setChatting(true);
+    setChatInput('');
+    setChatHistory((prev) => [...prev, { role: 'user', content: userInput }]);
+    
+    fetch('http://127.0.0.1:18765/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ session_id: graphId, message: userInput })
+    })
+    .then(response => response.json())
+    .then(data => {
+      // {session_id:string, reply:string, graph:OpalJson}
+      console.log('Chat response:', data);
+      setChatInput('');
+      setChatting(false);
+      setGraphData(data.graph);
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+    })
+    .catch(error => {
+      setChatting(false);
+      setChatInput(userInput);
+      console.error('Error during chat request:', error);
+    });
+  };
+
+  useEffect(() => {
+    if (chatListDomRef.current) {
+      const chatListDiv = chatListDomRef.current as HTMLDivElement;
+      setTimeout(() => {
+        chatListDiv.scrollTop = chatListDiv.scrollHeight;
+      }, 100);
+    }
+  }, [chatHistory]);
+
   return (
-    <div className="absolute inset-0" style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} ref={graphDomRef}>
+    <div className="absolute inset-0" 
+      style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} 
+      ref={graphDomRef}
+      onMouseDown={() => setChatListCollapsed(true)}
+    >
       <div className="graph-nodes-panel">
           <div className="graph-nodes">
             <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
             <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
-            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('AI输出')}</span></button>
+            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('输出')}</span></button>
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
           </div>
@@ -409,6 +465,7 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onMouseDown={() => setChatListCollapsed(true)}
         onInit={(instance) => reactFlowRef.current = instance}
         nodeTypes={customNodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -437,13 +494,42 @@ export default function ChatGraph({ graphData, onGraphChange }: ChatGraphProps) 
         <div className="empty-state-bottom">
           ... <span>{t('或输入你想构建的内容')}</span>
         </div>
-      </div>)}
+      </div>
+    )}
 
-      <div className="graph-chatbox">
-        <div className="graph-chatbox-input flex items-center">
-          <textarea rows={1} placeholder={t('描述你想构建的内容')}></textarea>
-          <button className="graph-chatbox-submit"><SendHorizontal size={24} strokeWidth={1.5} /></button>
+      <div className="graph-chatbox" onMouseDown={(e)=>e.stopPropagation()}>
+        <div className={`graph-chat-messages ${chatListCollapsed?'':'expanded'} ${chatHistory.length > 0 ? 'has-msgs' : ''}`}>
+          <div className="graph-chat-msg-toggle" onMouseOver={() => setChatListCollapsed(false)}></div>
+          <div className="graph-chat-msg-list" ref={chatListDomRef}>
+            {chatHistory.map((msg, index) => (
+              <div key={index} className={`graph-chat-msg ${msg.role}`}>
+                <div className="graph-chat-msg-content">
+                  { msg.role === 'user' 
+                    ? <span>{msg.content}</span> 
+                    : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                  }
+                </div>
+              </div>
+            ))}
+
+            {chatting && (
+              <div className="graph-chat-msg assistant thinking">
+                <div className="graph-chat-msg-content">{t('生成中')}<DotsSpinner/></div>
+              </div>
+            )}
+          </div>
         </div>
+
+        <div className="graph-chatbox-input flex items-center">
+          <textarea rows={1} 
+            placeholder={t('描述你想构建的内容')} 
+            value={chatInput} 
+            onChange={(e) => setChatInput(e.target.value)}></textarea>
+          <button className="graph-chatbox-submit" disabled={(chatting || chatInput.trim() === '')} onClick={handleChatSubmit}>
+            {chatting ? <span className="chatting-spinner"><Spinner /></span> : <SendHorizontal size={24} strokeWidth={1.5} />}
+          </button>
+        </div>
+
       </div>
 
     </div>

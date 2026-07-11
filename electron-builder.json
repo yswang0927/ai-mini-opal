@@ -10,6 +10,16 @@
     "dist-electron",
     "dist"
   ],
+  "extraResources": [
+    {
+      "from": "python/runtime",
+      "to": "python"
+    },
+    {
+      "from": "python/server",
+      "to": "python"
+    }
+  ],
   "mac": {
     "icon": "build/icon.icns",
     "category": "public.app-category.developer-tools",

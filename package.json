@@ -31,7 +31,9 @@
     "quill": "^2.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.1",
+    "remark-gfm": "^4.0.1",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
@@ -46,5 +48,8 @@
     "vite-plugin-electron": "^1.0.1",
     "vite-plugin-electron-renderer": "^1.0.0",
     "vite-plugin-svgr": "^4.5.0"
+  },
+  "resolutions": {
+    "@popperjs/core": "2.10.0"
   }
 }

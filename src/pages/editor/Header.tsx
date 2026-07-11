@@ -11,15 +11,15 @@ import { useEditorContext } from './EditorContext';
 import { useL10n } from "@/l10n";
 import type { OpalJson } from '@/types';
 
-export default function Header({ appData }: { appData?: OpalJson }) {
+export default function Header() {
     const { t } = useL10n();
     const navigate = useNavigate();
-    const { sidebarShow, toggleSidebar, viewMode, setViewMode } = useEditorContext();
+    const { sidebarShow, toggleSidebar, viewMode, setViewMode, graphData } = useEditorContext();
     const [title, setTitle] = useState('Untitled app');
 
     useEffect(() => {
-        setTitle(appData?.title || 'Untitled app');
-    }, [appData]);
+        setTitle(graphData?.title || 'Untitled app');
+    }, [graphData]);
 
     return (
         <div className="editor-header">

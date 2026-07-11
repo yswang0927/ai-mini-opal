@@ -4,6 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { update } from './update';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,39 @@ export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST;
+
+// 集成embedded-python环境
+const isPackaged: boolean = app.isPackaged;
+const pythonDir: string = isPackaged
+    ? path.join(process.resourcesPath, 'python')
+    : path.join(process.env.APP_ROOT, 'python', 'runtime');
+
+const pythonExe: string = process.platform === 'win32'
+    ? path.join(pythonDir, 'python.exe')
+    : path.join(pythonDir, 'bin', 'python3');
+
+function runOpalPythonServer() {
+  const scriptPath: string = isPackaged
+    ? path.join(process.resourcesPath, 'python', 'server', 'server.py')
+    : path.join(process.env.APP_ROOT, 'python', 'server', 'server.py');
+
+  // 启动 Python 子进程
+  const pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"]);
+
+  // 接收 Python 的标准输出
+  pyProcess.stdout.on('data', (data: any) => {
+    console.log(`OpalPythonServer 输出: ${data.toString()}`);
+  });
+
+  // 接收 Python 的错误信息
+  pyProcess.stderr.on('data', (data: any) => {
+    console.error(`OpalPythonServer 错误: ${data.toString()}`);
+  });
+
+  pyProcess.on('close', (code: any) => {
+    console.log(`OpalPythonServer 进程退出，退出码: ${code}`);
+  });
+}
 
 // Disable GPU Acceleration for Windows 7
 if (process.platform === 'win32' && os.release().startsWith('6.1')) {
@@ -87,7 +121,10 @@ async function createWindow() {
   update(win);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  runOpalPythonServer();
+});
 
 app.on('window-all-closed', () => {
   win = null;

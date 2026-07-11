@@ -15,7 +15,7 @@
   对话回复            实际 Opal JSON (nodes + edges)
 ```
 
-Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到哪、挂什么工具。所有 JSON 里那些丑陋的实现细节(`embed://a2/generate.bgl.json#module:main`、`p-z-{source_id}`、`x:720, y:160`)全部由工具执行层在收到调用后生成,Opie 从不接触。
+Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到哪、挂什么工具。所有 JSON 里那些细节全部由工具执行层在收到调用后生成,Opie 从不接触。
 
 ---
 
@@ -24,9 +24,9 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 | 工具名 | 作用 | 对应JSON节点类型                          |
 |---|---|-------------------------------------|
 | `graph_get_overview` | 读取当前图状态 | —                                   |
-| `create_input_step` | 创建"询问用户"节点 | `a2.bgl.json#module:user-inputs`    |
-| `create_agent_step` | 创建Agentic计算/生成节点 | `generate.bgl.json#module:main`     |
-| `create_render_step` | 创建HTML渲染输出节点 | `a2.bgl.json#module:render-outputs` |
+| `create_input_step` | 创建"询问用户"节点 | `user-inputs`                       |
+| `create_agent_step` | 创建Agentic计算/生成节点 | `agent-generate`                    |
+| `create_render_step` | 创建HTML渲染输出节点 | `render-outputs` |
 | `edit_step` | 修改已有节点的prompt/配置 | —                                   |
 | `remove_step` | 删除节点(自动清理相关edges) | —                                   |
 | `manage_connection` | 增/删 parent连线或route | —                                   |
@@ -98,8 +98,8 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 
 **编译规则(后端)**:
 - 生成 `step_id`(如 `input_{slug}_{短hash}`)
-- `type` 固定映射为 `embed://a2/a2.bgl.json#21ee02e7-83fa-49d0-964c-0cab10eafc2c`
-- `configuration.description.parts[0].text` = `question_text`
+- `type` 固定映射为 `user-inputs`
+- `configuration.description.content` = `question_text`
 - `configuration.p-modality` = `modality`(默认 `"Any"`)
 - 坐标:所有input类型节点统一分配在 `x=250`,`y` 按创建顺序间隔150递增(250, 450, 600...)
 
@@ -131,8 +131,7 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["get-weather", "search-web", "get-webpage", "search-maps",
-                   "search-internal", "search-enterprise", "code-execution", "memory"]
+          "enum": ["search-web", "get-webpage", "code-execution", "memory"]
         },
         "description": "本节点需要挂载的工具能力列表。"
       },
@@ -175,9 +174,9 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 ```
 
 **编译规则(后端)**:
-- `type` 固定映射为 `embed://a2/generate.bgl.json#module:main`
+- `type` 固定映射为 `agent-generate`
 - `configuration.generation-mode` = `"agent"`
-- `configuration.config$prompt.parts[0].text` = 拼接 `prompt` + 自动追加的"Output Format"段(嵌入`expected_output`)+ 自动追加的"User Input/Context"段(遍历`parents`,为每个生成 `{{"type":"in","path":"{parent_id}","title":"{parent_title}"}}`占位符)
+- `configuration.config$prompt.content` = 拼接 `prompt` + 自动追加的"Output Format"段(嵌入`expected_output`)+ 自动追加的"User Input/Context"段(遍历`parents`,为每个生成 `{{"type":"in","path":"{parent_id}","title":"{parent_title}"}}`占位符)
 - `tools` 列表 → 编译为对应的工具挂载配置(具体字段视Opal底层schema而定,不在prompt文本里出现标签)
 - `routes` → 为每个route生成一条 `edge`,并在prompt文本追加路由决策说明(如"若...则前往{label}对应节点")
 - `metadata.step_intent` = 由 `prompt` + `expected_output` 自动摘要生成(供UI悬浮提示用,不需要LLM单独提供)
@@ -187,7 +186,7 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 
 ### 2.4 `create_render_step`
 
-对应 `node_step_bmi_result_page`。这个节点的关键特殊性:**双层prompt**——用户可控的视觉设计需求 + 系统固定的HTML生成规范。原JSON里的 `b-system-instruction` 内容(Tailwind CDN、禁止外链嵌入、禁止虚构footer等)是**产品级常量**,不该由LLM每次重新生成,而应作为工具内置模板,LLM只填视觉设计部分。
+对应 `node_step_bmi_result_page`。这个节点的关键特殊性:**双层prompt**——用户可控的视觉设计需求 + 系统固定的HTML生成规范。原JSON里的 `system-instruction` 内容(Tailwind CDN、禁止外链嵌入、禁止虚构footer等)是**产品级常量**,不该由LLM每次重新生成,而应作为工具内置模板,LLM只填视觉设计部分。
 
 ```json
 {
@@ -216,9 +215,9 @@ Opie 只负责"决策"——建什么类型的节点、写什么 prompt、连到
 ```
 
 **编译规则(后端)**:
-- `type` 固定映射为 `embed://a2/a2.bgl.json#module:render-outputs`
-- `configuration.text.parts[0].text` = `design_brief` + 自动追加所有`parents`的变量占位符
-- `configuration.b-system-instruction` = **固定常量模板**(即示例JSON里那段"You are an AI Web Developer..."全文),对所有render节点复用,LLM不参与生成,只做版本化维护
+- `type` 固定映射为 `render-outputs`
+- `configuration.text.content` = `design_brief` + 自动追加所有`parents`的变量占位符
+- `configuration.system-instruction` = **固定常量模板**(即示例JSON里那段"You are an AI Web Developer..."全文),对所有render节点复用,LLM不参与生成,只做版本化维护
 - `configuration.p-render-mode` = `"Auto"`,`b-render-model-name` = 系统默认值(如`"gemini-flash"`)
 
 ---
