@@ -110,3 +110,9 @@ export interface OpalJson {
   nodes: OpalNode[];
   edges: OpalEdge[];
 }
+
+export enum SaveState {
+  Pending = "pending",
+  Saved = "saved",
+  Failed = "failed"
+}

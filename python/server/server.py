@@ -41,13 +41,13 @@ from opie_tools import build_opie_tools
 # LLM 配置
 # ---------------------------------------------------------------------------
 
-load_dotenv(Path(__file__) / ".env")
+load_dotenv(Path(__file__).parent / ".env")
 
 LLM_BASE_URL = os.environ.get("OPIE_LLM_BASE_URL", "")
 LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "")
 
-PROMPT_PATH = Path(__file__) / "mini_opal_prompt_v2.md"
+PROMPT_PATH = Path(__file__).parent / "mini_opal_prompt_v2.md"
 
 
 def _load_system_prompt() -> str:

@@ -39,13 +39,16 @@ const pythonExe: string = process.platform === 'win32'
     ? path.join(pythonDir, 'python.exe')
     : path.join(pythonDir, 'bin', 'python3');
 
+// 全局变量用来存放进程实例
+let pyProcess: any = null;
+
 function runOpalPythonServer() {
   const scriptPath: string = isPackaged
     ? path.join(process.resourcesPath, 'python', 'server', 'server.py')
     : path.join(process.env.APP_ROOT, 'python', 'server', 'server.py');
 
   // 启动 Python 子进程
-  const pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"]);
+  pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"]);
 
   // 接收 Python 的标准输出
   pyProcess.stdout.on('data', (data: any) => {
@@ -59,6 +62,7 @@ function runOpalPythonServer() {
 
   pyProcess.on('close', (code: any) => {
     console.log(`OpalPythonServer 进程退出，退出码: ${code}`);
+    pyProcess = null;
   });
 }
 
@@ -124,6 +128,19 @@ async function createWindow() {
 app.whenReady().then(() => {
   createWindow();
   runOpalPythonServer();
+});
+
+// 监听 Electron 的退出事件，确保强杀 Python
+app.on('will-quit', () => {
+  if (pyProcess) {
+    console.log('Electron 正在关闭，正在杀死 Python 进程...');
+    // Windows 下可能需要通过 taskkill 强杀，如果是标准信号通常 kill() 即可
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', pyProcess.pid, '/f', '/t']);
+    } else {
+      pyProcess.kill('SIGTERM');
+    }
+  }
 });
 
 app.on('window-all-closed', () => {

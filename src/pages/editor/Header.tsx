@@ -9,17 +9,17 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useEditorContext } from './EditorContext';
 import { useL10n } from "@/l10n";
-import type { OpalJson } from '@/types';
+import { SaveState } from '@/types';
 
 export default function Header() {
     const { t } = useL10n();
     const navigate = useNavigate();
-    const { sidebarShow, toggleSidebar, viewMode, setViewMode, graphData } = useEditorContext();
+    const { sidebarShow, toggleSidebar, viewMode, setViewMode, opalData, savingState } = useEditorContext();
     const [title, setTitle] = useState('Untitled app');
 
     useEffect(() => {
-        setTitle(graphData?.title || 'Untitled app');
-    }, [graphData]);
+        setTitle(opalData?.title || 'Untitled app');
+    }, [opalData]);
 
     return (
         <div className="editor-header">
@@ -35,7 +35,14 @@ export default function Header() {
                 </div>
             </div>
             <div className="editor-header-right">
-                <div style={{ fontSize: "var(--font-size-sm)" }}>{t('已保存')}</div>
+                <div style={{ fontSize: "var(--font-size-sm)", color: (SaveState.Failed === savingState)?'#cc0000':'inherit' }}>
+                    { (SaveState.Pending === savingState)
+                        ? t('保存中...')
+                        : ((SaveState.Saved === savingState)
+                            ? t('已保存')
+                            : ((SaveState.Failed === savingState) ? t('保存失败') : ''))
+                    }
+                </div>
                 <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
                 <button><EllipsisVertical size={18} strokeWidth={1.5} /></button>
                 <div style={{marginLeft: '0.5rem'}}>

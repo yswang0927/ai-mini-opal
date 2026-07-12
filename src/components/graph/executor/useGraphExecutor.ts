@@ -22,8 +22,12 @@ export function useGraphExecutor() {
   const executorRef = useRef<GraphExecutor | null>(null);
   const graphRef = useRef<OpalJson | null>(null);
 
-  const loadGraph = useCallback((graphJson: OpalJson) => {
+  const loadGraph = useCallback((graphJson: OpalJson | null) => {
     graphRef.current = graphJson;
+    if (!graphJson) {
+      return;
+    }
+
     setExecState({
       ...initialState,
       status: 'ready',

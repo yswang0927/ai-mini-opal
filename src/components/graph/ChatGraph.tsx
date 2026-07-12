@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { 
+import {
   ReactFlow,
   Background,
   useNodesState,
@@ -13,11 +13,11 @@ import {
   type Edge,
 } from '@xyflow/react';
 
-import { 
-  Sparkles, 
-  Proportions, 
-  MessageSquareText, 
-  SquarePlus, 
+import {
+  Sparkles,
+  Proportions,
+  MessageSquareText,
+  SquarePlus,
   SendHorizontal,
   Undo2,
   Redo2
@@ -58,9 +58,9 @@ const defaultEdgeOptions = {
   },
   markerEnd: {
     type: MarkerType.ArrowClosed,
-    width: 16, 
-    height: 16, 
-    color: '#C5CBD3',  
+    width: 16,
+    height: 16,
+    color: '#C5CBD3',
   },
 };
 // 边高亮样式：黑色、粗线
@@ -77,17 +77,16 @@ const nodeRandomOffset = () => {
 
 interface ChatGraphProps {
   graphId?: string;
-  graphData?: OpalJson;
-  onGraphChange?: (data: OpalJson) => void;
 }
 
-export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
+export default function ChatGraph({ graphId }: ChatGraphProps) {
   const { t } = useL10n();
   const graphDomRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { setSelectedNode, graphData, setGraphData, execState } = useEditorContext();
+  const { setSelectedNode, opalData, setOpalData, execState } = useEditorContext();
+  const isInternalChangeRef = useRef<boolean>(false);
 
   const [chatInput, setChatInput] = useState<string>('');
   const [chatting, setChatting] = useState<boolean>(false);
@@ -95,47 +94,92 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
   const chatListDomRef = useRef(null);
   const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
 
+  const onGraphChanged = useCallback((nextNodes?: Node[], nextEdges?: Edge[]) => {
+    const rf = reactFlowRef.current;
+    if (!opalData || !rf) return;
+
+    // 如果传入了最新的节点/边，就用传入的；否则从实例里拉取
+    const currentNodes = nextNodes || rf.getNodes();
+    const currentEdges = nextEdges || rf.getEdges();
+
+    const opalNodes: OpalNode[] = currentNodes.map((fNode: any): OpalNode => {
+      const position = fNode.position;
+      const rawData = { ...(fNode.data as OpalNode) };
+      if (rawData.metadata) {
+        rawData.metadata = {
+          ...rawData.metadata,
+          visual: { x: position.x, y: position.y }
+        };
+      }
+      return rawData;
+    });
+
+    const opalEdges: OpalEdge[] = currentEdges.map((edge: Edge): OpalEdge => {
+      return {
+        from: edge.source,
+        to: edge.target,
+        out: '',
+        in: ''
+      };
+    });
+
+    // 关键点：上锁！告诉下一个 useEffect：这是我自己引发的修改，不需要你来给我重新上图
+    isInternalChangeRef.current = true;
+
+    setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges });
+  }, [opalData, setOpalData]);
+
+  const doLayout = useCallback(async () => {
+    if (!reactFlowRef.current) return;
+    const rf = reactFlowRef.current;
+    const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
+    rf.setNodes(result.nodes);
+    rf.setEdges(result.edges);
+    rf.fitView();
+
+    onGraphChanged(result.nodes, result.edges);
+  }, [onGraphChanged]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node.data || null);
-    
+
     // 高亮与该节点相关的边
-    setEdges((prevEdges) => 
-      prevEdges.map((edge) => {
-        // 检查边是否与该节点相关
-        const isRelated = edge.source === node.id || edge.target === node.id;
-        if (isRelated) {
+    setEdges((prevEdges) =>
+        prevEdges.map((edge) => {
+          // 检查边是否与该节点相关
+          const isRelated = edge.source === node.id || edge.target === node.id;
+          if (isRelated) {
+            return {
+              ...edge,
+              zIndex: 10,
+              style: edgeHighlightOptions.style,
+              markerEnd: edgeHighlightOptions.markerEnd
+            };
+          }
+
+          // 其他边恢复默认样式
           return {
             ...edge,
-            zIndex: 10,
-            style: edgeHighlightOptions.style,
-            markerEnd: edgeHighlightOptions.markerEnd
+            zIndex: 0,
+            selected: false,
+            style: defaultEdgeOptions.style,
+            markerEnd: defaultEdgeOptions.markerEnd
           };
-        }
-        
-        // 其他边恢复默认样式
-        return {
-          ...edge,
-          zIndex: 0,
-          selected: false,
-          style: defaultEdgeOptions.style,
-          markerEnd: defaultEdgeOptions.markerEnd
-        };
-      })
+        })
     );
   }, [setSelectedNode, setEdges]);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
     // 恢复所有边的默认样式
-    setEdges((prevEdges) => 
-      prevEdges.map((edge) => ({
-        ...edge,
-        zIndex: 0,
-        selected: false,
-        style: defaultEdgeOptions.style,
-        markerEnd: defaultEdgeOptions.markerEnd
-      }))
+    setEdges((prevEdges) =>
+        prevEdges.map((edge) => ({
+          ...edge,
+          zIndex: 0,
+          selected: false,
+          style: defaultEdgeOptions.style,
+          markerEnd: defaultEdgeOptions.markerEnd
+        }))
     );
 
   }, [setSelectedNode, setEdges]);
@@ -143,47 +187,36 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
   const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.stopPropagation();
     // 切换边的选中状态并更新样式
-    setEdges((prevEdges) => 
-      prevEdges.map((e) => {
-        if (e.id === edge.id) {
+    setEdges((prevEdges) =>
+        prevEdges.map((e) => {
+          if (e.id === edge.id) {
+            return {
+              ...e,
+              selected: true,
+              zIndex: 10,
+              style: edgeHighlightOptions.style,
+              markerEnd: edgeHighlightOptions.markerEnd
+            };
+          }
           return {
             ...e,
-            selected: true,
-            zIndex: 10,
-            style: edgeHighlightOptions.style,
-            markerEnd: edgeHighlightOptions.markerEnd
+            selected: false,
+            zIndex: 0,
+            style: defaultEdgeOptions.style,
+            markerEnd: defaultEdgeOptions.markerEnd
           };
-        }
-        return {
-          ...e,
-          selected: false,
-          zIndex: 0,
-          style: defaultEdgeOptions.style,
-          markerEnd: defaultEdgeOptions.markerEnd
-        };
-      })
+        })
     );
   }, [setEdges]);
 
   const onConnect = useCallback((params: any) => {
-      setEdges((eds) => {
-        const newEdges = addEdge(params, eds);
-        return newEdges;
-      });
-    },
-    [setEdges]
-  );
-
-  const doLayout = useCallback(async () => {
-    if (!reactFlowRef.current) {
-      return;
-    }
-    const rf = reactFlowRef.current;
-    const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
-    setNodes(result.nodes);
-    setEdges(result.edges);
-    rf.fitView();
-  }, [setNodes, setEdges]);
+    setEdges((eds) => {
+      const newEdges = addEdge(params, eds);
+      // 拿到了绝对最新的连线数据 newEdges，以及当前的 nodes
+      onGraphChanged(nodes, newEdges);
+      return newEdges;
+    });
+  }, [setEdges, nodes, onGraphChanged]);
 
   const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }) => {
     const nodeId = `${type}-${Date.now()}`;
@@ -193,7 +226,7 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
       position: position,
       data: {}
     };
-    
+
     let rawType = '';
     let rawTitle = '';
     let configuration = {};
@@ -253,24 +286,26 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
 
     setNodes((nds) => {
       const newNodes = [...nds, newNode];
+      // 在这里，拿到了绝对最新的 newNodes，以及当前的 edges
+      onGraphChanged(newNodes, edges);
       return newNodes;
     });
 
-  }, [setNodes]);
+  }, [setNodes, edges, onGraphChanged]);
 
   const addNode = useCallback((type: OpalNodeType) => {
     if (!reactFlowRef.current) return;
-    
+
     // 计算画布中间位置
     const canvasWidth = graphDomRef.current?.clientWidth || 800;
     const canvasHeight = graphDomRef.current?.clientHeight || 600;
-    
+
     // 先转换为画布坐标
     const centerPosition = reactFlowRef.current.screenToFlowPosition({
       x: canvasWidth / 2,
       y: canvasHeight / 2
     });
-    
+
     // 然后在画布坐标上应用偏移量
     const position = {
       x: centerPosition.x - NODE_WIDTH / 2 + nodeRandomOffset(),
@@ -279,7 +314,6 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
 
     appendNewNode(type, position);
   }, [appendNewNode]);
-
 
   const onDragStart = (event: React.DragEvent, nodeType: OpalNodeType) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
@@ -303,7 +337,7 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
       x: event.clientX,
       y: event.clientY,
     });
-    
+
     // 在画布坐标上应用偏移量
     const position = {
       x: flowPosition.x - NODE_WIDTH / 2,
@@ -312,6 +346,16 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
 
     appendNewNode(type as OpalNodeType, position);
   }, [appendNewNode]);
+
+  const onNodeDragStop = useCallback(() => {
+    onGraphChanged();
+  }, [onGraphChanged]);
+
+  const onDelete = useCallback(() => {
+    setTimeout(() => {
+      onGraphChanged();
+    }, 10);
+  }, [onGraphChanged]);
 
   // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
   const handleNodesChange = useCallback((changes: any) => {
@@ -326,76 +370,53 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
 
   // 传入的 graphData 上图
   useEffect(() => {
-    console.log('>>> init graph data', graphData);
-    if (graphData) {
-      const flowNodes = (graphData.nodes || []).map((gNode: OpalNode): FlowNode => {
-        const newNode: FlowNode = {
-          id: gNode.id,
-          type: gNode.type,
-          position: { x: gNode.metadata.visual?.x || 0, y: gNode.metadata.visual?.y || 0 },
-          data: gNode
-        };
-        return newNode;
-      });
-
-      const flowEdges = (graphData.edges || []).map((edge: any): Edge => {
-        return {
-          id: edge.id || `${edge.from}-${edge.to}`,
-          source: edge.from || edge.source,
-          target: edge.to || edge.target
-        };
-      });
-
-      setNodes(flowNodes);
-      setEdges(flowEdges);
-
-      // 加载完成后调用 fitView
-      if (flowNodes.length > 0) {
-        setTimeout(() => {
-          doLayout();
-        }, 30);
-      }
+    // 关键点：检查锁。如果是因为画布内部操作导致的 opalData 改变，直接拦截
+    if (isInternalChangeRef.current) {
+      isInternalChangeRef.current = false;
+      return;
     }
-  }, [graphData, setNodes, setEdges, doLayout]);
 
-  // 监听图的变化, 回调自动保存
-  useEffect(() => {
-    if (onGraphChange) {
-      const opalNodes: OpalNode[] = nodes.map((fNode): OpalNode => {
-        const position = fNode.position;
-        const rawData = fNode.data as OpalNode;
-        if (rawData.metadata) {
-          rawData.metadata.visual = {
-            x: position.x,
-            y: position.y
-          };
-        }
-        return rawData;
-      });
-      
-      const opalEdges: OpalEdge[] = edges.map((edge): OpalEdge => {
-        return {
-          from: edge.source,
-          to: edge.target,
-          out: '',
-          in: ''
-        };
-      });
-      
-      if (graphData) {
-        graphData.nodes = opalNodes;
-        graphData.edges = opalEdges;
-        onGraphChange(graphData);
-      } else {
-        onGraphChange({
-          title: '',
-          description: '',
-          nodes: opalNodes,
-          edges: opalEdges
-        });
-      }
+    console.log('>>> init graph data', opalData);
+    if (!opalData) {
+      setNodes([]);
+      setEdges([]);
+      return;
     }
-  }, [nodes, edges, onGraphChange]);
+
+    const flowNodes = (opalData.nodes || []).map((gNode: OpalNode): FlowNode => {
+      const newNode: FlowNode = {
+        id: gNode.id,
+        type: gNode.type,
+        position: {x: gNode.metadata.visual?.x || 0, y: gNode.metadata.visual?.y || 0},
+        data: gNode
+      };
+      return newNode;
+    });
+
+    const flowEdges = (opalData.edges || []).map((edge: any): Edge => {
+      return {
+        id: edge.id || `${edge.from}-${edge.to}`,
+        source: edge.from || edge.source,
+        target: edge.to || edge.target
+      };
+    });
+
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+
+    // 加载完成后调用 fitView
+    let layoutTimer = null;
+    if (flowNodes.length > 0) {
+      layoutTimer = setTimeout(() => {
+        //doLayout();
+      }, 30);
+    }
+
+    return () => {
+      if (layoutTimer) clearTimeout(layoutTimer);
+    };
+
+  }, [opalData, setNodes, setEdges]);
 
   const handleChatSubmit = () => {
     const userInput = chatInput.trim();
@@ -405,7 +426,7 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
     setChatting(true);
     setChatInput('');
     setChatHistory((prev) => [...prev, { role: 'user', content: userInput }]);
-    
+
     fetch('http://127.0.0.1:18765/chat', {
       method: 'POST',
       headers: {
@@ -413,20 +434,20 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
       },
       body: JSON.stringify({ session_id: graphId, message: userInput })
     })
-    .then(response => response.json())
-    .then(data => {
-      // {session_id:string, reply:string, graph:OpalJson}
-      console.log('Chat response:', data);
-      setChatInput('');
-      setChatting(false);
-      setGraphData(data.graph);
-      setChatHistory((prev) => [...prev, { role: 'assistant', content: data.reply }]);
-    })
-    .catch(error => {
-      setChatting(false);
-      setChatInput(userInput);
-      console.error('Error during chat request:', error);
-    });
+        .then(response => response.json())
+        .then(data => {
+          // {session_id:string, reply:string, graph:OpalJson}
+          console.log('Chat response:', data);
+          setChatInput('');
+          setChatting(false);
+          setOpalData(data.graph);
+          setChatHistory((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+        })
+        .catch(error => {
+          setChatting(false);
+          setChatInput(userInput);
+          console.error('Error during chat request:', error);
+        });
   };
 
   useEffect(() => {
@@ -439,12 +460,12 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
   }, [chatHistory]);
 
   return (
-    <div className="absolute inset-0" 
-      style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }} 
-      ref={graphDomRef}
-      onMouseDown={() => setChatListCollapsed(true)}
-    >
-      <div className="graph-nodes-panel">
+      <div className="absolute inset-0"
+           style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }}
+           ref={graphDomRef}
+           onMouseDown={() => setChatListCollapsed(true)}
+      >
+        <div className="graph-nodes-panel">
           <div className="graph-nodes">
             <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
             <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
@@ -452,86 +473,95 @@ export default function ChatGraph({ graphId, onGraphChange }: ChatGraphProps) {
             <div className="divider"></div>
             <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
           </div>
-      </div>
-
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
-        onConnect={onConnect}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onMouseDown={() => setChatListCollapsed(true)}
-        onInit={(instance) => reactFlowRef.current = instance}
-        nodeTypes={customNodeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        nodeDragThreshold={5}
-        snapToGrid={true}
-        snapGrid={[10, 10]}
-        deleteKeyCode={['Backspace', 'Delete']}
-        fitView
-      >
-        {/* 背景网格点 */}
-        <Background color="#C5CBD3" gap={20} size={1} />
-        <Controls position="bottom-right">
-          <ControlButton onClick={() => doLayout()} title={t('自动布局')}><LayoutDagIcon /></ControlButton>
-        </Controls>
-      </ReactFlow>
-
-      { nodes.length === 0 && (
-      <div className="absolute inset-0 flex items-center justify-center graph-empty-state">
-        <div className="empty-state-top">
-          {t('添加一个步骤开始')}
         </div>
-        <div>
-          <h3>{t('构建你的应用')}</h3>
-          <h4>{t('查看我们的')} <a href="#">{t('演示视频')}</a></h4>
-        </div>
-        <div className="empty-state-bottom">
-          ... <span>{t('或输入你想构建的内容')}</span>
-        </div>
-      </div>
-    )}
 
-      <div className="graph-chatbox" onMouseDown={(e)=>e.stopPropagation()}>
-        <div className={`graph-chat-messages ${chatListCollapsed?'':'expanded'} ${chatHistory.length > 0 ? 'has-msgs' : ''}`}>
-          <div className="graph-chat-msg-toggle" onMouseOver={() => setChatListCollapsed(false)}></div>
-          <div className="graph-chat-msg-list" ref={chatListDomRef}>
-            {chatHistory.map((msg, index) => (
-              <div key={index} className={`graph-chat-msg ${msg.role}`}>
-                <div className="graph-chat-msg-content">
-                  { msg.role === 'user' 
-                    ? <span>{msg.content}</span> 
-                    : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
-                  }
-                </div>
+        <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
+            onPaneClick={onPaneClick}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onNodeDragStop={onNodeDragStop}
+            onDelete={onDelete}
+            onMouseDown={() => setChatListCollapsed(true)}
+            onInit={(instance) => reactFlowRef.current = instance }
+            nodeTypes={customNodeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            nodeDragThreshold={5}
+            snapToGrid={true}
+            snapGrid={[10, 10]}
+            deleteKeyCode={['Backspace', 'Delete']}
+            fitView
+        >
+          {/* 背景网格点 */}
+          <Background color="#C5CBD3" gap={20} size={1} />
+          <Controls position="bottom-right">
+            <ControlButton onClick={() => doLayout()} title={t('自动布局')}><LayoutDagIcon /></ControlButton>
+          </Controls>
+        </ReactFlow>
+
+        { nodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center graph-empty-state">
+              <div className="empty-state-top">
+                {t('添加一个步骤开始')}
               </div>
-            ))}
-
-            {chatting && (
-              <div className="graph-chat-msg assistant thinking">
-                <div className="graph-chat-msg-content">{t('生成中')}<DotsSpinner/></div>
+              <div>
+                <h3>{t('构建你的应用')}</h3>
+                <h4>{t('查看我们的')} <a href="#">{t('演示视频')}</a></h4>
               </div>
-            )}
+              <div className="empty-state-bottom">
+                ... <span>{t('或输入你想构建的内容')}</span>
+              </div>
+            </div>
+        )}
+
+        <div className="graph-chatbox" onMouseDown={(e)=>e.stopPropagation()}>
+          <div className={`graph-chat-messages ${chatListCollapsed?'':'expanded'} ${chatHistory.length > 0 ? 'has-msgs' : ''}`}>
+            <div className="graph-chat-msg-toggle" onMouseOver={() => setChatListCollapsed(false)}></div>
+            <div className="graph-chat-msg-list" ref={chatListDomRef}>
+              {chatHistory.map((msg, index) => (
+                  <div key={index} className={`graph-chat-msg ${msg.role}`}>
+                    <div className="graph-chat-msg-content">
+                      { msg.role === 'user'
+                          ? <span>{msg.content}</span>
+                          : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                      }
+                    </div>
+                  </div>
+              ))}
+
+              {chatting && (
+                  <div className="graph-chat-msg assistant thinking">
+                    <div className="graph-chat-msg-content">{t('生成中')}<DotsSpinner/></div>
+                  </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="graph-chatbox-input flex items-center">
-          <textarea rows={1} 
-            placeholder={t('描述你想构建的内容')} 
-            value={chatInput} 
-            onChange={(e) => setChatInput(e.target.value)}></textarea>
-          <button className="graph-chatbox-submit" disabled={(chatting || chatInput.trim() === '')} onClick={handleChatSubmit}>
-            {chatting ? <span className="chatting-spinner"><Spinner /></span> : <SendHorizontal size={24} strokeWidth={1.5} />}
-          </button>
+          <div className="graph-chatbox-input flex items-center">
+            <textarea rows={1}
+              placeholder={t('描述你想构建的内容')}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleChatSubmit();
+                }
+              }}
+            ></textarea>
+            <button className="graph-chatbox-submit" disabled={(chatting || chatInput.trim() === '')} onClick={handleChatSubmit}>
+              {chatting ? <span className="chatting-spinner"><Spinner /></span> : <SendHorizontal size={24} strokeWidth={1.5} />}
+            </button>
+          </div>
+
         </div>
 
       </div>
-
-    </div>
   );
 }

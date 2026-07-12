@@ -1,21 +1,25 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import ChatGraph from '@/components/graph/ChatGraph';
 import { ExecutorPanel } from '@/components/graph/executor';
 import { LayoutResizer } from '@/utils';
-import type { OpalJson } from '@/types';
 import { EditorProvider, useEditorContext } from './EditorContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
-import { api } from '@/utils/Api';
 
 import "./style.css";
 import "../../components/graph/executor/executor.css";
 
 export default function ChatGraphEditor() {
+    const { id } = useParams<{ id: string }>();
+
+    if (!id) {
+        return <div>缺少编辑器ID</div>;
+    }
+
     return (
-        <EditorProvider>
+        <EditorProvider id={id}>
             <ReactFlowProvider>
                 <ChatGraphEditorContent />
             </ReactFlowProvider>
@@ -25,67 +29,19 @@ export default function ChatGraphEditor() {
 
 function ChatGraphEditorContent() {
     const { id } = useParams<{ id: string }>();
-
     const sidebarDomRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
-    const { sidebarShow, viewMode, setGraphData, execState, 
+    const { sidebarShow, viewMode, opalData, execState,
         loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
-    // Debounce timer for saving
-    const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    const loadAppData = useCallback(async (appId: string) => {
-        try {
-            const appData = await api.getAppData(appId);
-            // If app data has graph content, load it
-            if (appData && appData.nodes && appData.edges) {
-                setGraphData(appData as OpalJson);
-                //loadGraph(appData as OpalJson);
-            }
-        } catch (e: any) {
-            console.error('Failed to load app data:', e);
-        }
-    }, [loadGraph]);
-
-    useEffect(() => {
-        if (id) {
-            loadAppData(id);
-        }
-    }, [id]);
-
-    // Handle graph changes and save
-    const handleGraphChange = useCallback((graphData: OpalJson) => {
-        console.log('changed-graph-data: ', graphData);
-    }, [id]);
-
-    const saveAppData = useCallback(async (appId: string, graphData: OpalJson) => {
-        try {
-            // Get current app data to preserve title, description, etc.
-            const currentAppData = await api.getAppData(appId);
-            const dataToSave = {
-                ...currentAppData,
-                ...graphData
-            };
-            await api.saveAppData(appId, dataToSave);
-        } catch (e: any) {
-            console.error('Failed to save app data:', e);
-        }
-    }, []);
-
-    
     const handleRunApp = useCallback(async () => {
         try {
             resetExecutor();
-            if (id) {
-                const appData = await api.getAppData(id);
-                if (appData && appData.nodes && appData.edges) {
-                    //loadGraph(appData as OpalJson);
-                }
-            }
+            loadGraph(opalData);
         } catch (e: any) {
             console.error('Failed to load graph:', e);
         }
-    }, [id, loadGraph, resetExecutor]);
+    }, [opalData, loadGraph, resetExecutor]);
 
     useEffect(() => {
         if (viewMode === 'app' && execState.status === 'idle') {
@@ -107,9 +63,7 @@ function ChatGraphEditorContent() {
 
         return () => {
             resizerRef.current?.destroy();
-            if (saveTimerRef.current) {
-                clearTimeout(saveTimerRef.current);
-            }
+            resizerRef.current = null;
         };
     }, [viewMode]);
 
@@ -123,7 +77,7 @@ function ChatGraphEditorContent() {
                 {viewMode === 'editor' && (
                     <>
                         <div className="layout-main">
-                            <ChatGraph graphId={id} onGraphChange={handleGraphChange} />
+                            <ChatGraph graphId={id} />
                         </div>
 
                         <div ref={sidebarDomRef} className={`layout-sidebar${sidebarShow ? '' : ' is-hidden'}`}>
