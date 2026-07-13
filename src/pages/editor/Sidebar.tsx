@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import Quill from 'quill';
+import { Mention, MentionBlot } from "quill-mention";
 import { ExecutorPanel } from '@/components/graph/executor';
 import type { NodeExecInfo } from '@/components/graph/executor';
 import { NodeTypesStyle } from '@/components/graph/types';
@@ -9,13 +10,16 @@ import { useL10n } from "@/l10n";
 import { debounce } from '@/utils';
 
 import { useEditorContext } from './EditorContext';
-import { TagBlot, TagModule, quillContentToText } from './QuillCustomBlots';
+import { OpalRefTagBlot, OpalRefTagModule, OpalRefTagMentionBlot, quillContentToText } from './QuillCustomBlots';
 
 import "quill/dist/quill.core.css";
+import "quill-mention/dist/quill.mention.css";
 
 
-Quill.register('formats/tag', TagBlot);
-Quill.register('modules/tag', TagModule);
+Quill.register('blots/opalRefTag', OpalRefTagBlot);
+Quill.register('modules/opalRefTag', OpalRefTagModule);
+Quill.register({ "blots/mention": MentionBlot, "modules/mention": Mention });
+Quill.register(OpalRefTagMentionBlot);
 
 
 /**
@@ -25,6 +29,7 @@ Quill.register('modules/tag', TagModule);
 const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
     const { t } = useL10n();
     const { updateNode } = useReactFlow();
+    const { opalData } = useEditorContext();
 
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
@@ -50,7 +55,43 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
             modules: {
                 toolbar: false,
                 // 激活我们的自定义模块
-                tag: true
+                opalRefTag: true,
+                mention: {
+                    allowedChars: /^.*$/,
+                    mentionDenotationChars: ["@"],
+                    dataAttributes: ['id', 'value', 'refType', 'path'],
+                    blotName: "opalRefTagMention",
+                    source: async function(searchTerm: string, renderList: Function) {
+                        const steps = (opalData?.nodes || []).filter(item => item.id !== stepData.id);
+                        const stepsList = steps.map(item => ({
+                            id: item.id,
+                            value: item.metadata?.title || item.id,
+                            team: "Step",
+                            refType: "in",
+                            path: item.id
+                        }));
+                        const toolsList = [
+                            {id: 'search-web', value: '搜索网页', team: 'Tool', refType: 'tool', path: 'search-web'},
+                            {id: 'code-execution', value: '代码执行', team: 'Tool', refType: 'tool', path: 'code-execution'}
+                        ];
+
+                        const allItems = [...toolsList, ...stepsList];
+                        if (!searchTerm) {
+                            renderList(allItems);
+                        } else {
+                            const filtered = allItems.filter(item =>
+                                item.value.toLowerCase().includes(searchTerm.toLowerCase())
+                            );
+                            renderList(filtered);
+                        }
+                    },
+                    renderItem: function(item: any) {
+                        const div = document.createElement('div');
+                        div.className = 'mention-item';
+                        div.innerHTML = `<span class="mention-item-tag">${item.team}</span> ${item.value}`;
+                        return div;
+                    }
+                }
             },
         });
 
@@ -61,6 +102,8 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
             }
 
             const text = quillContentToText(quill);
+            console.log('quill-text: ', text);
+
             let targetKey = '';
             if (OpalNodeType.UserInputs === typeName) {
                 targetKey = 'description';

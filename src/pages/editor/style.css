@@ -293,42 +293,46 @@
     margin-bottom: 0.5rem;
 }
 
-.opal-node-detail-body .ql-editor .custom-tag {
-    display: inline-flex;
-    align-items: center;
+.opal-node-detail-body .ql-editor .opal-ref-tag {
+    display: inline-block;
     padding: 2px 8px 2px 6px;
     margin: 1px 2px;
     border-radius: 99px;
     background: rgba(130,0,219,0.1);
     border: 1px solid rgba(130,0,219,0.6);
     color: rgb(130,0,219);
-    font-size: 0.875em;
     line-height: 1;
     vertical-align: middle;
     user-select: none;
     cursor: default;
+    user-select: none;
 }
-
-.opal-node-detail-body .ql-editor .custom-tag span {
-    height: 16px;
+.opal-node-detail-body .ql-editor .opal-ref-tag span {
     display: inline-block;
-    line-height: 1.5;
     vertical-align: middle;
 }
-
-.opal-node-detail-body .ql-editor .custom-tag:hover {
+.opal-node-detail-body .ql-editor .opal-ref-tag:hover {
     background: rgba(130,0,219,0.2);
 }
-
-.opal-node-detail-body .ql-editor .custom-tag .tag-icon {
+.opal-node-detail-body .ql-editor .opal-ref-tag-icon {
     display: inline-block;
     width: 16px;
     height: 16px;
-    background-size: contain;
     line-height: 1.0;
     margin-right: 4px;
 }
-
-.opal-node-detail-body .ql-editor .custom-tag .tag-title {
+.opal-node-detail-body .ql-editor .opal-ref-tag-title {
+    max-width: 100px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 0.8em;
     font-weight: 500;
+    height: 16px;
+    line-height: 18px;
+}
+
+.ql-mention-list-item {
+    font-size: var(--font-size);
+    line-height: 1.5;
+    padding: 0.25rem 1rem;
 }
