@@ -3,7 +3,7 @@ import { MentionBlot } from "quill-mention";
 
 const Embed = Quill.import('blots/embed') as any;
 
-export type OpalTagType = 'in' | 'asset' | 'tool';
+export type OpalTagType = 'in' | 'asset' | 'tool' | 'routing';
 
 export interface OpalTagValue {
   type: OpalTagType;
@@ -15,9 +15,10 @@ export interface OpalTagValue {
 
 // 不同 type 的图标,按需替换成你自己的 svg / iconfont
 const OPAL_TAG_ICONS_MAP: Record<OpalTagType, string> = {
-  in: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>`,
+  in: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/></svg>`,
   asset: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1"/><path d="M14 2v5a1 1 0 0 0 1 1h5M2 15h10M9 18l3-3-3-3"/></svg>`,
   tool: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"/></svg>`,
+  routing: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14M21 12H7M15 18l6-6-6-6"/></svg>`,
 };
 
 export class OpalRefTagBlot extends Embed {
@@ -31,13 +32,20 @@ export class OpalRefTagBlot extends Embed {
     node.dataset.type = value.type;
     node.dataset.path = value.path;
     node.dataset.title = value.title;
+    if (value.instance) {
+      node.dataset.instance = value.instance;
+    }
     if (value.mimeType) {
       node.dataset.mimeType = value.mimeType;
     }
 
     const icon = document.createElement('span');
-    icon.className = `opal-ref-tag-icon opal-ref-tag-icon-${value.type}`;
-    icon.innerHTML = OPAL_TAG_ICONS_MAP[value.type] ?? OPAL_TAG_ICONS_MAP.in;
+    let iconType = value.type;
+    if (value.path === 'control-flow/routing') {
+      iconType = 'routing';
+    }
+    icon.className = 'opal-ref-tag-icon';
+    icon.innerHTML = OPAL_TAG_ICONS_MAP[iconType] ?? OPAL_TAG_ICONS_MAP.in;
 
     const label = document.createElement('span');
     label.className = 'opal-ref-tag-title';
@@ -52,13 +60,17 @@ export class OpalRefTagBlot extends Embed {
 
   // 决定 quill.getContents() 拿到的 delta 里这个 embed 的值
   static value(node: HTMLElement): OpalTagValue {
+    const dataset = node.dataset;
     let tagValue: OpalTagValue = {
-      type: (node.dataset.type as OpalTagType) ?? 'in',
-      path: node.dataset.path ?? '',
-      title: node.dataset.title ?? ''
+      type: (dataset.type as OpalTagType) ?? 'in',
+      path: dataset.path ?? '',
+      title: dataset.title ?? ''
     };
-    if (node.dataset.mimeType) {
-      tagValue.mimeType = node.dataset.mimeType;
+    if (dataset.instance) {
+      tagValue.instance = dataset.instance;
+    }
+    if (dataset.mimeType) {
+      tagValue.mimeType = dataset.mimeType;
     }
     return tagValue;
   }
@@ -219,15 +231,19 @@ OpalRefTagMentionBlot.blotName = "opalRefTagMention";
 // 把 tag embed 序列化回 {{"type":"...","path":"...","title":"..."}} 文本格式，
 // 和 tagAutoConvert 里的解析逻辑互为逆操作，用于保存时还原成纯文本字段
 export function tagValueToText(value: OpalTagValue): string {
-  const fields: string[] = [
-    `"type":${JSON.stringify(value.type)}`,
-    `"path":${JSON.stringify(value.path)}`,
-    `"title":${JSON.stringify(value.title)}`,
-  ];
-  if (value.mimeType) {
-    fields.push(`"mimeType":${JSON.stringify(value.mimeType)}`);
+  const refValue:OpalTagValue = {
+    type: value.type,
+    path: value.path,
+    title: value.title
+  };
+
+  if (value.instance) {
+    refValue['instance'] = value.instance;
   }
-  return `{{${fields.join(',')}}}`;
+  if (value.mimeType) {
+    refValue['mimeType'] = value.mimeType;
+  }
+  return `{${JSON.stringify(refValue)}}`;
 }
 
 // 把整个 Quill 内容（字符串 + tag embed 混合）还原成一段纯文本，
@@ -238,8 +254,6 @@ export function quillContentToText(quill: Quill): string {
   let text = '';
 
   delta.ops.forEach((op: any) => {
-    console.log('>> op: ', op);
-
     if (typeof op.insert === 'string') {
       text += op.insert;
     } else if (op.insert && typeof op.insert === 'object') {

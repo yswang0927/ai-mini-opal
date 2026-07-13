@@ -27,6 +27,7 @@ Quill.register(OpalRefTagMentionBlot);
  * {id, type, metadata, configuration}
  */
 const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
+    console.log('>> stepData: \n', JSON.stringify(stepData));
     const { t } = useL10n();
     const { updateNode } = useReactFlow();
     const { opalData } = useEditorContext();
@@ -85,12 +86,12 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
                             renderList(filtered);
                         }
                     },
-                    renderItem: function(item: any) {
+                    /*renderItem: function(item: any) {
                         const div = document.createElement('div');
                         div.className = 'mention-item';
                         div.innerHTML = `<span class="mention-item-tag">${item.team}</span> ${item.value}`;
                         return div;
-                    }
+                    }*/
                 }
             },
         });
