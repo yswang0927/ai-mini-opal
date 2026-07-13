@@ -14,7 +14,8 @@ import { SaveState } from '@/types';
 export default function Header() {
     const { t } = useL10n();
     const navigate = useNavigate();
-    const { sidebarShow, toggleSidebar, viewMode, setViewMode, opalData, setOpalData, savingState } = useEditorContext();
+    const { sidebarShow, toggleSidebar, viewMode, setViewMode, opalPayload, setOpalData, savingState } = useEditorContext();
+    const opalData = opalPayload.data;
     const [title, setTitle] = useState('Untitled app');
 
     useEffect(() => {
@@ -23,7 +24,7 @@ export default function Header() {
 
     const handleTitleChanged = () => {
         if (title.trim()) {
-            setOpalData({...opalData, title: title});
+            setOpalData({...opalData!, title: title});
         }
     };
 

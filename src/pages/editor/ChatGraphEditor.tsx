@@ -31,8 +31,9 @@ function ChatGraphEditorContent() {
     const { id } = useParams<{ id: string }>();
     const sidebarDomRef = useRef<HTMLDivElement | null>(null);
     const resizerRef = useRef<LayoutResizer>(null);
-    const { sidebarShow, viewMode, opalData, execState,
+    const { sidebarShow, viewMode, opalPayload, execState,
         loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
+    const opalData = opalPayload.data;
 
     const handleRunApp = useCallback(async () => {
         try {

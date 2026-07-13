@@ -85,9 +85,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { setSelectedNode, opalData, setOpalData, execState } = useEditorContext();
-  const isInternalChangeRef = useRef<boolean>(false);
+  const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
+  const opalData = opalPayload.data;
   const isFirstAutoLayoutRef = useRef<boolean>(true);
+  const isGraphInitializedRef = useRef<boolean>(false);
 
   const [chatInput, setChatInput] = useState<string>('');
   const [chatting, setChatting] = useState<boolean>(false);
@@ -124,10 +125,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       };
     });
 
-    // 告诉下一个 useEffect：这是我自己引发的修改，不需要你来给我重新上图
-    isInternalChangeRef.current = true;
-
-    setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges });
+    setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges }, true);
   }, [opalData, setOpalData]);
 
   const doLayout = useCallback(async () => {
@@ -375,9 +373,9 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
   // 传入的 graphData 上图
   useEffect(() => {
-    // 关键点：检查锁。如果是因为画布内部操作导致的 opalData 改变，直接拦截
-    if (isInternalChangeRef.current) {
-      isInternalChangeRef.current = false;
+    // silent = true 表示画布内部操作引发的修改，不需要重新 setNodes
+    // 但组件首次挂载时必须初始化，无论 silent 状态
+    if (opalPayload.silent && isGraphInitializedRef.current) {
       return;
     }
 
@@ -408,6 +406,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     setNodes(flowNodes);
     setEdges(flowEdges);
+    isGraphInitializedRef.current = true;
 
     // 加载完成后调用 fitView
     let layoutTimer = null;
@@ -425,7 +424,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       if (layoutTimer) clearTimeout(layoutTimer);
     };
 
-  }, [opalData, setNodes, setEdges]);
+  }, [opalPayload, setNodes, setEdges]);
 
   const handleChatSubmit = () => {
     const userInput = chatInput.trim();
@@ -525,7 +524,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             </div>
             <div>
               <h3>{t('构建你的应用')}</h3>
-              <h4>{t('查看我们的')} <a href="#">{t('演示视频')}</a></h4>
+              {/*<h4>{t('查看我们的')} <a href="#">{t('演示视频')}</a></h4>*/}
             </div>
             <div className="empty-state-bottom">
               ... <span>{t('或输入你想构建的内容')}</span>
@@ -558,7 +557,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
           <div className="graph-chatbox-input flex items-center">
             <textarea rows={1}
-              placeholder={t('描述你想构建的内容')}
+              placeholder={nodes.length === 0 ? t('描述你想构建的内容') : t('可以编辑这些步骤')}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => {

@@ -6,13 +6,18 @@ import {api} from '@/utils/Api';
 
 type ViewMode = 'editor' | 'app';
 
+export type OpalDataPayload = {
+    data: OpalJson | null;
+    silent: boolean;
+};
+
 type EditorContextValue = {
     sidebarShow: boolean;
     toggleSidebar: () => void;
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
-    opalData: OpalJson | null;
-    setOpalData: (data: OpalJson | null) => void;
+    opalPayload: OpalDataPayload;
+    setOpalData: (data: OpalJson | null, silent?: boolean) => void;
     savingState: SaveState | null;
     dataLoading: boolean;
     selectedNode: any;
@@ -30,25 +35,25 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
     const [viewMode, setViewMode] = useState<ViewMode>('editor');
     const [sidebarShow, setSidebarShow] = useState(true);
     const [dataLoading, setDataLoading] = useState<boolean>(false);
-    const [opalData, setOpalData] = useState<OpalJson | null>(null);
+    const [opalPayload, setOpalPayload] = useState<OpalDataPayload>({ data: null, silent: false });
     const [savingState, setSavingState] = useState<SaveState|null>(null);
     const [selectedNode, setSelectedNode] = useState<any>(null);
     const { execState, loadGraph, start: startExecution, submitInput, reset: resetExecutor } = useGraphExecutor();
 
-    // 用来标记是否是用户引起的“真正修改”
     const isDataFetchingRef = useRef(true);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const setOpalData = (data: OpalJson | null, silent = false) => {
+        setOpalPayload({ data: data, silent: silent });
+    };
 
     const toggleSidebar = () => {
         setSidebarShow(prev => !prev);
     };
 
-    // 根据 id 获取远程数据
     useEffect(() => {
         if (!id) return;
-
         setDataLoading(true);
-        // 每次切换 id 时，重置标记为 true
         isDataFetchingRef.current = true;
 
         api.getAppData(id)
@@ -62,11 +67,10 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
             });
     }, [id]);
 
-    // 自动保存逻辑（防抖：数据停止变化 1 秒后自动保存）
     useEffect(() => {
+        const opalData = opalPayload.data;
         if (!opalData) return;
 
-        // 如果是第一次加载引发的赋值，直接跳过，并将标记设为 false
         if (isDataFetchingRef.current) {
             isDataFetchingRef.current = false;
             return;
@@ -81,7 +85,7 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
             setSavingState(SaveState.Pending);
             api.saveAppData(id, opalData).then(() => {
                 setSavingState(SaveState.Saved);
-            }).catch((err: any) => {
+            }).catch(() => {
                 setSavingState(SaveState.Failed);
             });
         }, 500);
@@ -91,18 +95,17 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
                 clearTimeout(autoSaveTimerRef.current);
             }
         };
-    }, [opalData, id]);
+    }, [opalPayload, id]);
 
     return (
         <EditorContext.Provider value={{
             viewMode, setViewMode,
             sidebarShow, toggleSidebar,
             dataLoading, savingState,
-            opalData, setOpalData,
+            opalPayload, setOpalData,
             selectedNode, setSelectedNode,
             execState, loadGraph, startExecution, submitInput, resetExecutor,
-        }}
-        >
+        }}>
             {children}
         </EditorContext.Provider>
     );

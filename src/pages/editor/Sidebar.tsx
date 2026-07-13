@@ -30,17 +30,25 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
     console.log('>> stepData: \n', JSON.stringify(stepData));
     const { t } = useL10n();
     const { updateNode } = useReactFlow();
-    const { opalData } = useEditorContext();
+    const { opalPayload, setOpalData } = useEditorContext();
+    const opalData = opalPayload.data;
 
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
     const [title, setTitle] = useState('');
 
+    const updateStepData = (newData: OpalNode) => {
+        updateNode(newData.id, { data: newData });
+        if (opalData) {
+            const newNodes = (opalData.nodes || []).map(n => n.id === newData.id ? newData : n);
+            setOpalData({ ...opalData, nodes: newNodes }, true);
+        }
+    };
+
     const handleTitleChange = () => {
-        // 更新节点配置
         if (title.trim()) {
             const newData = { ...stepData, metadata: { ...stepData.metadata, title: title } };
-            updateNode(stepData.id, {data: newData});
+            updateStepData(newData);
         }
     };
 
@@ -118,12 +126,9 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
 
             // 如果匹配到了对应的类型，进行统一的安全赋值
             if (targetKey) {
-                stepData.configuration ??= {};
-                stepData.configuration[targetKey] ??= {content:"", role:"user"};
-                stepData.configuration[targetKey].content = text;
-
-                // 更新节点配置
-                updateNode(stepData.id, {data: stepData});
+                const newConfig = { ...stepData.configuration };
+                newConfig[targetKey] = { ...(newConfig[targetKey] || {content:"", role:"user"}), content: text };
+                updateStepData({ ...stepData, configuration: newConfig });
             }
 
         }, 300);
@@ -247,7 +252,8 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 export default function Sidebar() {
     const { t } = useL10n();
     const [selectedTab, setSelectedTab] = useState('');
-    const { selectedNode, opalData, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
+    const { selectedNode, opalPayload, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
+    const opalData = opalPayload.data;
 
     useEffect(() => {
         setSelectedTab(selectedNode !== null ? 'Step' : '');
