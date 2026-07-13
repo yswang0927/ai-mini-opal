@@ -5,12 +5,19 @@ import { Mention, MentionBlot } from "quill-mention";
 import { ExecutorPanel } from '@/components/graph/executor';
 import type { NodeExecInfo } from '@/components/graph/executor';
 import { NodeTypesStyle } from '@/components/graph/types';
-import { type OpalNode, OpalNodeType } from '@/types';
+import { type OpalNode, type OpalJson, OpalNodeType } from '@/types';
 import { useL10n } from "@/l10n";
 import { debounce } from '@/utils';
 
 import { useEditorContext } from './EditorContext';
-import { OpalRefTagBlot, OpalRefTagModule, OpalRefTagMentionBlot, quillContentToText } from './QuillCustomBlots';
+import { 
+    OpalRefTagBlot, 
+    OpalRefTagModule, 
+    OpalRefTagMentionBlot, 
+    quillContentToText, 
+    OPAL_TAG_ICONS,
+    type OpalTagType,
+} from './QuillCustomBlots';
 
 import "quill/dist/quill.core.css";
 import "quill-mention/dist/quill.mention.css";
@@ -26,12 +33,14 @@ Quill.register(OpalRefTagMentionBlot);
  * 步骤节点数据详情
  * {id, type, metadata, configuration}
  */
-const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
+const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
+    stepData: OpalNode;
+    opalData: OpalJson | null;
+    setOpalData: (data: OpalJson | null, silent?: boolean) => void;
+}) => {
     console.log('>> stepData: \n', JSON.stringify(stepData));
     const { t } = useL10n();
     const { updateNode } = useReactFlow();
-    const { opalPayload, setOpalData } = useEditorContext();
-    const opalData = opalPayload.data;
 
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
@@ -94,12 +103,12 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
                             renderList(filtered);
                         }
                     },
-                    /*renderItem: function(item: any) {
+                    renderItem: function(item: any) {
                         const div = document.createElement('div');
-                        div.className = 'mention-item';
-                        div.innerHTML = `<span class="mention-item-tag">${item.team}</span> ${item.value}`;
+                        div.className = `opal-mention-item mention-item-type-${item.refType}`;
+                        div.innerHTML = `<span class="mention-item-icon">${OPAL_TAG_ICONS[item.refType as OpalTagType]}</span><span>${item.value}</span>`;
                         return div;
-                    }*/
+                    }
                 }
             },
         });
@@ -192,7 +201,7 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
             </div>
         </div>
     );
-};
+});
 
 const ConsoleView = ({ execLog, currentNodeId }: {
     execLog: NodeExecInfo[];
@@ -252,7 +261,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 export default function Sidebar() {
     const { t } = useL10n();
     const [selectedTab, setSelectedTab] = useState('');
-    const { selectedNode, opalPayload, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
+    const { selectedNode, opalPayload, setOpalData, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
     const opalData = opalPayload.data;
 
     useEffect(() => {
@@ -301,7 +310,7 @@ export default function Sidebar() {
                     <div className="empty-state">{t('请选择一个节点编辑')}</div>
                 )}
                 {selectedTab === 'Step' && selectedNode && (
-                    <StepDetailView key={selectedNode.id} stepData={selectedNode} />
+                    <StepDetailView key={selectedNode.id} stepData={selectedNode} opalData={opalData} setOpalData={setOpalData} />
                 )}
                 {selectedTab !== 'Preview' && selectedTab !== 'Step' && selectedTab !== 'Console' && (
                     <div className="empty-state">{t('您的应用在构建完成后将在这里显示')}</div>

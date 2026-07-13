@@ -44,8 +44,11 @@
     color: #334155;
     line-height: 1.5;
     min-height: 60px;
+    word-wrap: break-word;
+    word-break: break-all;
     border-bottom-left-radius: var(--node-radius);
     border-bottom-right-radius: var(--node-radius);
+    overflow: hidden;
 }
 .react-flow__node .opal-node-body .missing {
     color: rgba(0, 0, 0, 0.6);

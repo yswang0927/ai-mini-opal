@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useRef, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
 import type {ExecutionState} from '@/components/graph/executor';
 import {useGraphExecutor} from '@/components/graph/executor';
 import {type OpalJson, SaveState} from '@/types';
@@ -43,9 +43,9 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
     const isDataFetchingRef = useRef(true);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const setOpalData = (data: OpalJson | null, silent = false) => {
+    const setOpalData = useCallback((data: OpalJson | null, silent = false) => {
         setOpalPayload({ data: data, silent: silent });
-    };
+    }, []);
 
     const toggleSidebar = () => {
         setSidebarShow(prev => !prev);

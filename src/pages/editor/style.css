@@ -332,6 +332,8 @@
 }
 
 .ql-mention-list-container {
+    width: auto;
+    min-width: 150px;
     border: 0 none;
     background-color: var(--bg-color);
     box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, .1), 0px 4px 6px -4px rgba(0, 0, 0, .1), 0px 10px 15px -3px rgba(0, 0, 0, .1);
@@ -340,8 +342,25 @@
     padding: var(--padding-sm);
 }
 .ql-mention-list-item {
+    max-width: 260px;
+    display: flex;
     font-size: var(--font-size-sm);
-    line-height: 1.5;
-    padding: 0.25rem 1rem;
+    padding: 0.5rem 0.5rem;
     border-radius: var(--radius-sm);
+}
+.ql-mention-list-item:hover {
+    background-color: rgba(169, 88, 62, 0.2);
+}
+.opal-mention-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1rem;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.opal-mention-item .mention-item-icon {
+    line-height: 1.0;
+    font-size: 0;
 }
