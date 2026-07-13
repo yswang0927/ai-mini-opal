@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
     ArrowLeft,
     Share2,
@@ -14,19 +14,36 @@ import { SaveState } from '@/types';
 export default function Header() {
     const { t } = useL10n();
     const navigate = useNavigate();
-    const { sidebarShow, toggleSidebar, viewMode, setViewMode, opalData, savingState } = useEditorContext();
+    const { sidebarShow, toggleSidebar, viewMode, setViewMode, opalData, setOpalData, savingState } = useEditorContext();
     const [title, setTitle] = useState('Untitled app');
 
     useEffect(() => {
         setTitle(opalData?.title || 'Untitled app');
-    }, [opalData]);
+    }, [opalData?.title]);
+
+    const handleTitleChanged = () => {
+        if (title.trim()) {
+            setOpalData({...opalData, title: title});
+        }
+    };
 
     return (
         <div className="editor-header">
             <div className="editor-header-left">
                 <button className="nav-back" onClick={() => navigate('/')}><ArrowLeft size={20} strokeWidth={1.25} /></button>
-                <input type="text" className="nav-title-input" autoComplete="off" required placeholder="Untitled app" 
-                    value={title} onChange={(e) => setTitle(e.target.value)} />
+                <div className="flex-1">
+                    <input type="text" className="nav-title-input" autoComplete="off" required placeholder="Untitled app" 
+                        value={title} 
+                        onChange={(e) => setTitle(e.target.value)} 
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleTitleChanged();
+                            }
+                        }} 
+                        onBlur={handleTitleChanged}
+                        />
+                </div>
             </div>
             <div className="editor-header-center">
                 <div className="editor-header-btn-group">

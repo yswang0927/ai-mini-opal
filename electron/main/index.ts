@@ -52,12 +52,12 @@ function runOpalPythonServer() {
 
   // 接收 Python 的标准输出
   pyProcess.stdout.on('data', (data: any) => {
-    console.log(`OpalPythonServer 输出: ${data.toString()}`);
+    console.log(`OpalPythonServer: ${data.toString()}`);
   });
 
   // 接收 Python 的错误信息
   pyProcess.stderr.on('data', (data: any) => {
-    console.error(`OpalPythonServer 错误: ${data.toString()}`);
+    console.error(`OpalPythonServer: ${data.toString()}`);
   });
 
   pyProcess.on('close', (code: any) => {
@@ -277,7 +277,7 @@ ipcMain.handle('list-apps', async () => {
     }
     
     // 3. 按照修改时间降序排序 (b - a 表示降序，即最新的在前)
-    apps.sort((a, b) => b.mtime - a.mtime);
+    apps.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
     
     // 4. 如果不需要把 mtime 返回给前端，可以在这里将其清理掉（可选）
     return apps.map(({ mtime, ...appData }) => appData);

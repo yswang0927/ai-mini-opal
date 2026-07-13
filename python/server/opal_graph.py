@@ -275,6 +275,115 @@ class OpalGraphState:
         self.tags: List[str] = []
 
     # ------------------------------------------------------------------
+    # 序列化 / 反序列化(graph_raw)
+    # ------------------------------------------------------------------
+    def to_raw(self) -> Dict[str, Any]:
+        """将内部状态序列化为 graph_raw 结构,供前端持久化存储。"""
+        steps_raw = []
+        for s in self.steps.values():
+            entry: Dict[str, Any] = {
+                "step_id": s.step_id,
+                "title": s.title,
+                "step_type": s.step_type.value,
+                "created_at": s.created_at,
+                "user_modified": s.user_modified,
+                "parents": list(s.parents),
+                "routes": list(s.routes),
+                "asset_ids": list(s.asset_ids),
+            }
+            if s.step_type == StepType.INPUT:
+                entry["question_text"] = s.question_text
+                entry["modality"] = s.modality
+                entry["required"] = s.required
+            elif s.step_type == StepType.AGENT:
+                entry["prompt"] = s.prompt
+                entry["expected_output"] = s.expected_output
+                entry["expected_output_is_list"] = s.expected_output_is_list
+                entry["tools"] = list(s.tools)
+                entry["generation_capabilities"] = list(s.generation_capabilities)
+                entry["enable_chat"] = s.enable_chat
+                entry["enable_memory"] = s.enable_memory
+                entry["terse_mode"] = s.terse_mode
+                entry["image_aspect_ratio"] = s.image_aspect_ratio
+            elif s.step_type == StepType.RENDER:
+                entry["design_brief"] = s.design_brief
+                entry["render_mode"] = s.render_mode
+            steps_raw.append(entry)
+
+        assets_raw = []
+        for a in self.assets.values():
+            assets_raw.append({
+                "asset_id": a.asset_id,
+                "title": a.title,
+                "kind": a.kind.value,
+                "mime_type": a.mime_type,
+                "drive_handle": a.drive_handle,
+                "file_uri": a.file_uri,
+                "text_content": a.text_content,
+            })
+
+        return {
+            "title": self.title,
+            "description": self.description,
+            "tags": list(self.tags),
+            "steps": steps_raw,
+            "assets": assets_raw,
+        }
+
+    @classmethod
+    def from_raw(cls, data: Dict[str, Any]) -> "OpalGraphState":
+        """从 graph_raw 结构重建 OpalGraphState 实例。"""
+        state = cls()
+        state.title = data.get("title", "Untitled App")
+        state.description = data.get("description", "")
+        state.tags = data.get("tags", [])
+
+        for a in data.get("assets", []):
+            asset = Asset(
+                asset_id=a["asset_id"],
+                title=a["title"],
+                kind=AssetKind(a["kind"]),
+                mime_type=a.get("mime_type"),
+                drive_handle=a.get("drive_handle"),
+                file_uri=a.get("file_uri"),
+                text_content=a.get("text_content"),
+            )
+            state.assets[asset.asset_id] = asset
+
+        for s in data.get("steps", []):
+            step_type = StepType(s["step_type"])
+            step = Step(
+                step_id=s["step_id"],
+                title=s["title"],
+                step_type=step_type,
+                created_at=s.get("created_at", time.time()),
+                user_modified=s.get("user_modified", False),
+                parents=s.get("parents", []),
+                routes=s.get("routes", []),
+                asset_ids=s.get("asset_ids", []),
+            )
+            if step_type == StepType.INPUT:
+                step.question_text = s.get("question_text")
+                step.modality = s.get("modality", "Any")
+                step.required = s.get("required", True)
+            elif step_type == StepType.AGENT:
+                step.prompt = s.get("prompt")
+                step.expected_output = s.get("expected_output")
+                step.expected_output_is_list = s.get("expected_output_is_list", False)
+                step.tools = s.get("tools", [])
+                step.generation_capabilities = s.get("generation_capabilities", ["text"])
+                step.enable_chat = s.get("enable_chat", False)
+                step.enable_memory = s.get("enable_memory", False)
+                step.terse_mode = s.get("terse_mode", False)
+                step.image_aspect_ratio = s.get("image_aspect_ratio")
+            elif step_type == StepType.RENDER:
+                step.design_brief = s.get("design_brief")
+                step.render_mode = s.get("render_mode", "Auto")
+            state.steps[step.step_id] = step
+
+        return state
+
+    # ------------------------------------------------------------------
     # 只读:overview
     # ------------------------------------------------------------------
     def get_overview(self) -> Dict[str, Any]:

@@ -36,7 +36,7 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
     const { execState, loadGraph, start: startExecution, submitInput, reset: resetExecutor } = useGraphExecutor();
 
     // 用来标记是否是用户引起的“真正修改”
-    const isFirstFetched = useRef(true);
+    const isDataFetchingRef = useRef(true);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const toggleSidebar = () => {
@@ -48,8 +48,8 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
         if (!id) return;
 
         setDataLoading(true);
-        // 每次切换 id 时，重置标记为 true，因为换了新文件，第一次赋值属于“加载”而非“修改”
-        isFirstFetched.current = true;
+        // 每次切换 id 时，重置标记为 true
+        isDataFetchingRef.current = true;
 
         api.getAppData(id)
             .then((data: OpalJson) => {
@@ -67,8 +67,8 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
         if (!opalData) return;
 
         // 如果是第一次加载引发的赋值，直接跳过，并将标记设为 false
-        if (isFirstFetched.current) {
-            isFirstFetched.current = false;
+        if (isDataFetchingRef.current) {
+            isDataFetchingRef.current = false;
             return;
         }
 
@@ -84,7 +84,7 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
             }).catch((err: any) => {
                 setSavingState(SaveState.Failed);
             });
-        }, 1000);
+        }, 500);
 
         return () => {
             if (autoSaveTimerRef.current) {

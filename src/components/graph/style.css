@@ -274,20 +274,22 @@
 .graph-chat-msg-list .graph-chat-msg.thinking {
     color: rgba(0,0,0,0.6);
 }
-.graph-chat-msg-list .graph-chat-msg .graph-chat-msg-content ul {
-    padding: 0.5rem 0 0.5rem 1rem;
+.graph-chat-msg-list .graph-chat-msg-content ul,
+.graph-chat-msg-list .graph-chat-msg-content ol {
+    padding: 0 0 0 1rem;
 }
-.graph-chat-msg-list .graph-chat-msg .graph-chat-msg-content > ul > li {
+.graph-chat-msg-list .graph-chat-msg-content > ul > li,
+.graph-chat-msg-list .graph-chat-msg-content > ol > li {
     list-style: disc;
     margin: 5px 0;
 }
-.graph-chat-msg-list .graph-chat-msg .graph-chat-msg-content blockquote {
+.graph-chat-msg-list .graph-chat-msg-content blockquote {
     padding: 0.5rem 1rem;
     margin: 1rem 0;
     background-color: rgba(0,0,0,0.05);
     border-radius: var(--radius);
 }
-.graph-chat-msg-list .graph-chat-msg .graph-chat-msg-content blockquote > p:last-child {
+.graph-chat-msg-list .graph-chat-msg-content blockquote > p:last-child {
     margin-bottom: 0;
 }
 .graph-chat-messages .graph-chat-msg-toggle {

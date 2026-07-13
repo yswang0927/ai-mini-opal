@@ -107,8 +107,8 @@ export interface OpalJson {
   description?: string;
   assets?: any;
   version?: string;
-  nodes: OpalNode[];
-  edges: OpalEdge[];
+  nodes?: OpalNode[];
+  edges?: OpalEdge[];
 }
 
 export enum SaveState {

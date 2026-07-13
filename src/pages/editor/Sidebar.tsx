@@ -28,32 +28,18 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
 
     const quillDomRef = useRef<HTMLDivElement>(null);
     const quillRef = useRef<Quill | null>(null);
-
     const [title, setTitle] = useState('');
 
-    const titleChangeTrigger = useMemo(() => {
-        return debounce((newTitle: string) => {
-            // 更新节点配置
-            const newData = { ...stepData, metadata: { ...stepData.metadata, title: newTitle } };
+    const handleTitleChange = () => {
+        // 更新节点配置
+        if (title.trim()) {
+            const newData = { ...stepData, metadata: { ...stepData.metadata, title: title } };
             updateNode(stepData.id, {data: newData});
-        }, 300);
-    }, [stepData, updateNode]);
-
-    const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newTitle = e.target.value;
-        setTitle(newTitle);
-        titleChangeTrigger(newTitle);
+        }
     };
 
     const typeName = stepData.type;
     const nodeTypeStyle = NodeTypesStyle[typeName];
-
-    useEffect(() => {
-        // 组件卸载时，必须取消尚未执行的防抖，防止内存泄漏或闭包报错
-        return () => {
-            titleChangeTrigger.cancel();
-        };
-    }, [titleChangeTrigger]);
 
     useEffect(() => {
         if (!quillDomRef.current || quillRef.current) return;
@@ -134,14 +120,26 @@ const StepDetailView = ({stepData}: { stepData: OpalNode }) => {
     return (
         <div className="flex h-full flex-col opal-node-detail">
             <div className="flex items-center gap-md opal-node-detail-header" 
-                data-nodetype={stepData.type} style={{ backgroundColor: nodeTypeStyle.bgColor }}>
+                data-nodetype={typeName} style={{ backgroundColor: nodeTypeStyle.bgColor }}>
                 <span style={{lineHeight:"1"}}>{ nodeTypeStyle.icon }</span> 
                 <div className="flex-1">
-                    <input type="text" className="step-title-input" autoComplete="off" required value={title} onChange={handleTitleChange} />
+                    <input type="text" className="step-title-input" autoComplete="off" required 
+                        value={title} 
+                        onChange={(e) => setTitle(e.target.value)} 
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleTitleChange();
+                            }
+                        }}
+                        onBlur={handleTitleChange}
+                    />
                 </div>
             </div>
             <div className="relative flex-1 opal-node-detail-body">
-                <div className="absolute inset-0"><div ref={quillDomRef}></div></div>
+                <div className="absolute inset-0">
+                    <div ref={quillDomRef}></div>
+                </div>
             </div>
         </div>
     );
@@ -205,7 +203,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 export default function Sidebar() {
     const { t } = useL10n();
     const [selectedTab, setSelectedTab] = useState('');
-    const { selectedNode, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
+    const { selectedNode, opalData, execState, loadGraph, startExecution, submitInput, resetExecutor } = useEditorContext();
 
     useEffect(() => {
         setSelectedTab(selectedNode !== null ? 'Step' : '');
@@ -213,14 +211,8 @@ export default function Sidebar() {
 
     const doRunPreview = useCallback(async () => {
         resetExecutor();
-        /*try {
-            const rsp = await fetch('./generated_graph.json');
-            const graphJson: OpalGraphJson = await rsp.json();
-            loadGraph(graphJson);
-        } catch (e: any) {
-            console.error('Failed to load graph:', e);
-        }*/
-    }, [loadGraph, resetExecutor]);
+        loadGraph(opalData);
+    }, [opalData, loadGraph, resetExecutor]);
 
     const handlePreviewTab = useCallback(() => {
         setSelectedTab('Preview');

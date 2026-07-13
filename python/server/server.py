@@ -20,6 +20,7 @@ FastAPI HTTP 服务,封装 Opie Agent 的多轮对话能力。
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -37,9 +38,9 @@ from pydantic import BaseModel
 from opal_graph import OpalGraphState
 from opie_tools import build_opie_tools
 
-# ---------------------------------------------------------------------------
+# -----------------------------
 # LLM 配置
-# ---------------------------------------------------------------------------
+# -----------------------------
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -77,25 +78,79 @@ def _build_llm() -> ChatOpenAI:
     )
 
 
+_llm_instance: ChatOpenAI | None = None
+
+
+def _get_llm() -> ChatOpenAI:
+    global _llm_instance
+    if _llm_instance is None:
+        _llm_instance = _build_llm()
+    return _llm_instance
+
+
 def _build_agent_and_state():
     """创建一个新的 (agent, graph_state) 对,每个 session 独立持有一份。"""
     graph_state = OpalGraphState()
     tools = build_opie_tools(graph_state)
-    llm = _build_llm()
     system_prompt = _load_system_prompt()
 
     agent = create_agent(
-        model=llm,
+        model=_get_llm(),
         tools=tools,
         system_prompt=system_prompt,
     )
     return agent, graph_state
 
-# ---------------------------------------------------------------------------
+
+def _rebuild_agent_with_state(graph_state: OpalGraphState):
+    """基于已有的 graph_state 重建 agent（用于从 graph_raw 恢复场景）。"""
+    tools = build_opie_tools(graph_state)
+    system_prompt = _load_system_prompt()
+
+    return create_agent(
+        model=_get_llm(),
+        tools=tools,
+        system_prompt=system_prompt,
+    )
+
+# ------------------------------
 # Session 管理
-# ---------------------------------------------------------------------------
+# ------------------------------
 
 SESSION_TTL_SECONDS = 60 * 30  # 30 分钟无活动自动过期
+SESSION_STORE_DIR = Path(__file__).parent / "session_store"
+SESSION_STORE_DIR.mkdir(exist_ok=True)
+
+
+def _session_file(session_id: str) -> Path:
+    return SESSION_STORE_DIR / f"{session_id}.json"
+
+
+def _save_session_to_disk(session_id: str, session: "Session") -> None:
+    data = {
+        "graph_raw": session.graph_state.to_raw(),
+        "created_at": session.created_at,
+        "last_active": session.last_active,
+    }
+    _session_file(session_id).write_text(
+        json.dumps(data, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _load_session_from_disk(session_id: str) -> "Session | None":
+    path = _session_file(session_id)
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    graph_state = OpalGraphState.from_raw(data["graph_raw"])
+    session = Session.__new__(Session)
+    session.graph_state = graph_state
+    session.agent = _rebuild_agent_with_state(graph_state)
+    session.history = []
+    session.created_at = data.get("created_at", time.time())
+    session.last_active = time.time()
+    session.lock = asyncio.Lock()
+    return session
 
 
 class Session:
@@ -131,9 +186,9 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------
 # FastAPI App
-# ---------------------------------------------------------------------------
+# --------------------------------
 
 app = FastAPI(title="Opie Agent Server", version="1.0.0", lifespan=lifespan)
 
@@ -146,9 +201,9 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------
 # Request / Response Models
-# ---------------------------------------------------------------------------
+# --------------------------------
 
 
 class ChatRequest(BaseModel):
@@ -168,10 +223,9 @@ class GraphResponse(BaseModel):
     graph: Dict[str, Any]
 
 
-# ---------------------------------------------------------------------------
+# ----------------------
 # Endpoints
-# ---------------------------------------------------------------------------
-
+# ----------------------
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
@@ -181,7 +235,9 @@ async def chat(req: ChatRequest):
     if session_id in sessions:
         session = sessions[session_id]
     else:
-        session = Session()
+        session = _load_session_from_disk(session_id)
+        if session is None:
+            session = Session()
         sessions[session_id] = session
 
     async with session.lock:
@@ -206,6 +262,8 @@ async def chat(req: ChatRequest):
         None,
     )
     reply = last_ai.content if last_ai else ""
+
+    _save_session_to_disk(session_id, session)
 
     return ChatResponse(
         session_id=session_id,
@@ -249,13 +307,12 @@ async def list_sessions():
     ]
 
 
-# ---------------------------------------------------------------------------
+# ---------------------
 # 直接运行入口
-# ---------------------------------------------------------------------------
+# ---------------------
 
 if __name__ == "__main__":
     import argparse
-
     import uvicorn
 
     parser = argparse.ArgumentParser(description="Opie Agent HTTP Server")

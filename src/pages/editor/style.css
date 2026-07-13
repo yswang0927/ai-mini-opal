@@ -101,9 +101,9 @@
     /* chrome-v123+ */
     field-sizing: content;
     box-sizing: border-box;
-    max-width: 200px;
+    max-width: 90%;
     min-width: 100px;
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 5px;
