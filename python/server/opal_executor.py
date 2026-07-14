@@ -469,6 +469,119 @@ class OpalExecutor:
 
         return self._get_current_state(thread_id)
 
+    def stream_start(self, thread_id: str = "default"):
+        """
+        流式启动执行。以生成器形式逐节点产出事件,便于前端通过 SSE 实时感知进度。
+
+        产出的事件(dict)形如:
+            {"event": "node_complete", "node_id": ..., "node_type": ..., "output": ...}
+            {"event": "waiting_input", "interrupts": [...], "waiting_nodes": [...]}
+            {"event": "completed", "node_outputs": {...}}
+            {"event": "error", "error": ...}
+        每个事件都带 completed_nodes / current_node,方便前端重建节点状态。
+        """
+        self.thread_id = thread_id
+        config = {"configurable": {"thread_id": thread_id}}
+        initial_state = {
+            "node_outputs": {},
+            "pending_inputs": [],
+            "current_node": "",
+            "status": "running",
+            "error": "",
+        }
+        yield from self._stream_run(initial_state, thread_id, config)
+
+    def stream_resume(self, user_inputs: Dict[str, str], thread_id: str = "default"):
+        """
+        流式恢复执行。为每个用户输入依次 resume,逐节点产出事件。
+
+        与 resume() 一样,LangGraph 每次 resume 只消费一个 interrupt,
+        多个 input 节点需要多次 resume;这里对每个输入分别流式执行。
+        """
+        self.thread_id = thread_id
+        config = {"configurable": {"thread_id": thread_id}}
+
+        for node_id, value in user_inputs.items():
+            for event in self._stream_run(Command(resume=value), thread_id, config):
+                # 中间一次 resume 命中新的 interrupt 时,先产出 waiting_input 让前端提示,
+                # 但不结束整体流程(可能还有后续输入未提交)。
+                yield event
+
+    def _stream_run(self, graph_input, thread_id: str, config: Dict):
+        """
+        执行一次 compiled_graph.stream() 并把 LangGraph 的 update 转成前端事件。
+
+        使用 stream_mode="updates": 每个节点执行完成后产出 {node_id: 返回的 state}。
+        命中 interrupt 时产出 {"__interrupt__": (Interrupt(...),)}。
+        """
+        try:
+            for chunk in self.compiled_graph.stream(
+                graph_input, config=config, stream_mode="updates"
+            ):
+                if not isinstance(chunk, dict):
+                    continue
+
+                # 命中 interrupt: 图在某个 input 节点暂停
+                if "__interrupt__" in chunk:
+                    snapshot = self.compiled_graph.get_state(config)
+                    interrupts = self._collect_interrupts(snapshot)
+                    completed = self._completed_from_snapshot(snapshot)
+                    yield {
+                        "event": "waiting_input",
+                        "interrupts": interrupts,
+                        "waiting_nodes": list(snapshot.next) if snapshot else [],
+                        "completed_nodes": completed,
+                        "current_node": "",
+                    }
+                    return
+
+                # 普通节点完成: chunk = {node_id: 该节点返回的 state}
+                for node_id, node_state in chunk.items():
+                    outputs = (node_state or {}).get("node_outputs", {}) if isinstance(node_state, dict) else {}
+                    completed = [nid for nid in self.sorted_node_ids if nid in outputs]
+                    # 拓扑序中的下一个未完成节点视为「即将/正在运行」,供前端点亮。
+                    next_running = next(
+                        (nid for nid in self.sorted_node_ids if nid not in outputs),
+                        "",
+                    )
+                    yield {
+                        "event": "node_complete",
+                        "node_id": node_id,
+                        "node_type": self.nodes_config.get(node_id, {}).get("type", ""),
+                        "output": outputs.get(node_id, ""),
+                        "completed_nodes": completed,
+                        "current_node": next_running,
+                    }
+
+            # 流正常结束(无 interrupt): 判断是否全图完成
+            final = self._get_current_state(thread_id)
+            if final.get("status") == "waiting_input":
+                # 理论上已在上面处理,这里兜底
+                return
+            yield {
+                "event": "completed",
+                "node_outputs": final.get("node_outputs", {}),
+                "completed_nodes": final.get("completed_nodes", []),
+                "current_node": "",
+            }
+        except Exception as e:  # noqa: BLE001 — 需要把任何执行错误转成事件回传前端
+            yield {"event": "error", "error": str(e)}
+
+    def _collect_interrupts(self, snapshot) -> List[Dict[str, Any]]:
+        """从 checkpoint snapshot 中提取待处理的 interrupt 载荷。"""
+        interrupts: List[Dict[str, Any]] = []
+        if snapshot and getattr(snapshot, "tasks", None):
+            for task in snapshot.tasks:
+                for intr in getattr(task, "interrupts", None) or []:
+                    interrupts.append(intr.value)
+        return interrupts
+
+    def _completed_from_snapshot(self, snapshot) -> List[str]:
+        """从 snapshot 计算已完成节点列表。"""
+        values = getattr(snapshot, "values", None) or {}
+        outputs = values.get("node_outputs", {})
+        return [nid for nid in self.sorted_node_ids if nid in outputs]
+
     def get_status(self, thread_id: str = "default") -> Dict[str, Any]:
         """获取当前执行状态。"""
         return self._get_current_state(thread_id)

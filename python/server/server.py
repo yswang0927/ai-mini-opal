@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
@@ -76,6 +77,7 @@ def _build_llm() -> ChatOpenAI:
         api_key=LLM_API_KEY,
         model=LLM_MODEL,
         temperature=0.7,
+        use_responses_api=False
     )
 
 
@@ -374,6 +376,84 @@ async def execute_resume(req: ExecuteResumeRequest):
         return ExecuteResponse(thread_id=req.thread_id, **_sanitize_state(state))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
+
+
+def _sse_frame(payload: Dict[str, Any]) -> str:
+    """把一个事件 dict 编码为一帧 SSE 数据。"""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+async def _drain_stream(gen):
+    """
+    在线程中逐个取出同步生成器的事件并编码为 SSE 帧。
+
+    OpalExecutor 的 stream_* 是同步生成器(内部会阻塞在 LLM 调用上),
+    这里用 asyncio.to_thread 逐个 next() 取值,避免阻塞事件循环。
+    """
+    sentinel = object()
+
+    def _next():
+        try:
+            return next(gen)
+        except StopIteration:
+            return sentinel
+
+    while True:
+        event = await asyncio.to_thread(_next)
+        if event is sentinel:
+            break
+        yield _sse_frame(event)
+
+
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",  # 关闭 nginx 等中间层缓冲,保证逐帧下发
+}
+
+
+@app.post("/execute/start_stream")
+async def execute_start_stream(req: ExecuteStartRequest):
+    """
+    流式启动图执行(SSE)。逐节点推送执行进度事件,遇到 input 节点推送 waiting_input。
+    事件类型: node_complete | waiting_input | completed | error。
+    """
+    import uuid
+
+    thread_id = req.thread_id or str(uuid.uuid4())
+    try:
+        executor = OpalExecutor(graph_json=req.graph_json, llm=_get_llm())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
+    executors[thread_id] = executor
+
+    async def event_source():
+        # 首帧下发 thread_id,前端 resume 时需要
+        yield _sse_frame({"event": "started", "thread_id": thread_id})
+        async for frame in _drain_stream(executor.stream_start(thread_id)):
+            yield frame
+
+    return StreamingResponse(
+        event_source(), media_type="text/event-stream", headers=_SSE_HEADERS
+    )
+
+
+@app.post("/execute/resume_stream")
+async def execute_resume_stream(req: ExecuteResumeRequest):
+    """
+    流式恢复执行(SSE)。提交用户输入后逐节点推送进度,直到下一个 input 或全部完成。
+    """
+    executor = executors.get(req.thread_id)
+    if not executor:
+        raise HTTPException(status_code=404, detail=f"Executor not found for thread_id={req.thread_id}")
+
+    async def event_source():
+        async for frame in _drain_stream(executor.stream_resume(req.user_inputs, req.thread_id)):
+            yield frame
+
+    return StreamingResponse(
+        event_source(), media_type="text/event-stream", headers=_SSE_HEADERS
+    )
 
 
 @app.get("/execute/status/{thread_id}", response_model=ExecuteResponse)

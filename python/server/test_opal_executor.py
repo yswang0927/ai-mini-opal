@@ -219,6 +219,77 @@ class TestFrontendEdgeClassification(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Streaming Tests (SSE 事件流)
+# ---------------------------------------------------------------------------
+
+
+class _FakeMsg:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeLLM:
+    """离线桩:agent/render 节点直接返回固定内容,不真正调用 LLM。"""
+
+    def invoke(self, messages):
+        return _FakeMsg("FAKE_OUTPUT")
+
+
+class TestStreamExecution(unittest.TestCase):
+    """验证 stream_start / stream_resume 逐节点产出事件,
+    并在 input 节点处暂停、最终产出 completed。"""
+
+    def _two_input_graph(self):
+        return {
+            "title": "BMI",
+            "nodes": [
+                {"id": "in_cm", "type": "user-inputs",
+                 "metadata": {"title": "Height"},
+                 "configuration": {"description": {"content": "cm?"}}},
+                {"id": "in_kg", "type": "user-inputs",
+                 "metadata": {"title": "Weight"},
+                 "configuration": {"description": {"content": "kg?"}}},
+                {"id": "agent_bmi", "type": "agent-generate",
+                 "configuration": {"config$prompt": {"content": "compute"}}},
+                {"id": "render_bmi", "type": "render-outputs",
+                 "configuration": {"text": {"content": "show"}}},
+            ],
+            "edges": [
+                {"from": "in_cm", "to": "agent_bmi", "out": "", "in": ""},
+                {"from": "in_kg", "to": "agent_bmi", "out": "", "in": ""},
+                {"from": "agent_bmi", "to": "render_bmi", "out": "", "in": ""},
+            ],
+        }
+
+    def test_stream_pauses_and_completes(self):
+        executor = OpalExecutor(self._two_input_graph(), llm=_FakeLLM())
+
+        # start 应立即在第一个 input 处产出 waiting_input
+        events = list(executor.stream_start(thread_id="stream-1"))
+        self.assertTrue(events)
+        self.assertEqual(events[-1]["event"], "waiting_input")
+        self.assertIn("in_cm", events[-1]["waiting_nodes"])
+
+        # 提交第一个输入 -> 停在第二个 input
+        events = list(executor.stream_resume({"in_cm": "175"}, thread_id="stream-1"))
+        self.assertEqual(events[-1]["event"], "waiting_input")
+        self.assertIn("in_kg", events[-1]["waiting_nodes"])
+
+        # 提交第二个输入 -> agent、render 逐节点产出,最后 completed
+        events = list(executor.stream_resume({"in_kg": "70"}, thread_id="stream-1"))
+        types = [e["event"] for e in events]
+        self.assertIn("node_complete", types)
+        self.assertEqual(events[-1]["event"], "completed")
+
+        node_completes = [e["node_id"] for e in events if e["event"] == "node_complete"]
+        self.assertIn("agent_bmi", node_completes)
+        self.assertIn("render_bmi", node_completes)
+
+        final = events[-1]
+        self.assertIn("render_bmi", final["completed_nodes"])
+
+
+# ---------------------------------------------------------------------------
 # E2E Tests (requires LLM)
 # ---------------------------------------------------------------------------
 
@@ -359,6 +430,7 @@ if __name__ == "__main__":
         suite.addTests(loader.loadTestsFromTestCase(TestResolvePlaceholders))
         suite.addTests(loader.loadTestsFromTestCase(TestExecutorBuild))
         suite.addTests(loader.loadTestsFromTestCase(TestFrontendEdgeClassification))
+        suite.addTests(loader.loadTestsFromTestCase(TestStreamExecution))
     elif args.e2e:
         suite.addTests(loader.loadTestsFromTestCase(TestExecutorE2E))
     else:
@@ -366,6 +438,7 @@ if __name__ == "__main__":
         suite.addTests(loader.loadTestsFromTestCase(TestResolvePlaceholders))
         suite.addTests(loader.loadTestsFromTestCase(TestExecutorBuild))
         suite.addTests(loader.loadTestsFromTestCase(TestFrontendEdgeClassification))
+        suite.addTests(loader.loadTestsFromTestCase(TestStreamExecution))
         suite.addTests(loader.loadTestsFromTestCase(TestRouteExecution))
         suite.addTests(loader.loadTestsFromTestCase(TestExecutorE2E))
 

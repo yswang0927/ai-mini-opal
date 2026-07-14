@@ -3,10 +3,10 @@ import type { OpalJson, OpalNode } from "@/types";
 import { OpalNodeType } from "@/types";
 import type { ExecutionState, InputRequest, NodeExecStatus } from "./types";
 import {
-  startExecution,
-  resumeExecution,
+  startExecutionStream,
+  resumeExecutionStream,
   deleteExecutor,
-  type ServerExecuteResponse,
+  type ServerStreamEvent,
 } from "./serverApi";
 
 const initialState: ExecutionState = {
@@ -46,54 +46,95 @@ function extractRenderedHtml(graphJson: OpalJson | null, outputs: Record<string,
   return null;
 }
 
-/** 将服务端各节点状态列表整合为 nodeId -> NodeExecStatus 映射。 */
-function buildNodeStatuses(resp: ServerExecuteResponse): Record<string, NodeExecStatus> {
+/** 根据 completed_nodes / current_node 重建节点状态映射。 */
+function buildNodeStatuses(
+  graphJson: OpalJson | null,
+  completed: string[],
+  currentNodeId: string | null,
+): Record<string, NodeExecStatus> {
   const statuses: Record<string, NodeExecStatus> = {};
-  for (const id of resp.pending_nodes) statuses[id] = 'pending';
-  for (const id of resp.waiting_nodes) statuses[id] = 'running';
-  for (const id of resp.completed_nodes) statuses[id] = 'completed';
-  if (resp.status === 'running' && resp.current_node) {
-    statuses[resp.current_node] = 'running';
+  for (const node of graphJson?.nodes || []) statuses[node.id] = 'pending';
+  for (const id of completed) statuses[id] = 'completed';
+  if (currentNodeId && statuses[currentNodeId] !== 'completed') {
+    statuses[currentNodeId] = 'running';
   }
   return statuses;
 }
 
-/** 将服务端响应映射为前端 ExecutionState。 */
-function mapResponseToState(
-  resp: ServerExecuteResponse,
+/** 把一条 SSE 事件应用到前端 ExecutionState 上,增量更新。 */
+function applyStreamEvent(
+  evt: ServerStreamEvent,
   graphJson: OpalJson | null,
   prev: ExecutionState,
 ): ExecutionState {
   const nodeMap = new Map((graphJson?.nodes || []).map(n => [n.id, n]));
+  const titleOf = (id: string | null) =>
+    id ? (nodeMap.get(id)?.metadata?.title || id) : null;
 
-  const pendingInputs: InputRequest[] = (resp.interrupts || []).map(intr => ({
-    nodeId: intr.node_id,
-    title: intr.title,
-    description: intr.question,
-    modality: intr.modality || 'Text',
-    required: intr.required !== false,
-  }));
+  switch (evt.event) {
+    case 'started':
+      return { ...prev, status: 'running', error: null };
 
-  // 归一化状态: 服务端 pending 视为 running(尚未产出任何输出的中间态)
-  let status = resp.status as ExecutionState['status'];
-  if (status === ('pending' as any)) status = 'running';
+    case 'node_complete': {
+      const nodeOutputs = { ...prev.nodeOutputs };
+      if (evt.node_id) nodeOutputs[evt.node_id] = evt.output || '';
+      const completed = evt.completed_nodes || Object.keys(nodeOutputs);
+      const currentNodeId = evt.current_node || null;
+      return {
+        ...prev,
+        status: 'running',
+        nodeOutputs,
+        renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
+        currentNodeId,
+        currentNodeTitle: titleOf(currentNodeId),
+        nodeStatuses: buildNodeStatuses(graphJson, completed, currentNodeId),
+      };
+    }
 
-  const currentNodeId = resp.current_node || null;
-  const currentNodeTitle = currentNodeId
-    ? (nodeMap.get(currentNodeId)?.metadata?.title || currentNodeId)
-    : null;
+    case 'waiting_input': {
+      const pendingInputs: InputRequest[] = (evt.interrupts || []).map(intr => ({
+        nodeId: intr.node_id,
+        title: intr.title,
+        description: intr.question,
+        modality: intr.modality || 'Text',
+        required: intr.required !== false,
+      }));
+      const completed = evt.completed_nodes || Object.keys(prev.nodeOutputs);
+      // 正在等待输入的节点标记为 running
+      const waiting = evt.waiting_nodes || pendingInputs.map(p => p.nodeId);
+      const statuses = buildNodeStatuses(graphJson, completed, null);
+      for (const id of waiting) statuses[id] = 'running';
+      return {
+        ...prev,
+        status: 'waiting_input',
+        pendingInputs,
+        currentNodeId: waiting[0] || null,
+        currentNodeTitle: titleOf(waiting[0] || null),
+        nodeStatuses: statuses,
+      };
+    }
 
-  return {
-    ...prev,
-    status,
-    pendingInputs,
-    nodeOutputs: resp.node_outputs || {},
-    renderedHtml: extractRenderedHtml(graphJson, resp.node_outputs || {}),
-    error: status === 'error' ? (resp.current_node || '执行出错') : null,
-    currentNodeId,
-    currentNodeTitle,
-    nodeStatuses: buildNodeStatuses(resp),
-  };
+    case 'completed': {
+      const nodeOutputs = evt.node_outputs || prev.nodeOutputs;
+      const completed = evt.completed_nodes || Object.keys(nodeOutputs);
+      return {
+        ...prev,
+        status: 'completed',
+        pendingInputs: [],
+        nodeOutputs,
+        renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
+        currentNodeId: null,
+        currentNodeTitle: null,
+        nodeStatuses: buildNodeStatuses(graphJson, completed, null),
+      };
+    }
+
+    case 'error':
+      return { ...prev, status: 'error', error: evt.error || '执行出错' };
+
+    default:
+      return prev;
+  }
 }
 
 export function useGraphExecutor() {
@@ -120,9 +161,12 @@ export function useGraphExecutor() {
 
     setExecState(prev => ({ ...prev, status: 'running', error: null }));
     try {
-      const resp = await startExecution(graphJson);
-      threadIdRef.current = resp.thread_id;
-      setExecState(prev => mapResponseToState(resp, graphJson, prev));
+      await startExecutionStream(graphJson, evt => {
+        if (evt.event === 'started' && evt.thread_id) {
+          threadIdRef.current = evt.thread_id;
+        }
+        setExecState(prev => applyStreamEvent(evt, graphRef.current, prev));
+      });
     } catch (e: any) {
       setExecState(prev => ({
         ...prev,
@@ -138,8 +182,9 @@ export function useGraphExecutor() {
 
     setExecState(prev => ({ ...prev, status: 'running', pendingInputs: [], error: null }));
     try {
-      const resp = await resumeExecution(threadId, inputs);
-      setExecState(prev => mapResponseToState(resp, graphRef.current, prev));
+      await resumeExecutionStream(threadId, inputs, evt => {
+        setExecState(prev => applyStreamEvent(evt, graphRef.current, prev));
+      });
     } catch (e: any) {
       setExecState(prev => ({
         ...prev,
