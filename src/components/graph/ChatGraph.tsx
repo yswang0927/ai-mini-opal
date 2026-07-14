@@ -117,11 +117,19 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     });
 
     const opalEdges: OpalEdge[] = currentEdges.map((edge: Edge): OpalEdge => {
+      const from = edge.source;
+      const to = edge.target;
+      const data = (edge.data || {}) as { out?: string; in?: string };
+      // 保留边原始的 out/in(加载时存入 edge.data),避免编辑保存后被清空。
+      // 本编辑器的连线都是数据/依赖边,规范形式为 out="context"、in="p-z-<from>";
+      // 新建连线或历史遗留的空值都归一化为该默认值。
+      const outVal = (data.out || '').trim();
+      const inVal = (data.in || '').trim();
       return {
-        from: edge.source,
-        to: edge.target,
-        out: '',
-        in: ''
+        from,
+        to,
+        out: outVal || 'context',
+        in: inVal || `p-z-${from}`
       };
     });
 
@@ -400,7 +408,9 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       return {
         id: edge.id || `${edge.from}-${edge.to}`,
         source: edge.from || edge.source,
-        target: edge.to || edge.target
+        target: edge.to || edge.target,
+        // 保留 out/in 语义,供保存时(onGraphChanged)回写,避免往返丢失。
+        data: { out: edge.out, in: edge.in }
       };
     });
 

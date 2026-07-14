@@ -26,7 +26,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -37,6 +37,7 @@ from pydantic import BaseModel
 
 from opal_graph import OpalGraphState
 from opie_tools import build_opie_tools
+from opal_executor import OpalExecutor
 
 # -----------------------------
 # LLM 配置
@@ -223,6 +224,29 @@ class GraphResponse(BaseModel):
     graph: Dict[str, Any]
 
 
+# --- Executor Request/Response Models ---
+
+class ExecuteStartRequest(BaseModel):
+    graph_json: Dict[str, Any]
+    thread_id: Optional[str] = None
+
+
+class ExecuteResumeRequest(BaseModel):
+    thread_id: str
+    user_inputs: Dict[str, str]
+
+
+class ExecuteResponse(BaseModel):
+    thread_id: str
+    status: str
+    current_node: str = ""
+    node_outputs: Dict[str, str] = {}
+    completed_nodes: List[str] = []
+    pending_nodes: List[str] = []
+    waiting_nodes: List[str] = []
+    interrupts: List[Dict[str, Any]] = []
+
+
 # ----------------------
 # Endpoints
 # ----------------------
@@ -305,6 +329,95 @@ async def list_sessions():
         for sid, s in sessions.items()
         if not s.is_expired()
     ]
+
+
+# ----------------------
+# Executor Endpoints
+# ----------------------
+
+# 存储活跃的 executor 实例, key = thread_id
+executors: Dict[str, OpalExecutor] = {}
+
+
+@app.post("/execute/start", response_model=ExecuteResponse)
+async def execute_start(req: ExecuteStartRequest):
+    """
+    启动图执行。传入编译后的 graph_json, 返回执行状态。
+    遇到 input 节点会暂停(status=waiting_input),前端需要收集用户输入后调用 /execute/resume。
+    """
+    import uuid
+
+    thread_id = req.thread_id or str(uuid.uuid4())
+
+    try:
+        executor = OpalExecutor(graph_json=req.graph_json, llm=_get_llm())
+        executors[thread_id] = executor
+
+        state = await asyncio.to_thread(executor.start, thread_id)
+        return ExecuteResponse(thread_id=thread_id, **_sanitize_state(state))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
+
+
+@app.post("/execute/resume", response_model=ExecuteResponse)
+async def execute_resume(req: ExecuteResumeRequest):
+    """
+    提供用户输入后继续执行。
+    每次可提供一个或多个 input 节点的值。执行会继续直到下一个 input 节点或全部完成。
+    """
+    executor = executors.get(req.thread_id)
+    if not executor:
+        raise HTTPException(status_code=404, detail=f"Executor not found for thread_id={req.thread_id}")
+
+    try:
+        state = await asyncio.to_thread(executor.resume, req.user_inputs, req.thread_id)
+        return ExecuteResponse(thread_id=req.thread_id, **_sanitize_state(state))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
+
+
+@app.get("/execute/status/{thread_id}", response_model=ExecuteResponse)
+async def execute_status(thread_id: str):
+    """查询指定 thread 的执行状态。"""
+    executor = executors.get(thread_id)
+    if not executor:
+        raise HTTPException(status_code=404, detail=f"Executor not found for thread_id={thread_id}")
+
+    state = executor.get_status(thread_id)
+    return ExecuteResponse(thread_id=thread_id, **_sanitize_state(state))
+
+
+@app.get("/execute/outputs/{thread_id}")
+async def execute_outputs(thread_id: str):
+    """获取指定 thread 所有节点的输出内容。"""
+    executor = executors.get(thread_id)
+    if not executor:
+        raise HTTPException(status_code=404, detail=f"Executor not found for thread_id={thread_id}")
+
+    outputs = executor.get_outputs(thread_id)
+    return {"thread_id": thread_id, "outputs": outputs}
+
+
+@app.delete("/execute/{thread_id}")
+async def execute_delete(thread_id: str):
+    """销毁指定 thread 的执行器,释放资源。"""
+    if thread_id not in executors:
+        raise HTTPException(status_code=404, detail=f"Executor not found for thread_id={thread_id}")
+    del executors[thread_id]
+    return {"ok": True, "thread_id": thread_id}
+
+
+def _sanitize_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    """确保 state 中所有字段符合 ExecuteResponse schema。"""
+    return {
+        "status": state.get("status", "pending"),
+        "current_node": state.get("current_node", ""),
+        "node_outputs": state.get("node_outputs", {}),
+        "completed_nodes": state.get("completed_nodes", []),
+        "pending_nodes": state.get("pending_nodes", []),
+        "waiting_nodes": state.get("waiting_nodes", []),
+        "interrupts": state.get("interrupts", []),
+    }
 
 
 # ---------------------

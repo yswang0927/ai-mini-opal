@@ -9,7 +9,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 
 import "./style.css";
-import "../../components/graph/executor/executor.css";
+import "@/components/graph/executor/executor.css";
 
 export default function ChatGraphEditor() {
     const { id } = useParams<{ id: string }>();
