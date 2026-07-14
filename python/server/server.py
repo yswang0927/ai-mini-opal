@@ -271,7 +271,8 @@ async def chat(req: ChatRequest):
         session.history.append({"role": "user", "content": req.message})
 
         result = await asyncio.to_thread(
-            session.agent.invoke, {"messages": session.history}
+            session.agent.invoke, 
+            {"messages": session.history}
         )
         session.history = result["messages"]
 

@@ -26,16 +26,19 @@ from __future__ import annotations
 import json
 import re
 import os
+from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Annotated
 from operator import add
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt, Command
 from langgraph.checkpoint.memory import MemorySaver
+
+from opal_runtime_tools import build_runtime_tools
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +108,50 @@ def resolve_placeholders(text: str, outputs: Dict[str, str]) -> str:
 
     result = _PLACEHOLDER_RE.sub(_replace, text)
     return result.strip()
+
+
+# 编译产物中 routing 工具的 path,它由执行器的条件路由机制处理,不作为普通工具
+_ROUTING_TOOL_PATH = "control-flow/routing"
+
+
+def extract_tool_paths(text: str) -> List[str]:
+    """从 prompt 文本中提取所有 type == "tool" 的占位符 path。
+
+    排除 routing 工具(control-flow/routing),它由条件路由机制单独处理。
+    返回去重后的 path 列表,保持出现顺序。
+    """
+    paths: List[str] = []
+    for match in _PLACEHOLDER_RE.finditer(text):
+        raw = match.group(1).strip()
+        try:
+            spec = json.loads("{" + raw + "}")
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(spec, dict) or spec.get("type") != "tool":
+            continue
+        path = (spec.get("path") or "").strip()
+        if not path or path == _ROUTING_TOOL_PATH:
+            continue
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def current_date_system_message() -> SystemMessage:
+    """构造一条告知 LLM 当前日期的 system 消息。
+
+    LLM 本身不知道"今天"是哪天,生成日期/时效相关内容(如页面页脚、报告日期、
+    "最近"判断)时容易用到训练截止日期。执行期注入实时日期可修正这一点。
+    """
+    now = datetime.now()
+    weekday_cn = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+    return SystemMessage(
+        content=(
+            f"Today's date is {now.strftime('%Y-%m-%d')} ({weekday_cn})。"
+            f"当前时间为 {now.strftime('%H:%M')}。"
+            "涉及日期/时间的内容请以此为准。"
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +266,11 @@ class OpalExecutor:
                 model=os.environ.get("OPIE_LLM_MODEL", ""),
                 temperature=0.7,
             )
+
+        # agent 运行时工具共享的进程内记忆(memory 工具用)
+        self._memory_store: Dict[str, str] = {}
+        # agent 工具循环的最大轮数,防止无限调用
+        self._max_tool_iterations = 6
 
         # 构建 LangGraph
         self.checkpointer = MemorySaver()
@@ -339,7 +391,7 @@ class OpalExecutor:
             resolved_prompt = resolve_placeholders(prompt_content, outputs)
 
             # 构建消息
-            messages = []
+            messages = [current_date_system_message()]
 
             # system instruction (terse mode etc.)
             sys_inst = config.get("system-instruction")
@@ -348,10 +400,17 @@ class OpalExecutor:
 
             messages.append(HumanMessage(content=resolved_prompt))
 
-            # 调用 LLM
+            # 从原始 prompt 中提取声明的运行时工具,构建并 bind 到 LLM。
+            tool_paths = extract_tool_paths(prompt_content)
+            tools = build_runtime_tools(tool_paths, memory_store=self._memory_store)
+
+            # 调用 LLM(带工具则运行工具调用循环)
             try:
-                response = self.llm.invoke(messages)
-                result = response.content
+                if tools:
+                    result = self._run_agent_with_tools(messages, tools, node_id)
+                else:
+                    response = self.llm.invoke(messages)
+                    result = response.content
             except Exception as e:
                 result = f"[Error executing agent node {node_id}: {str(e)}]"
 
@@ -365,6 +424,50 @@ class OpalExecutor:
             }
         return handler
 
+    def _run_agent_with_tools(self, messages: List, tools: List, node_id: str) -> str:
+        """运行 agent 工具调用循环。
+
+        反复: LLM 生成 -> 若请求工具调用则执行并回填 ToolMessage -> 再次生成,
+        直到 LLM 不再请求工具或达到最大轮数。
+        """
+        llm_with_tools = self.llm.bind_tools(tools)
+        tools_by_name = {t.name: t for t in tools}
+        convo = list(messages)
+
+        for _ in range(self._max_tool_iterations):
+            ai_msg = llm_with_tools.invoke(convo)
+            convo.append(ai_msg)
+
+            tool_calls = getattr(ai_msg, "tool_calls", None) or []
+            if not tool_calls:
+                return ai_msg.content or ""
+
+            # 执行每个被请求的工具,回填结果
+            for call in tool_calls:
+                name = call.get("name")
+                args = call.get("args", {}) or {}
+                call_id = call.get("id", "")
+                tool = tools_by_name.get(name)
+                if tool is None:
+                    tool_result = f"[未知工具: {name}]"
+                else:
+                    try:
+                        tool_result = tool.invoke(args)
+                    except Exception as e:  # noqa: BLE001
+                        tool_result = f"[工具 {name} 执行出错: {e}]"
+                convo.append(
+                    ToolMessage(content=str(tool_result), tool_call_id=call_id)
+                )
+
+        # 达到最大轮数仍在调用工具 — 强制让 LLM 基于已有信息给出最终回答
+        convo.append(
+            HumanMessage(
+                content="已达到工具调用上限,请基于以上工具结果给出最终答案。"
+            )
+        )
+        final = self.llm.invoke(convo)
+        return final.content or ""
+
     def _make_render_handler(self, node_id: str, node_config: Dict):
         """创建 render 节点的处理函数 — 调用 LLM 生成 HTML。"""
         def handler(state: Dict) -> Dict:
@@ -376,7 +479,7 @@ class OpalExecutor:
             resolved_brief = resolve_placeholders(brief_content, outputs)
 
             # 构建消息: 使用 render 节点的 system instruction
-            messages = []
+            messages = [current_date_system_message()]
 
             sys_inst = config.get("system-instruction")
             if sys_inst and sys_inst.get("content"):

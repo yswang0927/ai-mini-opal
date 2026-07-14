@@ -64,6 +64,16 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
         "display_title": "Search Internal",
         "confirmed": False,
     },
+    "read-file": {
+        "path": "read-file",
+        "display_title": "Read File",
+        "confirmed": True,
+    },
+    "write-file": {
+        "path": "write-file",
+        "display_title": "Write File",
+        "confirmed": True,
+    },
 }
 
 # ---------------------------------------------------------------------------

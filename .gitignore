@@ -36,3 +36,4 @@ test/screenshots
 python/__pycache__
 python/.idea
 python/runtime
+python/server/session_store

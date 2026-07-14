@@ -150,7 +150,8 @@ class _CreateAgentStepArgs(BaseModel):
         default_factory=list,
         description=(
             "本节点需要挂载的工具能力列表,可选值:get-weather, search-web, get-webpage, "
-            "search-maps, search-internal, search-enterprise, code-execution, memory"
+            "search-maps, search-internal, search-enterprise, code-execution, memory, "
+            "read-file, write-file"
         ),
     )
     generation_capabilities: List[str] = Field(

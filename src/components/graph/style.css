@@ -220,6 +220,7 @@
     width: 24px;
     height: 24px;
 }
+
 .graph-chat-messages {
     position: absolute;
     top: 30px;
@@ -248,7 +249,7 @@
     min-height: 50px;
     padding: 5px 5px 30px 5px;
     margin-bottom: 30px;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 .graph-chat-msg-list .graph-chat-msg {
     padding: 0.5rem 1rem;
@@ -314,6 +315,9 @@
     height: 4px;
     background-color: rgba(0,0,0,0.2);
     border-radius: 2px;
+}
+.graph-chat-messages.expanded .graph-chat-msg-list {
+    overflow-y: auto;
 }
 .graph-chat-messages.expanded .graph-chat-msg-list .graph-chat-msg {
     visibility: visible;

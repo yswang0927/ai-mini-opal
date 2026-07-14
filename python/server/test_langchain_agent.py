@@ -67,6 +67,7 @@ def build_llm() -> ChatOpenAI:
         api_key=LLM_API_KEY,
         model=LLM_MODEL,
         temperature=0.7,
+        use_responses_api=False
     )
 
 
@@ -93,7 +94,7 @@ def run_single_turn_demo() -> None:
     agent, graph_state = build_agent_and_state()
 
     user_message = "我要一个计算身高体重的BMI计算器"
-    user_message = "An app that takes a user-provided topic as input, conducts in-depth research on that topic, and then generates a snappy and compelling blog post about it."
+    #user_message = "An app that takes a user-provided topic as input, conducts in-depth research on that topic, and then generates a snappy and compelling blog post about it."
     #user_message = "帮我做一个客户投诉与建议分类处理工具。首先让用户输入他们的反馈内容。然后用大模型分析这段内容的意图：如果是严重投诉，就走到‘紧急处理’步骤，生成一封道歉信并给出退款方案；如果是普通产品建议，就走到‘需求池’步骤，自动将其整理成表格格式；最后不论哪种情况，都把结果展示在漂亮的 Dashboard 网页上。"
     #user_message = "我需要一个excel分析APP,我可以选择本地excel文件,然后使用自然语言对其进行分析,并展示分析结果."
     #user_message = "做一个图片风格转换工具：用户上传一张照片，选择想要的艺术风格（油画/水彩/卡通等），生成转换后的图片并展示。"
@@ -169,5 +170,4 @@ if __name__ == "__main__":
     if args.repl:
         run_repl()
     else:
-        #run_single_turn_demo()
-        run_repl()
+        run_single_turn_demo()
