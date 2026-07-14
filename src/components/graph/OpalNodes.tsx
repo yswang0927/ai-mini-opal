@@ -35,7 +35,7 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
           <span className="opal-node-header-icon">{ NodeTypesStyle[nodeType].icon }</span>
           <div className="flex-1 text-ellipsis">{title}</div>
         </div>
-        <button className="node-run-btn"><CaretRightIcon /></button>
+        {/*<button className="node-run-btn"><CaretRightIcon /></button>*/}
       </div>
       
       <div className="opal-node-body">

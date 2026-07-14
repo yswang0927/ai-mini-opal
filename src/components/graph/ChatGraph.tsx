@@ -110,7 +110,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       if (rawData.metadata) {
         rawData.metadata = {
           ...rawData.metadata,
-          visual: { x: position.x, y: position.y }
+          visual: { x: Math.round(position.x), y: Math.round(position.y) }
         };
       }
       return rawData;

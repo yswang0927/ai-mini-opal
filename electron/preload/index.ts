@@ -1,4 +1,4 @@
-import { ipcRenderer, contextBridge } from 'electron'
+import { ipcRenderer, contextBridge, webUtils } from 'electron'
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFile: (filepath: string): Promise<boolean> => ipcRenderer.invoke('delete_file', filepath),
   getDataDir: (): Promise<string> => ipcRenderer.invoke('get-data-dir'),
   listApps: (): Promise<App[]> => ipcRenderer.invoke('list-apps'),
+  // Electron 已移除 File.path,通过 webUtils 从 File 对象取本地磁盘物理绝对路径(无需上传)。
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 })
 
 // --------- Preload scripts loading ---------

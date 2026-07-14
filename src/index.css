@@ -277,6 +277,10 @@ table {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.btn-icon {
+  line-height: 1;
+  font-size: 0;
+}
 
 [class*=blur], [class*=blur].light {
   --_blur: 1rem;

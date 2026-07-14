@@ -2,3 +2,6 @@ langchain
 langchain-openai
 uvicorn
 fastapi
+duckdb
+openpyxl
+pandas

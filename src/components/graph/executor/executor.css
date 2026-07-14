@@ -128,21 +128,59 @@
 .executor-input-desc {
   font-size: 13px;
   color: #6b7280;
-  margin: 0;
+  margin-bottom: 1rem;
 }
 
-.executor-input-field input {
-  padding: 10px 12px;
+.executor-inputbox {
+  position: relative;
+  padding: var(--padding);
   border: 1px solid #d1d5db;
+  background-color: var(--bg-color);
   border-radius: 8px;
-  font-size: 14px;
-  outline: none;
   transition: border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-md);
 }
-
-.executor-input-field input:focus {
+.executor-inputbox:focus-within {
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.executor-input-field input[type='text'] {
+  padding: 10px 5px;
+  border: 0 none;
+  background: transparent;
+  font-size: var(--font-size-md);
+  outline: none;
+}
+
+.executor-input-filepicker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: rgba(0,0,0,0.05);
+  cursor: pointer;
+  overflow: hidden;
+}
+.executor-input-filepicker .btn-icon {
+  pointer-events: none;
+  cursor: pointer;
+  color: #4f46e5;
+}
+.executor-input-filepicker:hover {
+  background-color: rgba(0,0,0,0.1);
+}
+.executor-input-filepicker input[type='file'] {
+  cursor: pointer;
+}
+
+.executor-input-filename {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #4f46e5;
+  word-break: break-all;
 }
 
 .executor-submit-btn {

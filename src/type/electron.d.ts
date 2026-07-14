@@ -12,6 +12,7 @@ interface ElectronAPI {
   writeFile: (filepath: string, content: string) => Promise<boolean>
   deleteFile: (filepath: string) => Promise<boolean>
   getDataDir: () => Promise<string>
+  getPathForFile: (file: File) => string
 }
 
 interface Window {
