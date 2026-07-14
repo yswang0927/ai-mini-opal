@@ -38,7 +38,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt, Command
 from langgraph.checkpoint.memory import MemorySaver
 
-from opal_runtime_tools import build_runtime_tools
+from opal_runtime_tools import build_runtime_tools, build_skill_tools
+from opal_skills import load_skill_doc
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +136,27 @@ def extract_tool_paths(text: str) -> List[str]:
         if path not in paths:
             paths.append(path)
     return paths
+
+
+def extract_skill_names(text: str) -> List[str]:
+    """从 prompt 文本中提取所有 type == "skill" 的占位符名称(path 字段)。
+
+    对应编译层写入的 {{"type":"skill","path":"<name>","title":"<name>"}}。
+    返回去重后的 skill 名称列表,保持出现顺序。
+    """
+    names: List[str] = []
+    for match in _PLACEHOLDER_RE.finditer(text):
+        raw = match.group(1).strip()
+        try:
+            spec = json.loads("{" + raw + "}")
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(spec, dict) or spec.get("type") != "skill":
+            continue
+        name = (spec.get("path") or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 def current_date_system_message() -> SystemMessage:
@@ -398,11 +420,20 @@ class OpalExecutor:
             if sys_inst and sys_inst.get("content"):
                 messages.append(SystemMessage(content=sys_inst["content"]))
 
+            # 从 prompt 中提取声明的 skills,把各自的 SKILL.md 说明注入为 system 消息,
+            # 让 agent 知道每个 skill 能做什么、脚本怎么调用。
+            skill_names = extract_skill_names(prompt_content)
+            skill_docs = self._build_skill_docs_message(skill_names)
+            if skill_docs:
+                messages.append(SystemMessage(content=skill_docs))
+
             messages.append(HumanMessage(content=resolved_prompt))
 
             # 从原始 prompt 中提取声明的运行时工具,构建并 bind 到 LLM。
             tool_paths = extract_tool_paths(prompt_content)
             tools = build_runtime_tools(tool_paths, memory_store=self._memory_store)
+            # 声明了 skills 的节点,追加受限的 run_skill_script 工具(白名单=声明的 skills)。
+            tools = tools + build_skill_tools(skill_names)
 
             # 调用 LLM(带工具则运行工具调用循环)
             try:
@@ -423,6 +454,28 @@ class OpalExecutor:
                 "status": "running",
             }
         return handler
+
+    def _build_skill_docs_message(self, skill_names: List[str]) -> str:
+        """把声明的 skills 的 SKILL.md 正文拼成一段 system 提示。
+
+        提示 agent 有哪些 skill 可用、如何借助 run_skill_script 调用其脚本。
+        脚本示例里的 /mnt/skills/... 挂载路径可原样使用(运行时会自动映射)。
+        """
+        docs = []
+        for name in skill_names:
+            doc = load_skill_doc(name)
+            if not doc:
+                continue
+            docs.append(f"===== SKILL: {name} =====\n{doc}")
+        if not docs:
+            return ""
+        header = (
+            "你可以使用以下 Agent Skill 来完成任务。每个 skill 附带其说明书(SKILL.md)。"
+            "要运行 skill 提供的脚本,调用 run_skill_script 工具,传入 skill 名称、脚本相对路径与参数;"
+            "说明书里出现的 /mnt/skills/... 路径可直接使用(会被自动映射到真实位置)。"
+            "请严格按说明书的步骤与命令来操作。\n\n"
+        )
+        return header + "\n\n".join(docs)
 
     def _run_agent_with_tools(self, messages: List, tools: List, node_id: str) -> str:
         """运行 agent 工具调用循环。

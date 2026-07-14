@@ -34,6 +34,7 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from opal_graph import GraphValidationError, OpalGraphState
+from opal_skills import discover_skills
 
 
 def _ok(payload: Dict[str, Any]) -> str:
@@ -127,6 +128,27 @@ def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.3 create_agent_step
 # ===========================================================================
 
+
+def _build_skills_field_description() -> str:
+    """构造 skills 字段的说明文本,把当前可用的 skill 名称+简介列进去,
+    让构图 LLM 知道有哪些 skill 可挂载以及各自的适用场景。"""
+    skills = discover_skills()
+    base = (
+        "本节点可调用的 Agent Skill 名称列表(可选)。每个 skill 是一套预置的专业能力"
+        "(含说明书 SKILL.md 与可执行脚本)。声明后,执行时该 skill 的使用说明会注入 agent,"
+        "并开放一个只能运行该 skill 目录内脚本的受限工具。适用于处理文件类专业任务。"
+    )
+    if not skills:
+        return base + " 当前没有发现可用的 skill。"
+    lines = [base + " 可用 skills:"]
+    for name in sorted(skills):
+        desc = (skills[name].description or "").strip()
+        if len(desc) > 200:
+            desc = desc[:200] + "…"
+        lines.append(f"- {name}: {desc}")
+    return "\n".join(lines)
+
+
 class _RouteSpec(BaseModel):
     target_step_id: str = Field(..., description="路由目标节点的 step_id")
     label: str = Field(..., description="该路由的语义标签,如'Morning'/'Evening',会体现在prompt里指导agent何时选择该路由")
@@ -153,6 +175,10 @@ class _CreateAgentStepArgs(BaseModel):
             "search-maps, search-internal, search-enterprise, code-execution, memory, "
             "read-file, write-file"
         ),
+    )
+    skills: List[str] = Field(
+        default_factory=list,
+        description=_build_skills_field_description(),
     )
     generation_capabilities: List[str] = Field(
         default_factory=lambda: ["text"],
@@ -203,6 +229,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         expected_output: str,
         parents: Optional[List[str]] = None,
         tools: Optional[List[str]] = None,
+        skills: Optional[List[str]] = None,
         generation_capabilities: Optional[List[str]] = None,
         enable_chat: bool = False,
         enable_memory: bool = False,
@@ -220,6 +247,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
                 expected_output=expected_output,
                 parents=parents or [],
                 tools=tools or [],
+                skills=skills or [],
                 generation_capabilities=generation_capabilities or ["text"],
                 enable_chat=enable_chat,
                 enable_memory=enable_memory,
@@ -325,6 +353,7 @@ class _EditStepArgs(BaseModel):
     title: Optional[str] = Field(None, description="新标题(可选)")
     prompt: Optional[str] = Field(None, description="新的prompt/design_brief文本(可选,字段含义视节点类型而定)")
     tools: Optional[List[str]] = Field(None, description="覆盖式设置工具列表(可选,仅agent节点适用)")
+    skills: Optional[List[str]] = Field(None, description="覆盖式设置 skills 列表(可选,仅agent节点适用),见create_agent_step的skills说明")
     enable_chat: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
     enable_memory: Optional[bool] = Field(None, description="(可选,仅agent节点适用)")
     terse_mode: Optional[bool] = Field(None, description="(可选,仅agent节点适用)见create_agent_step说明")
@@ -338,6 +367,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
         title: Optional[str] = None,
         prompt: Optional[str] = None,
         tools: Optional[List[str]] = None,
+        skills: Optional[List[str]] = None,
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
         terse_mode: Optional[bool] = None,
@@ -351,6 +381,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
                 title=title,
                 prompt=prompt,
                 tools=tools,
+                skills=skills,
                 enable_chat=enable_chat,
                 enable_memory=enable_memory,
                 terse_mode=terse_mode,

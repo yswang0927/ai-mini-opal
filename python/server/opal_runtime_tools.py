@@ -31,6 +31,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import StructuredTool
 
+from opal_skills import run_skill_script
+
 
 # ---------------------------------------------------------------------------
 # code-execution — 本地受限 exec
@@ -354,11 +356,66 @@ def _make_search_internal_tool() -> StructuredTool:
 
 
 # ---------------------------------------------------------------------------
+# run_skill_script — 在声明的 skill 目录内执行脚本(受限)
+# ---------------------------------------------------------------------------
+
+
+class RunSkillScriptInput(BaseModel):
+    skill: str = Field(description="要调用的 skill 名称(必须是本节点已声明的 skill)。")
+    script: str = Field(
+        description=(
+            "要执行的脚本路径,相对该 skill 目录(如 'scripts/analyze.py')。"
+            "也可直接使用 SKILL.md 里给出的挂载路径(如 "
+            "'/mnt/skills/public/<skill>/scripts/analyze.py'),会被自动映射。"
+        )
+    )
+    args: List[str] = Field(
+        default_factory=list,
+        description="传给脚本的命令行参数列表,如 ['--files', '/tmp/a.xlsx', '--action', 'inspect']。",
+    )
+
+
+def _make_run_skill_script_tool(allowed_skills: List[str]) -> StructuredTool:
+    """构建 run_skill_script 工具。allowed_skills 是本 agent 节点声明的 skill 白名单,
+    工具只能执行这些 skill 目录内的脚本。"""
+
+    def _run(skill: str, script: str, args: Optional[List[str]] = None) -> str:
+        return run_skill_script(
+            allowed_skills=allowed_skills,
+            skill=skill,
+            script=script,
+            args=args or [],
+        )
+
+    allowed = ", ".join(allowed_skills) if allowed_skills else "(无)"
+    return StructuredTool.from_function(
+        func=_run,
+        name="run_skill_script",
+        description=(
+            "执行某个已声明 skill 提供的脚本并返回其输出。"
+            f"本节点可调用的 skills: {allowed}。"
+            "请先阅读注入的 SKILL.md 说明,再按其中的命令与参数调用对应脚本。"
+        ),
+        args_schema=RunSkillScriptInput,
+    )
+
+
+def build_skill_tools(skill_names: List[str]) -> List[StructuredTool]:
+    """为一个 agent 节点声明的 skills 构建运行时工具。
+
+    目前所有 skill 共用同一个受限的 run_skill_script 工具(白名单限定为声明的 skills)。
+    若没有声明任何 skill,返回空列表。
+    """
+    if not skill_names:
+        return []
+    return [_make_run_skill_script_tool(list(skill_names))]
+
+
+# ---------------------------------------------------------------------------
 # 工厂:按 tool path 构建运行时工具
 # ---------------------------------------------------------------------------
 
 # prompt 占位符里出现的 path -> 构建器。
-# 注意 memory 在编译产物中的 path 是 "function-group/use-memory"。
 def build_runtime_tools(
     tool_paths: List[str],
     memory_store: Optional[Dict[str, str]] = None,
@@ -385,7 +442,7 @@ def build_runtime_tools(
             tools.append(_make_get_webpage_tool())
         elif path == "search-web":
             tools.append(_make_search_web_tool())
-        elif path in ("memory", "function-group/use-memory", "use-memory"):
+        elif path in ("memory", "use-memory"):
             tools.extend(_make_memory_tools(memory_store))
         elif path in ("search-internal", "search-enterprise"):
             tools.append(_make_search_internal_tool())
@@ -397,4 +454,4 @@ def build_runtime_tools(
     return tools
 
 
-__all__ = ["build_runtime_tools"]
+__all__ = ["build_runtime_tools", "build_skill_tools"]

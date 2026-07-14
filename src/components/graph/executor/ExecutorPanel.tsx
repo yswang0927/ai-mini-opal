@@ -63,7 +63,7 @@ function RunningView({ title }: { title: string | null }) {
   return (
     <div className="executor-running">
       <div className="executor-spinner" />
-      <p>{title ? `${title} 正在处理...` : '正在处理...'}</p>
+      <p>{title ? `「${title}」正在处理...` : '正在处理...'}</p>
     </div>
   );
 }

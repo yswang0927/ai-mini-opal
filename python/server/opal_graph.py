@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from opal_skills import list_skill_names
+
 
 EMBED_URI_INPUT = "user-inputs"
 EMBED_URI_AGENT = "agent-generate"
@@ -50,7 +52,7 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
         "confirmed": True,
     },
     "memory": {
-        "path": "function-group/use-memory",
+        "path": "use-memory",
         "display_title": "Use Memory",
         "confirmed": True,
     },
@@ -77,13 +79,12 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
 }
 
 # ---------------------------------------------------------------------------
-# 常量:routing 的特殊 tool path(v4新增,来自kitchen-sink样本,已确认)
+# 常量:routing 的特殊 tool path
 #
 # 路由不是独立的标签/边体系,而是复用了 tool 占位符机制,只是多了一个
 # "instance" 字段指向目标节点的 step_id:
 #     {{"type":"tool","path":"control-flow/routing","instance":"<目标step_id>","title":"<目标节点标题>"}}
-# 对应的 edge 里,out 字段的值是目标节点 id 本身(不是 "context" 也不是
-# 我们此前瞎猜的 "route")。
+# 对应的 edge 里,out 字段的值是目标节点 id 本身。
 # ---------------------------------------------------------------------------
 
 ROUTING_TOOL_PATH = "control-flow/routing"
@@ -121,7 +122,13 @@ AGENT_TERSE_SYSTEM_INSTRUCTION = (
 # 均来自这段文本)。
 # ---------------------------------------------------------------------------
 
-RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE = """You are an AI Web Developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data.
+RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE = """You are an expert HTML/CSS developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data. The page must:
+- Be a single HTML file with inline CSS and no external dependencies
+- Use modern CSS (flexbox/grid) for layout
+- Be responsive and visually polished
+- Include all content data directly in the HTML, you can use emojis and placeholder text as needed
+- Use UTF-8 encoding
+- Output ONLY the HTML code, no explanations
 
 **Visual aesthetic:**
     * Aesthetics are crucial. Make the page look amazing, especially on mobile.
@@ -130,39 +137,30 @@ RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE = """You are an AI Web Developer. Yo
     * **Use Rich Aesthetics**: The USER should be wowed at first glance by the design. Use best practices in modern web design (e.g. vibrant colors, dark modes, glassmorphism, and dynamic animations) to create a stunning first impression. Failure to do this is UNACCEPTABLE.
     * **Prioritize Visual Excellence**: Implement designs that will WOW the user and feel extremely premium:
         - Avoid generic colors (plain red, blue, green). Use curated, harmonious color palettes (e.g., HSL tailored colors, sleek dark modes).
-        - Using modern typography (e.g., from Google Fonts like Inter, Roboto, or Outfit) instead of browser defaults.
         - Use smooth gradients.
         - Add subtle micro-animations for enhanced user experience.
     * **Use a Dynamic Design**: An interface that feels responsive and alive encourages interaction. Achieve this with hover effects and interactive elements. Micro-animations, in particular, are highly effective for improving user engagement.
     * **Thematic Specificity**: Do not just create a generic layout. Define a clear "vibe" or theme based on the content. Use specific aesthetic keywords (e.g., "Glassmorphism", "Neobrutalism", "Minimalist", "Comic Book Style") to guide the design.
-    * **Typography Hierarchy**: Explicitly import and use font pairings. Use a distinct Display Font for headers and a highly readable Body Font for text.
     * **Readability**: Pay extra attention to readability. Ensure the text is always readable with sufficient contrast against the background. Choose fonts and colors that enhance legibility.
 
 **Design and Functionality:**
-    * **Component-Based Design**: Do not just dump text into blocks. Semanticize the content into distinct UI components.
     * **Layout Dynamics**: Break the grid. Avoid strict, identical grid columns. Use asymmetrical layouts, Bento grids, or responsive flexbox layouts where some elements span full width to create visual interest and emphasize key content.
-    * **Tailwind Configuration**: Extend the Tailwind configuration within a `<script>` block to define custom font families and color palettes that match the theme.
     * Thoroughly analyze the user's instructions to determine the desired type of webpage, application, or visualization. What are the key features, layouts, or functionality?
-    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say `use a carousel format`, you should consider how to break the content and any media into different card components to display within the carousel.
+    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say \`use a carousel format\`, you should consider how to break the content and any media into different card components to display within the carousel.
     * If requirements are underspecified, make reasonable assumptions to complete the design and functionality. Your goal is to deliver a working product with no placeholder content.
-    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string "```html".
+    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string "\`\`\`html".
     * The output must be a complete and valid HTML document with no placeholder content for the developer to fill in.
 
-**Libraries:**
-  Unless otherwise specified, use:
-    * Tailwind for CSS
-    * **CRITICAL: Use the Tailwind CDN from `https://cdn.tailwindcss.com`. Do NOT use `tailwind.min.css` or any other local Tailwind file. Always include Tailwind using: `<script src="https://cdn.tailwindcss.com"></script>`**
-
 **Constraints:**
-  * **External Links:** You ARE allowed to generate external links (`<a href="...">` and `window.open(...)`) to external websites (e.g. google.com, wikipedia.org) for user navigation.
-  * **NO External Embeds:** Do NOT embed any external resources (e.g. `<script src="...">`, `<img src="...">`, `<iframe src="...">`, `<link href="...">`) from external URLs. Content Security Policy (CSP) will block them.
+  * **External Links:** You ARE allowed to generate external links (\`<a href="...">\` and \`window.open(...)\`) to external websites (e.g. google.com, wikipedia.org) for user navigation.
+  * **NO External Embeds:** Do NOT embed any external resources (e.g. \`<script src="...">\`, \`<img src="...">\`, \`<iframe src="...">\`, \`<link href="...">\`) from external URLs. Content Security Policy (CSP) will block them.
   * **Media Restriction:** ONLY use media URLs that are explicitly passed in the input. Do NOT generate or hallucinate any other media URLs (e.g. from placeholder sites or external CDNs).
   * **Render All Media:** You MUST render ALL media (images, videos, audio) that are passed in. Do NOT skip or omit any provided media items. Every passed-in media URL must appear in the final HTML output.
   * **Navigation Restriction:** Do NOT generate unneeded fake links or buttons to sub-pages (e.g. "About", "Contact", "Learn More") unless explicitly requested. Stick to the plan and the provided content.
-  * **Footer Restriction:** **NEVER** generate any footer content, including legal footers like "All rights reserved" or "Copyright 2024". [It is a violation of Google's policies to hallucinate legal footers.]
+  * **Footer Restriction:** **NEVER** generate any footer content, including legal footers like "All rights reserved" or "Copyright 2026".
 """
 
-# 判断 design_brief 是否"提到展示媒体"的启发式关键词(6.3节校验用)
+# 判断 design_brief 是否"提到展示媒体"的启发式关键词
 _MEDIA_KEYWORDS = [
     "图片", "图像", "照片", "插画", "海报", "image", "photo", "picture",
     "视频", "video", "音频", "audio", "语音", "配音", "music", "音乐",
@@ -171,12 +169,11 @@ _MEDIA_KEYWORDS = [
 _MEDIA_CAPABILITIES = {"image", "video", "speech", "music"}
 
 # ---------------------------------------------------------------------------
-# v4新增:Assets(资产)体系
+# Assets(资产)体系
 #
-# 来自 kitchen-sink 样本的顶层 "assets" 字典,是独立于 nodes/edges 的
-# graph级资源池。节点通过 {{"type":"asset","path":"<asset_id>",
-# "mimeType":"...","title":"..."}} 占位符引用某个资产。样本里观察到
-# 5 种资产形态,对应下面的 AssetKind 枚举:
+# 独立于 nodes/edges 的 graph级资源池。节点通过 {{"type":"asset","path":"<asset_id>",
+# "mimeType":"...","title":"..."}} 占位符引用某个资产。
+# 有5种资产形态,对应下面的 AssetKind 枚举:
 #
 #   - uploaded_file  : type=file, managed=true,  parts=[{storedData:{handle,mimeType,contentLength}}]
 #   - google_drive_doc: type=content, managed=false, subType=gdrive,  parts=[{storedData:{handle,mimeType}}] (无contentLength)
@@ -201,7 +198,7 @@ class AssetKind(str, Enum):
     DRAWING = "drawing"
 
 
-# 图片/视频/音频类 mimeType 前缀,用于6.3节媒体校验时把"资产提供的媒体"
+# 图片/视频/音频类 mimeType 前缀,用于媒体校验时把"资产提供的媒体"
 # 也算作合法来源(不只是agent生成的媒体节点才算数)。
 _MEDIA_MIME_PREFIXES = ("image/", "video/", "audio/")
 
@@ -246,29 +243,30 @@ class Step:
 
     # --- input 专属 ---
     question_text: Optional[str] = None
-    modality: str = "Any"
-    required: bool = True  # v4新增:对应 p-required,默认必填(样本里显式设false才是可选)
+    modality: str = "Any"  # 输入类型, Text: 表示只能输入文本, Any: 表示既可以输入文本也可以选择文件
+    required: bool = True  # 对应 p-required, 默认必填(显式设false才是可选)
 
     # --- agent 专属 ---
     prompt: Optional[str] = None
     expected_output: Optional[str] = None
-    expected_output_is_list: bool = False  # v3新增:对应 metadata.expected_output[].list
-    tools: List[str] = field(default_factory=list)
-    generation_capabilities: List[str] = field(default_factory=lambda: ["text"])
+    expected_output_is_list: bool = False  # 对应 metadata.expected_output[].list
+    tools: List[str] = field(default_factory=list)   # 该节点可调用的 Tools 工具列表
+    skills: List[str] = field(default_factory=list)  # 该节点可调用的 Agent Skill 名称列表
+    generation_capabilities: List[str] = field(default_factory=lambda: ["text"])  # 还可以是 image, video
     enable_chat: bool = False
     enable_memory: bool = False
-    terse_mode: bool = False  # v3新增:对应 AGENT_TERSE_SYSTEM_INSTRUCTION 开关
-    image_aspect_ratio: Optional[str] = None  # v3新增:仅当 generation_capabilities 含 image 时有意义
+    terse_mode: bool = False  # 对应 AGENT_TERSE_SYSTEM_INSTRUCTION 开关
+    image_aspect_ratio: Optional[str] = None  # 仅当 generation_capabilities 含 image 时有意义
 
     # --- render 专属 ---
     design_brief: Optional[str] = None
-    render_mode: str = "Auto"  # v4新增:对应 p-render-mode,可选 "Auto" / "ManualLayout"
+    render_mode: str = "Auto"  # 对应 p-render-mode,可选 "Auto" / "ManualLayout"/ "SaveToDocs"
 
     # --- 通用 ---
-    user_modified: bool = False  # v3新增:新建默认False,edit_step后置True(见 6.1 节修正)
+    user_modified: bool = False  # 新建默认False,edit_step后置True
     parents: List[str] = field(default_factory=list)          # 数据依赖父节点
     routes: List[Dict[str, str]] = field(default_factory=list)  # [{"target_step_id":..,"label":..}]
-    asset_ids: List[str] = field(default_factory=list)  # v4新增:引用的资产id列表(agent/render节点均可用)
+    asset_ids: List[str] = field(default_factory=list)  # 引用的资产id列表(agent/render节点均可用)
 
 
 class OpalGraphState:
@@ -284,11 +282,11 @@ class OpalGraphState:
         self.description: str = ""
         self.tags: List[str] = []
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     # 序列化 / 反序列化(graph_raw)
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     def to_raw(self) -> Dict[str, Any]:
-        """将内部状态序列化为 graph_raw 结构,供前端持久化存储。"""
+        """将内部状态序列化为 graph_raw 结构,供持久化存储。"""
         steps_raw = []
         for s in self.steps.values():
             entry: Dict[str, Any] = {
@@ -310,6 +308,7 @@ class OpalGraphState:
                 entry["expected_output"] = s.expected_output
                 entry["expected_output_is_list"] = s.expected_output_is_list
                 entry["tools"] = list(s.tools)
+                entry["skills"] = list(s.skills)
                 entry["generation_capabilities"] = list(s.generation_capabilities)
                 entry["enable_chat"] = s.enable_chat
                 entry["enable_memory"] = s.enable_memory
@@ -381,6 +380,7 @@ class OpalGraphState:
                 step.expected_output = s.get("expected_output")
                 step.expected_output_is_list = s.get("expected_output_is_list", False)
                 step.tools = s.get("tools", [])
+                step.skills = s.get("skills", [])
                 step.generation_capabilities = s.get("generation_capabilities", ["text"])
                 step.enable_chat = s.get("enable_chat", False)
                 step.enable_memory = s.get("enable_memory", False)
@@ -393,9 +393,9 @@ class OpalGraphState:
 
         return state
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     # 只读:overview
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     def get_overview(self) -> Dict[str, Any]:
         nodes = []
         for s in self.steps.values():
@@ -408,6 +408,7 @@ class OpalGraphState:
             if s.step_type == StepType.AGENT:
                 entry["prompt_preview"] = (s.prompt or "")[:80]
                 entry["tools"] = list(s.tools)
+                entry["skills"] = list(s.skills)
                 entry["enable_chat"] = s.enable_chat
                 entry["enable_memory"] = s.enable_memory
                 entry["routes"] = list(s.routes)
@@ -441,9 +442,9 @@ class OpalGraphState:
             "assets": assets,
         }
 
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     # 元数据
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     def set_metadata(
         self,
         title: Optional[str] = None,
@@ -458,9 +459,9 @@ class OpalGraphState:
             self.tags = tags
         return {"title": self.title, "description": self.description, "tags": self.tags}
 
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     # 资产(Assets)
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     def register_asset(
         self,
         title: str,
@@ -482,15 +483,16 @@ class OpalGraphState:
             )
 
         if kind_enum == AssetKind.UPLOADED_FILE and not drive_handle:
-            raise GraphValidationError("kind='uploaded_file' 时必须提供 drive_handle。")
+            # raise GraphValidationError("kind='uploaded_file' 时必须提供 drive_handle。")
+            raise GraphValidationError("`drive_handle` must be provided when kind='uploaded_file'.")
         if kind_enum == AssetKind.GOOGLE_DRIVE_DOC and not drive_handle:
-            raise GraphValidationError("kind='google_drive_doc' 时必须提供 drive_handle。")
+            raise GraphValidationError("`drive_handle` must be provided when kind='google_drive_doc'.")
         if kind_enum == AssetKind.YOUTUBE_VIDEO and not file_uri:
-            raise GraphValidationError("kind='youtube_video' 时必须提供 file_uri。")
+            raise GraphValidationError("`file_uri` must be provided when kind='youtube_video'.")
         if kind_enum == AssetKind.INLINE_TEXT and not text_content:
-            raise GraphValidationError("kind='inline_text' 时必须提供 text_content。")
+            raise GraphValidationError("`text_content` must be provided when kind='inline_text'.")
         if kind_enum == AssetKind.DRAWING and not drive_handle:
-            raise GraphValidationError("kind='drawing' 时必须提供 drive_handle。")
+            raise GraphValidationError("`drive_handle` must be provided when kind='drawing'.")
 
         asset_id = str(uuid.uuid4())
         asset = Asset(
@@ -508,8 +510,9 @@ class OpalGraphState:
     def _require_asset(self, asset_id: str) -> Asset:
         if asset_id not in self.assets:
             raise GraphValidationError(
-                f"未找到 asset_id='{asset_id}' 对应的资产。请先调用 graph_get_overview "
-                f"确认已登记的资产列表,或先调用 register_asset 登记该资产。"
+                #f"未找到 asset_id='{asset_id}' 对应的资产。请先调用 graph_get_overview 确认已登记的资产列表,或先调用 register_asset 登记该资产。"
+                f"No asset found for asset_id='{asset_id}'. Please call `graph_get_overview` first "
+                f"to check the list of registered assets, or call `register_asset` to register it."
             )
         return self.assets[asset_id]
 
@@ -525,8 +528,10 @@ class OpalGraphState:
     def _require_step(self, step_id: str) -> Step:
         if step_id not in self.steps:
             raise GraphValidationError(
-                f"未找到 step_id='{step_id}' 对应的节点。请先调用 graph_get_overview "
-                f"确认正确的 step_id(它由此前的 create_* 工具调用返回,而不是标题)。"
+                #f"未找到 step_id='{step_id}' 对应的节点。请先调用 graph_get_overview "
+                #f"确认正确的 step_id(它由此前的 create_* 工具调用返回,而不是标题)。"
+                f"No step node found for step_id='{step_id}'. Please call `graph_get_overview` first "
+                f"to confirm the correct step_id (which is returned by previous create_* tool calls, not the title)."
             )
         return self.steps[step_id]
 
@@ -559,6 +564,7 @@ class OpalGraphState:
         expected_output: str,
         parents: Optional[List[str]] = None,
         tools: Optional[List[str]] = None,
+        skills: Optional[List[str]] = None,
         generation_capabilities: Optional[List[str]] = None,
         enable_chat: bool = False,
         enable_memory: bool = False,
@@ -589,8 +595,19 @@ class OpalGraphState:
         unknown_tools = [t for t in resolved_tools if t not in TOOL_PATH_MAP]
         if unknown_tools:
             raise GraphValidationError(
-                f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+                # f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+                f"Unknown tool name: {unknown_tools}. Available tools: {sorted(TOOL_PATH_MAP.keys())}"
             )
+
+        resolved_skills = list(skills or [])
+        if resolved_skills:
+            available_skills = list_skill_names()
+            unknown_skills = [s for s in resolved_skills if s not in available_skills]
+            if unknown_skills:
+                raise GraphValidationError(
+                    # f"未知的 skill 名称: {unknown_skills}。可用 skills: {available_skills}"
+                    f"Unknown skill name: {unknown_skills}. Available skills: {available_skills}"
+                )
 
         step_id = self._new_id("agent", title)
         step = Step(
@@ -602,6 +619,7 @@ class OpalGraphState:
             expected_output_is_list=expected_output_is_list,
             parents=parents,
             tools=resolved_tools,
+            skills=resolved_skills,
             generation_capabilities=generation_capabilities or ["text"],
             enable_chat=enable_chat,
             enable_memory=enable_memory,
@@ -621,7 +639,7 @@ class OpalGraphState:
         asset_ids: Optional[List[str]] = None,
         render_mode: str = "Auto",
     ) -> Step:
-        # v4修正:不再强制要求创建时就有非空 parents。routing 场景下,
+        # 修正:不再强制要求创建时就有非空 parents。routing 场景下,
         # 目标节点(如这里的 render 节点)往往需要先于指向它的 agent 节点创建,
         # 此时它天然还没有 parents。
         # 允许先创建"空壳"节点,后续用 manage_connection 或 edit_step
@@ -635,10 +653,11 @@ class OpalGraphState:
 
         if render_mode not in ("Auto", "ManualLayout"):
             raise GraphValidationError(
-                f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
+                # f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
+                f"Unknown render_mode='{render_mode}'. Available values: 'Auto', 'ManualLayout'"
             )
 
-        # --- 6.3 节校验:媒体节点连线完整性(v4:资产也算合法媒体来源) ---
+        # --- 校验:媒体节点连线完整性(资产也算合法媒体来源) ---
         self._validate_render_media_parents(design_brief, parents, asset_ids or [])
 
         step_id = self._new_id("render", title)
@@ -658,15 +677,10 @@ class OpalGraphState:
         self, design_brief: str, parents: List[str], asset_ids: Optional[List[str]] = None
     ) -> None:
         """
-        对应设计文档 6.3 节的硬校验:
         如果 design_brief 里提到展示媒体,但 parents 里没有任何一个
         agent 节点声明了对应的媒体生成能力(image/video/speech/music),
         且 asset_ids 里也没有任何图片/视频/音频类资产,直接拒绝创建,
         并告知 LLM 原因,而不是静默生成一个渲染不出媒体的页面。
-
-        v4修正:资产(Assets)现在也是合法的媒体来源(比如用户上传的图片),
-        不只是 agent 生成的媒体节点才算数——这是 kitchen-sink 样本里
-        render 节点同时引用 agent 输出和多个图片/视频资产揭示的用法。
         """
         brief_lower = design_brief.lower()
         mentions_media = any(kw.lower() in brief_lower for kw in _MEDIA_KEYWORDS)
@@ -690,11 +704,16 @@ class OpalGraphState:
 
         if not has_media_parent:
             raise GraphValidationError(
-                "design_brief 中提到展示图片/视频/音频等媒体内容,但 parents 列表里"
-                "没有任何声明了对应 generation_capabilities(image/video/speech/music)"
-                "的 agent 节点,asset_ids 里也没有图片/视频/音频类的资产。渲染节点的"
-                "系统规则禁止编造媒体 URL,只能渲染上游明确传入的媒体——请检查是否"
-                "漏连了媒体生成节点或漏引用了媒体资产,修正后重试。"
+                #"design_brief 中提到展示图片/视频/音频等媒体内容,但 parents 列表里"
+                #"没有任何声明了对应 generation_capabilities(image/video/speech/music)的 agent 节点, asset_ids 里也没有图片/视频/音频类的资产。"
+                #"渲染节点的系统规则禁止编造媒体 URL,只能渲染上游明确传入的媒体——请检查是否漏连了媒体生成节点或漏引用了媒体资产,修正后重试。"
+                "The design_brief mentions displaying media content (e.g., images, videos, audio), "
+                "but the parents list contains no agent nodes declaring the corresponding "
+                "generation_capabilities (image/video/speech/music), nor are there any media "
+                "assets in asset_ids. The system rules for rendering nodes prohibit generating "
+                "fictional media URLs; they can only render media explicitly passed from upstream. "
+                "Please check if you missed connecting a media generation node or referencing a "
+                "media asset, correct it, and try again."
             )
 
     # ------------------------------------------------------------------
@@ -706,6 +725,7 @@ class OpalGraphState:
         title: Optional[str] = None,
         prompt: Optional[str] = None,
         tools: Optional[List[str]] = None,
+        skills: Optional[List[str]] = None,
         enable_chat: Optional[bool] = None,
         enable_memory: Optional[bool] = None,
         terse_mode: Optional[bool] = None,
@@ -722,13 +742,27 @@ class OpalGraphState:
                 step.prompt = prompt
         if tools is not None:
             if step.step_type != StepType.AGENT:
-                raise GraphValidationError("tools 字段仅适用于 agent 类型节点。")
+                #raise GraphValidationError("tools 字段仅适用于 agent 类型节点。")\
+                raise GraphValidationError("The 'tools' field can only be used for 'agent' type nodes.")
             unknown_tools = [t for t in tools if t not in TOOL_PATH_MAP]
             if unknown_tools:
                 raise GraphValidationError(
-                    f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+                    # f"未知的工具名称: {unknown_tools}。可用工具: {sorted(TOOL_PATH_MAP.keys())}"
+                    f"Unknown tool name: {unknown_tools}. Available tools: {sorted(TOOL_PATH_MAP.keys())}"
                 )
             step.tools = tools
+        if skills is not None:
+            if step.step_type != StepType.AGENT:
+                # raise GraphValidationError("skills 字段仅适用于 agent 类型节点。")
+                raise GraphValidationError("The 'skills' field can only be used for 'agent' type nodes.")
+            available_skills = list_skill_names()
+            unknown_skills = [s for s in skills if s not in available_skills]
+            if unknown_skills:
+                raise GraphValidationError(
+                    #f"未知的 skill 名称: {unknown_skills}。可用 skills: {available_skills}"
+                    f"Unknown skill name: {unknown_skills}. Available skills: {available_skills}"
+                )
+            step.skills = skills
         if enable_chat is not None:
             step.enable_chat = enable_chat
         if enable_memory is not None:
@@ -741,14 +775,15 @@ class OpalGraphState:
             step.asset_ids = asset_ids
         if render_mode is not None:
             if step.step_type != StepType.RENDER:
-                raise GraphValidationError("render_mode 字段仅适用于 render 类型节点。")
+                #raise GraphValidationError("render_mode 字段仅适用于 render 类型节点。")
+                raise GraphValidationError("The 'render_mode' field can only be used for 'render' type nodes.")
             if render_mode not in ("Auto", "ManualLayout"):
                 raise GraphValidationError(
-                    f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
+                    #f"未知的 render_mode='{render_mode}'。可用取值: 'Auto', 'ManualLayout'"
+                    f"Unknown render_mode='{render_mode}'. Available values: 'Auto', 'ManualLayout'"
                 )
             step.render_mode = render_mode
 
-        # v3新增:对应"userModified"语义(见 6.1 节修正)——
         # 一旦被编辑过,render节点就不再享受"留空走服务端默认值"的待遇,
         # 后续 compile 时会把解析后的实际取值写回JSON(如适用)。
         step.user_modified = True
@@ -762,9 +797,9 @@ class OpalGraphState:
             step.parents = [p for p in step.parents if p != step_id]
             step.routes = [r for r in step.routes if r["target_step_id"] != step_id]
 
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     # 连线管理
-    # ------------------------------------------------------------------
+    # -------------------------------------------
     def manage_connection(
         self,
         action: str,
@@ -781,37 +816,41 @@ class OpalGraphState:
             # 所以真正被修改 parents 列表的是 target 节点。
             target = self.steps[target_step_id]
             if action == "add":
-                # v5新增(采纳代码审查意见):在连线真正建立之前检测是否会
-                # 形成循环依赖。如果 target_step_id 已经是 source_step_id 的
-                # 祖先(即 source 已经直接或间接依赖 target),那么再让
-                # target 依赖 source,就会形成 target -> ... -> source -> target
-                # 的环。此前这种情况只会在 compile_to_opal_json 阶段被
-                # _compute_depths 悄悄吞掉(深度归零),现在改成在源头直接拒绝。
+                # 在连线真正建立之前检测是否会形成循环依赖。
+                # 如果 target_step_id 已经是 source_step_id 的祖先(即 source 已经直接或间接依赖 target),
+                # 那么再让target 依赖 source,就会形成 target -> ... -> source -> target 的环。
+                # 此前这种情况只会在 compile_to_opal_json 阶段被 _compute_depths 悄悄吞掉(深度归零),现在改成在源头直接拒绝。
                 if self._is_ancestor(target_step_id, source_step_id):
                     raise GraphValidationError(
-                        f"添加这条连线会形成循环依赖:'{target_step_id}' 已经是 "
-                        f"'{source_step_id}' 的(直接或间接)上游节点,不能反过来让 "
-                        f"'{target_step_id}' 依赖 '{source_step_id}'。Opal 的图必须是"
-                        f"有向无环图(DAG)。请检查这两个节点之间已有的连线关系。"
+                        #f"添加这条连线会形成循环依赖:'{target_step_id}' 已经是 "
+                        #f"'{source_step_id}' 的(直接或间接)上游节点,不能反过来让 "
+                        #f"'{target_step_id}' 依赖 '{source_step_id}'。Opal 的图必须是有向无环图(DAG)。"
+                        #f"请检查这两个节点之间已有的连线关系。"
+                        f"Adding this edge will create a circular dependency: '{target_step_id}' is already "
+                        f"a (direct or indirect) upstream node of '{source_step_id}'. "
+                        f"You cannot make '{target_step_id}' depend on '{source_step_id}'.  "
+                        f"The Opal graph must be a Directed Acyclic Graph (DAG). "
+                        f"Please check the existing connections between these two nodes."
                     )
                 if source_step_id not in target.parents:
                     target.parents.append(source_step_id)
             elif action == "remove":
                 target.parents = [p for p in target.parents if p != source_step_id]
             else:
-                raise GraphValidationError(f"未知 action='{action}'")
+                raise GraphValidationError(f"Unknown action='{action}'")
 
         elif connection_type == "route":
             if action == "add":
                 if not route_label:
-                    raise GraphValidationError("添加 route 连线时必须提供 route_label。")
+                    #raise GraphValidationError("添加 route 连线时必须提供 route_label。")
+                    raise GraphValidationError("'route_label' must be provided when adding a route edge.")
                 source.routes.append({"target_step_id": target_step_id, "label": route_label})
             elif action == "remove":
                 source.routes = [r for r in source.routes if r["target_step_id"] != target_step_id]
             else:
-                raise GraphValidationError(f"未知 action='{action}'")
+                raise GraphValidationError(f"Unknown action='{action}'")
         else:
-            raise GraphValidationError(f"未知 connection_type='{connection_type}'")
+            raise GraphValidationError(f"Unknown connection_type='{connection_type}'")
 
     def _is_ancestor(self, candidate_id: str, of_step_id: str) -> bool:
         """
@@ -831,9 +870,9 @@ class OpalGraphState:
             stack.extend(self.steps[node_id].parents)
         return False
 
-    # ------------------------------------------------------------------
+    # -------------------------------------------------
     # 坐标分配(拓扑深度)
-    # ------------------------------------------------------------------
+    # -------------------------------------------------
     def _compute_depths(self) -> Dict[str, int]:
         depths: Dict[str, int] = {}
 
@@ -847,8 +886,11 @@ class OpalGraphState:
                 # 理论上不应该走到这一步,如果走到了,说明有其他路径
                 # (比如未来新增的连线管理方式)绕过了前置校验。
                 raise GraphValidationError(
-                    f"检测到循环依赖,涉及节点 '{step_id}'。Opal 的图必须是"
-                    f"有向无环图(DAG)。当前访问路径: {' -> '.join(visiting)} -> {step_id}"
+                    #f"检测到循环依赖,涉及节点 '{step_id}'。Opal 的图必须是"
+                    #f"有向无环图(DAG)。当前访问路径: {' -> '.join(visiting)} -> {step_id}"
+                    f"Circular dependency detected involving node '{step_id}'. "
+                    f"The Opal graph must be a Directed Acyclic Graph (DAG). "
+                    f"Current traversal path: {' -> '.join(visiting)} -> {step_id}"
                 )
             visiting.add(step_id)
             step = self.steps[step_id]
@@ -879,9 +921,9 @@ class OpalGraphState:
 
         return coords
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     # 编译:agent 节点的 prompt 拼接
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------
     def _compile_agent_prompt_text(self, step: Step) -> str:
         lines = [f"1. Objective: {step.prompt}"]
         lines.append(f"2. Output Format: {step.expected_output}")
@@ -896,9 +938,8 @@ class OpalGraphState:
                 )
             lines.append("\n".join(ctx_lines))
 
-        # v4修正:工具(含 memory、routing)统一放进同一个 "Use tools:" 块,
+        # 修正:工具(含 memory、routing)统一放进同一个 "Use tools:" 块,
         # 空格分隔,一字排开——这是 kitchen-sink 样本里最权威的真实写法。
-        # 此前 v3 把 memory 特殊处理成独立句子、routing 完全没实现,均已修正。
         tool_placeholders: List[str] = []
         for t in step.tools:
             spec = TOOL_PATH_MAP[t]
@@ -915,6 +956,15 @@ class OpalGraphState:
         if tool_placeholders:
             lines.append("Use tools:\n" + " ".join(tool_placeholders))
 
+        # Skills:以 {{"type":"skill",...}} 占位符声明本节点可调用的 Agent Skill。
+        # 执行器会据此把对应 SKILL.md 说明注入提示,并开放受限的脚本运行工具。
+        if step.skills:
+            skill_placeholders = [
+                f'{{{{"type":"skill","path":"{name}","title":"{name}"}}}}'
+                for name in step.skills
+            ]
+            lines.append("Use skills:\n" + " ".join(skill_placeholders))
+
         # routing 场景下补一句人类可读的判断依据说明(label 仍然有用武之地,
         # 只是不再进 tool 占位符本身,而是作为 prose 提示放在这里,
         # 帮助 agent 理解"什么条件下选哪条路由")。
@@ -925,7 +975,7 @@ class OpalGraphState:
             )
             lines.append(f"Choose exactly one route based on the result: {route_desc}.")
 
-        # v4新增:资产引用块,格式与 kitchen-sink 样本一致。
+        # 资产引用块
         if step.asset_ids:
             asset_placeholders = []
             for aid in step.asset_ids:
@@ -958,7 +1008,6 @@ class OpalGraphState:
         """
         编译 agent 节点的 configuration 字段。
 
-        v3 修正(基于 demo2/demo3/demo5 三份真实样本):
         - enable_chat 的真实底层字段是 config$ask-user(布尔,含义与直觉相反:
           "是否允许停下来问用户问题")。真正需要对话的节点(demo5)完全不设置
           这个字段(推测默认就是允许);明确不该打断用户的自动化节点
@@ -983,7 +1032,7 @@ class OpalGraphState:
         }
 
         if not step.enable_chat:
-            config["config$ask-user"] = False  # 确认字段(demo2 x2, demo3)
+            config["config$ask-user"] = False
 
         config["config$list"] = step.expected_output_is_list  # 部分确认(仅demo3一例)
 
@@ -994,16 +1043,16 @@ class OpalGraphState:
             }
 
         if step.generation_capabilities and step.generation_capabilities != ["text"]:
-            config["generation-capabilities"] = list(step.generation_capabilities)  # 待确认字段
+            config["generation-capabilities"] = list(step.generation_capabilities)
 
         if step.image_aspect_ratio and "image" in step.generation_capabilities:
-            config["p-aspect-ratio"] = step.image_aspect_ratio  # 部分确认(仅demo2一例)
+            config["p-aspect-ratio"] = step.image_aspect_ratio
 
         return config
 
-    # ------------------------------------------------------------------
+    # ------------------------------------------------
     # 编译:主入口
-    # ------------------------------------------------------------------
+    # ------------------------------------------------
     def compile_to_opal_json(self) -> Dict[str, Any]:
         coords = self._assign_coordinates()
         nodes: List[Dict[str, Any]] = []
@@ -1019,13 +1068,13 @@ class OpalGraphState:
                 },
             }
 
-            # v3新增:所有节点类型都带 userModified,对应真实样本里
+            # 所有节点类型都带 userModified,对应真实样本里
             # 普遍存在的这个字段,同时也是我们 render 节点
             # system-instruction 是否留空的判断依据(见下方)。
             base_metadata["userModified"] = step.user_modified
 
             if step.step_type == StepType.INPUT:
-                # v3新增:demo4 显示 input 节点也可以带结构化 expected_output,
+                # demo4 显示 input 节点也可以带结构化 expected_output,
                 # 这里用 question_text 自动生成一个合理的描述。
                 base_metadata["expected_output"] = [
                     {"type": "text", "description": step.question_text, "list": False}
@@ -1076,7 +1125,7 @@ class OpalGraphState:
                         )
                     brief_text = brief_text + "\n\n" + "\n\n".join(ctx_lines)
 
-                # v4新增:render 节点也可以直接引用资产(kitchen-sink 样本里
+                # render 节点也可以直接引用资产(kitchen-sink 样本里
                 # Output 节点同时展示了 agent 输出和多个图片/视频/文档资产)。
                 if step.asset_ids:
                     asset_placeholders = []
@@ -1096,15 +1145,14 @@ class OpalGraphState:
 
                 render_config: Dict[str, Any] = {
                     "text": {"role": "user", "content": brief_text},
-                    "p-render-mode": step.render_mode,  # v4修正:此前硬编码"Auto"
+                    "p-render-mode": step.render_mode,
                     "b-render-model-name": "gemini-flash",
                 }
 
-                # v3修正(见文件顶部说明):巨型 system-instruction 是服务端
-                # 默认值,默认场景下不写入。只有这个节点被 edit_step 修改过
-                # (user_modified=True)时,才写入解析后的完整参考文本 ——
-                # 这对应真实样本里"只有 userModified=true 的render节点
-                # 才带完整文本"的观察。
+                # system-instruction 是服务端默认值,默认场景下不写入。
+                # 只有这个节点被 edit_step 修改过 (user_modified=True)时,
+                # 才写入解析后的完整参考文本 —— 这对应真实样本里"只有 userModified=true
+                # 的render节点才带完整文本"的观察。
                 if step.user_modified:
                     render_config["system-instruction"] = {
                         "role": "user",
@@ -1143,9 +1191,8 @@ class OpalGraphState:
                     "in": f"p-z-{p}",
                 })
             for r in step.routes:
-                # v4修正(kitchen-sink样本确认):routing edge的out字段值是
-                # 目标节点id本身,不是字符串"route";in字段依然是普通的
-                # p-z-{source} 格式,和parent边一致,没有特殊前缀。
+                # routing edge的out字段值是目标节点id本身,不是字符串"route";
+                # in字段依然是普通的 p-z-{source} 格式,和parent边一致,没有特殊前缀。
                 edges.append({
                     "from": step.step_id,
                     "to": r["target_step_id"],
@@ -1169,13 +1216,12 @@ class OpalGraphState:
             "edges": edges,
         }
 
-    # ------------------------------------------------------------------
+    # ---------------------------------------------
     # 编译:顶层 assets 字典
-    # ------------------------------------------------------------------
+    # ---------------------------------------------
     def _compile_assets(self) -> Dict[str, Any]:
         """
-        把 self.assets 编译成顶层 assets 字典,格式对齐 kitchen-sink 样本里
-        观察到的 5 种资产形态(见文件顶部 v4 说明)。
+        把 self.assets 编译成顶层 assets 字典。
         """
         compiled: Dict[str, Any] = {}
         for asset in self.assets.values():
@@ -1205,7 +1251,7 @@ class OpalGraphState:
                 asset_type = "content"
                 extra_meta = {"subType": "drawable"}
             else:
-                raise AssertionError(f"未知 AssetKind: {asset.kind}")
+                raise AssertionError(f"Unknown AssetKind: {asset.kind}")
 
             compiled[asset.asset_id] = {
                 #"data": [{"parts": [part], "role": "user"}],

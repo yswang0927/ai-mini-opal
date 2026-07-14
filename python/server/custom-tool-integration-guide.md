@@ -50,8 +50,6 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
 }
 ```
 
-> `path` 一般与工具名一致;只有个别历史工具例外(如 `memory` 的 path 是 `function-group/use-memory`)。保持一致最省心。
-
 ### 第 2 步 — 实现运行时工具(opal_runtime_tools.py)
 
 在 [opal_runtime_tools.py](opal_runtime_tools.py) 里写一个 pydantic 入参模型 + 执行函数 + 工厂函数。函数返回 `str`(工具结果会作为 `ToolMessage` 回填给 LLM)。
