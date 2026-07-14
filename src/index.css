@@ -23,13 +23,13 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
+  --bg-color: #F8F8F6;
   --font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-family-en-title: 'GoogleSansFlex', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-size: 0.875rem;
   --font-size-sm: 0.75rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
-  --bg-color: #F6F7F9;
   --padding: 10px;
   --padding-xs: 2px;
   --padding-sm: 6px;
