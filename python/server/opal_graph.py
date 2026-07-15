@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 import time
 import uuid
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -146,14 +147,14 @@ RENDER_SERVER_DEFAULT_INSTRUCTION_REFERENCE = """You are an expert HTML/CSS deve
 **Design and Functionality:**
     * **Layout Dynamics**: Break the grid. Avoid strict, identical grid columns. Use asymmetrical layouts, Bento grids, or responsive flexbox layouts where some elements span full width to create visual interest and emphasize key content.
     * Thoroughly analyze the user's instructions to determine the desired type of webpage, application, or visualization. What are the key features, layouts, or functionality?
-    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say \`use a carousel format\`, you should consider how to break the content and any media into different card components to display within the carousel.
+    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say `use a carousel format`, you should consider how to break the content and any media into different card components to display within the carousel.
     * If requirements are underspecified, make reasonable assumptions to complete the design and functionality. Your goal is to deliver a working product with no placeholder content.
-    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string "\`\`\`html".
+    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string "```html".
     * The output must be a complete and valid HTML document with no placeholder content for the developer to fill in.
 
 **Constraints:**
-  * **External Links:** You ARE allowed to generate external links (\`<a href="...">\` and \`window.open(...)\`) to external websites (e.g. google.com, wikipedia.org) for user navigation.
-  * **NO External Embeds:** Do NOT embed any external resources (e.g. \`<script src="...">\`, \`<img src="...">\`, \`<iframe src="...">\`, \`<link href="...">\`) from external URLs. Content Security Policy (CSP) will block them.
+  * **External Links:** You ARE allowed to generate external links (`<a href="...">` and `window.open(...)`) to external websites (e.g. google.com, wikipedia.org) for user navigation.
+  * **NO External Embeds:** Do NOT embed any external resources (e.g. `<script src="...">`, `<img src="...">`, `<iframe src="...">`, `<link href="...">`) from external URLs. Content Security Policy (CSP) will block them.
   * **Media Restriction:** ONLY use media URLs that are explicitly passed in the input. Do NOT generate or hallucinate any other media URLs (e.g. from placeholder sites or external CDNs).
   * **Render All Media:** You MUST render ALL media (images, videos, audio) that are passed in. Do NOT skip or omit any provided media items. Every passed-in media URL must appear in the final HTML output.
   * **Navigation Restriction:** Do NOT generate unneeded fake links or buttons to sub-pages (e.g. "About", "Contact", "Learn More") unless explicitly requested. Stick to the plan and the provided content.
@@ -934,7 +935,7 @@ class OpalGraphState:
                 parent = self.steps.get(p)
                 parent_title = parent.title if parent else p
                 ctx_lines.append(
-                    f'{parent_title}: {{{{"type":"in","path":"{p}","title":"{parent_title}"}}}}'
+                    f'{parent_title}: {{{json.dumps({"type":"in", "path":p, "title":parent_title}, ensure_ascii=False)}}}'
                 )
             lines.append("\n".join(ctx_lines))
 
@@ -944,14 +945,13 @@ class OpalGraphState:
         for t in step.tools:
             spec = TOOL_PATH_MAP[t]
             tool_placeholders.append(
-                f'{{{{"type":"tool","path":"{spec["path"]}","title":"{spec["display_title"]}"}}}}'
+                f"{{{json.dumps({"type": "tool", "path": spec["path"], "title": spec["display_title"]}, ensure_ascii=False)}}}"
             )
         for r in step.routes:
             target = self.steps.get(r["target_step_id"])
             target_title = target.title if target else r["target_step_id"]
             tool_placeholders.append(
-                f'{{{{"type":"tool","path":"{ROUTING_TOOL_PATH}",'
-                f'"instance":"{r["target_step_id"]}","title":"{target_title}"}}}}'
+                f"{{{json.dumps({"type": "tool", "path": ROUTING_TOOL_PATH, "instance": r["target_step_id"], "title": target_title}, ensure_ascii=False)}}}"
             )
         if tool_placeholders:
             lines.append("Use tools:\n" + " ".join(tool_placeholders))
@@ -960,7 +960,7 @@ class OpalGraphState:
         # 执行器会据此把对应 SKILL.md 说明注入提示,并开放受限的脚本运行工具。
         if step.skills:
             skill_placeholders = [
-                f'{{{{"type":"skill","path":"{name}","title":"{name}"}}}}'
+                f"{{{json.dumps({"type": "skill", "path": name, "title": name}, ensure_ascii=False)}}}"
                 for name in step.skills
             ]
             lines.append("Use skills:\n" + " ".join(skill_placeholders))
@@ -999,10 +999,9 @@ class OpalGraphState:
         """
         if asset.mime_type:
             return (
-                f'{{{{"type":"asset","path":"{asset.asset_id}",'
-                f'"mimeType":"{asset.mime_type}","title":"{asset.title}"}}}}'
+                f"{{{json.dumps({"type": "asset", "path": asset.asset_id, "mimeType": asset.mime_type, "title": asset.title}, ensure_ascii=False)}}}"
             )
-        return f'{{{{"type":"asset","path":"{asset.asset_id}","title":"{asset.title}"}}}}'
+        return f"{{{json.dumps({"type": "asset", "path": asset.asset_id, "title": asset.title}, ensure_ascii=False)}}}"
 
     def _compile_agent_configuration(self, step: Step) -> Dict[str, Any]:
         """
@@ -1121,7 +1120,7 @@ class OpalGraphState:
                         parent_title = parent.title if parent else p
                         #var_name = _slugify(parent_title)
                         ctx_lines.append(
-                            f'{parent_title}: {{{{"type":"in","path":"{p}","title":"{parent_title}"}}}}'
+                            f'{parent_title}: {{{json.dumps({"type":"in", "path":p, "title":parent_title}, ensure_ascii=False)}}}'
                         )
                     brief_text = brief_text + "\n\n" + "\n\n".join(ctx_lines)
 
@@ -1166,7 +1165,7 @@ class OpalGraphState:
                     "configuration": render_config,
                 }
             else:
-                raise AssertionError(f"未知 step_type: {step.step_type}")
+                raise AssertionError(f"Unknown step_type: {step.step_type}")
 
             nodes.append(node)
 
