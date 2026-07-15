@@ -1,6 +1,8 @@
 import { Handle, Position } from '@xyflow/react';
-import { CaretRightIcon } from '@/utils/icons'
+import { Check, TriangleAlert } from 'lucide-react';
+import { CaretRightIcon, Spinner } from '@/utils/icons'
 import { OpalNodeType } from '@/types';
+import { useEditorContext } from '@/pages/editor/EditorContext';
 import { NodeTypesStyle, type FlowNode } from './types';
 
 
@@ -10,9 +12,13 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   hasInput: boolean,
   hasOutput: boolean,
 }) => {
-
+  const { execState } = useEditorContext();
   const rawData = nodeData.data;
+  const nodeId = nodeData.id;
   const title = rawData.metadata.title || '';
+
+  // 本节点的运行状态
+  const runState = execState.nodeStatuses[nodeId] ?? '';
   
   let desc = '';
   if (nodeType === OpalNodeType.UserInputs) {
@@ -36,15 +42,20 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   }
 
   return (
-    <div className="opal-node">
+    <div className={`opal-node${runState === 'running' ? ' glow-border' : ''}`} data-runstate={runState}>
       <div className="opal-node-header" style={{ backgroundColor: NodeTypesStyle[nodeType].bgColor }}>
         <div className="flex-1 flex items-center opal-node-header-title" title={nodeData.id}>
           <span className="opal-node-header-icon">{ NodeTypesStyle[nodeType].icon }</span>
           <div className="flex-1 text-ellipsis">{title}</div>
         </div>
         {/*<button className="node-run-btn"><CaretRightIcon /></button>*/}
+        <div>
+          {runState === 'running' && (<span className="node-run-state running"><Spinner /></span>)}
+          {runState === 'completed' && (<span className="node-run-state completed"><Check size={16} strokeWidth={1.5} /></span>)}
+          {runState === 'error' && (<span className="node-run-state error"><TriangleAlert size={16} strokeWidth={1.5} /></span>)}
+        </div>
       </div>
-      
+
       <div className="opal-node-body">
         {desc ? desc : (<div className="missing">Select to edit in editor</div>)}
       </div>

@@ -117,7 +117,6 @@ button, input[type="text"], input[type="password"], textarea {
   --glow-color3: #f472b6;
   --glow-radius: 14px;
 
-  position: relative;
   border-radius: var(--glow-radius);
   isolation: isolate; /* 防止 z-index:-1 的伪元素跑到父级背景之下 */
 }

@@ -94,15 +94,15 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
-  const opalData = opalPayload.data;
   const isGraphInitializedRef = useRef<boolean>(false);
-
   const [chatInput, setChatInput] = useState<string>('');
   const [chatting, setChatting] = useState<boolean>(false);
   const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
   const chatListDomRef = useRef(null);
   const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
+  const { setSelectedNode, opalPayload, setOpalData } = useEditorContext();
+
+  const opalData = opalPayload.data;
 
   const onGraphChanged = useCallback((nextNodes?: Node[], nextEdges?: Edge[]) => {
     const rf = reactFlowRef.current;

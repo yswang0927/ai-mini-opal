@@ -209,6 +209,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 }) => {
     const { t } = useL10n();
     const scrollRef = useRef<HTMLDivElement>(null);
+    console.log('>> node run console: ', execLog);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -279,6 +280,8 @@ export default function Sidebar() {
             doRunPreview();
         }
     }, [doRunPreview, execState.status]);
+
+    console.log(execState);
 
     return (
         <div className="editor-side">
