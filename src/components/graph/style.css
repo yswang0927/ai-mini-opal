@@ -264,7 +264,7 @@
 .graph-chat-msg-list .graph-chat-msg.user .graph-chat-msg-content {
     display: inline-block;
     text-align: left;
-    max-width: 100%;
+    max-width: 90%;
     word-break: break-all;
     word-wrap: break-word;
     white-space: normal;

@@ -438,7 +438,9 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
   const handleChatSubmit = () => {
     const userInput = chatInput.trim();
-    if (userInput === '') return;
+    if (chatting || userInput === '') {
+      return;
+    }
 
     setChatListCollapsed(false);
     setChatting(true);
