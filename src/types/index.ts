@@ -47,7 +47,9 @@ export interface AppData {
 export enum OpalNodeType {
   UserInputs = 'user-inputs',
   AgentGenerate = 'agent-generate',
-  RenderOutputs = 'render-outputs'
+  RenderOutputs = 'render-outputs',
+  AssetsText = 'assets-text',
+  AssetsFile = 'assets-file',
 }
 
 export interface OpalNodeMetadata {

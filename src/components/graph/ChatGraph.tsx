@@ -23,17 +23,23 @@ import {
   Redo2
 } from 'lucide-react';
 import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm'
+import remarkGfm from 'remark-gfm';
+import { 
+  PopoverNext, 
+  Menu, 
+  MenuItem, 
+} from "@blueprintjs/core";
 
 import type { OpalJson, OpalNode, OpalEdge } from '@/types';
 import { OpalNodeType } from '@/types';
+import { SERVER_BASE_URL } from "@/utils/Api";
 import { useL10n } from "@/l10n";
 import DotsSpinner from '@/components/DotsSpinner';
 import TextArea from '@/components/TextArea';
 import { LayoutDagIcon, Undo, Redo, Spinner } from '@/utils/icons';
 import { useEditorContext } from '@/pages/editor/EditorContext';
 
-import { UserInputNode, GenerateNode, OutputNode } from './OpalNodes';
+import { UserInputNode, GenerateNode, OutputNode, AssetsTextNode, AssetsFileNode } from './OpalNodes';
 import { type FlowNode } from './types';
 import autoLayout from './AutoLayout';
 
@@ -46,6 +52,8 @@ const customNodeTypes: Record<OpalNodeType, any> = {
   [OpalNodeType.UserInputs]: UserInputNode,
   [OpalNodeType.AgentGenerate]: GenerateNode,
   [OpalNodeType.RenderOutputs]: OutputNode,
+  [OpalNodeType.AssetsText]: AssetsTextNode,
+  [OpalNodeType.AssetsFile]: AssetsFileNode,
 };
 
 // 全局边线默认样式：灰色、虚线、平滑贝塞尔曲线
@@ -88,7 +96,6 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
   const opalData = opalPayload.data;
-  const isFirstAutoLayoutRef = useRef<boolean>(true);
   const isGraphInitializedRef = useRef<boolean>(false);
 
   const [chatInput, setChatInput] = useState<string>('');
@@ -224,6 +231,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const onConnect = useCallback((params: any) => {
     setEdges((eds) => {
       const newEdges = addEdge(params, eds);
+      console.log(newEdges);
       // 拿到了绝对最新的连线数据 newEdges，以及当前的 nodes
       onGraphChanged(nodes, newEdges);
       return newEdges;
@@ -417,18 +425,17 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     setNodes(flowNodes);
     setEdges(flowEdges);
+
+    // 首次初始化(此前 isGraphInitializedRef 尚为 false)才触发自动布局
+    const isFirstInit = !isGraphInitializedRef.current;
     isGraphInitializedRef.current = true;
 
     // 加载完成后调用 fitView
     let layoutTimer = null;
-    if (isFirstAutoLayoutRef.current) {
-      isFirstAutoLayoutRef.current = false;
-
-      if (flowNodes.length > 0) {
-        layoutTimer = setTimeout(() => {
-          doLayout();
-        }, 30);
-      }
+    if (isFirstInit && flowNodes.length > 0) {
+      layoutTimer = setTimeout(() => {
+        doLayout();
+      }, 30);
     }
 
     return () => {
@@ -448,7 +455,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     setChatInput('');
     setChatHistory((prev) => [...prev, { role: 'user', content: userInput }]);
 
-    fetch('http://127.0.0.1:18765/chat', {
+    fetch(`${SERVER_BASE_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -492,11 +499,20 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       >
         <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><MessageSquareText size={20} strokeWidth={1.5}/><span>{t('用户输入')}</span></button>
-            <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><Sparkles size={20} strokeWidth={1.5}/><span>{t('AI生成')}</span></button>
-            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><Proportions size={20} strokeWidth={1.5}/><span>{t('输出')}</span></button>
+            <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><span className="btn-icon"><MessageSquareText size={20} strokeWidth={1.5}/></span><span>{t('用户输入')}</span></button>
+            <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><span className="btn-icon"><Sparkles size={20} strokeWidth={1.5}/></span><span>{t('AI生成')}</span></button>
+            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><span className="btn-icon"><Proportions size={20} strokeWidth={1.5}/></span><span>{t('输出')}</span></button>
             <div className="divider"></div>
-            <button><SquarePlus size={20} strokeWidth={1.5}/><span>{t('添加资产')}</span></button>
+            <PopoverNext placement="bottom-start" arrow={false}
+              content={
+                <Menu>
+                  <MenuItem icon="export" text={t('上传文件')} />
+                  <MenuItem icon="label" text={t('文本内容')} />
+                </Menu>
+              }
+            >
+              <button><span className="btn-icon"><SquarePlus size={20} strokeWidth={1.5}/></span><span>{t('添加资产')}</span></button>
+            </PopoverNext>
           </div>
         </div>
 

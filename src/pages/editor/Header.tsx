@@ -39,7 +39,7 @@ export default function Header() {
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
-                                handleTitleChanged();
+                                (e.target as HTMLInputElement).blur();
                             }
                         }} 
                         onBlur={handleTitleChanged}

@@ -27,8 +27,24 @@ function isRenderNode(node: OpalNode): boolean {
   return node.type === OpalNodeType.RenderOutputs;
 }
 
-/** 去除 LLM 输出可能包裹的 ```html ... ``` 代码围栏。 */
+/**
+ * 提取 LLM 输出中的 HTML 内容。
+ * 优先匹配文本中任意位置的 ```html ... ```(或无语言标注的 ```)代码块,
+ * 例如:"好的,我已生成页面 ```html\n<html></html>\n``` 你可以查看"。
+ * 若未找到代码块,则回退为去除首尾可能残缺的围栏标记。
+ */
 function stripHtmlFence(html: string): string {
+  // 优先提取带 html 语言标注的代码块
+  const htmlFence = html.match(/```html\s*\n?([\s\S]*?)\n?\s*```/i);
+  if (htmlFence) {
+    return htmlFence[1].trim();
+  }
+  // 其次尝试匹配无语言标注的代码块(内容看起来像 HTML 时)
+  const plainFence = html.match(/```\s*\n?([\s\S]*?)\n?\s*```/);
+  if (plainFence && /<[a-z!][\s\S]*>/i.test(plainFence[1])) {
+    return plainFence[1].trim();
+  }
+  // 回退:去除首尾残缺的围栏标记
   return html
     .replace(/^\s*```html\s*\n?/i, '')
     .replace(/\n?```\s*$/, '')
@@ -53,11 +69,18 @@ function buildNodeStatuses(
   currentNodeId: string | null,
 ): Record<string, NodeExecStatus> {
   const statuses: Record<string, NodeExecStatus> = {};
-  for (const node of graphJson?.nodes || []) statuses[node.id] = 'pending';
-  for (const id of completed) statuses[id] = 'completed';
+  for (const node of graphJson?.nodes || []) {
+    statuses[node.id] = 'pending';
+  }
+
+  for (const id of completed) {
+    statuses[id] = 'completed';
+  }
+
   if (currentNodeId && statuses[currentNodeId] !== 'completed') {
     statuses[currentNodeId] = 'running';
   }
+
   return statuses;
 }
 
@@ -67,9 +90,9 @@ function applyStreamEvent(
   graphJson: OpalJson | null,
   prev: ExecutionState,
 ): ExecutionState {
+
   const nodeMap = new Map((graphJson?.nodes || []).map(n => [n.id, n]));
-  const titleOf = (id: string | null) =>
-    id ? (nodeMap.get(id)?.metadata?.title || id) : null;
+  const titleOf = (id: string | null) => id ? (nodeMap.get(id)?.metadata?.title || id) : null;
 
   switch (evt.event) {
     case 'started':
@@ -77,9 +100,13 @@ function applyStreamEvent(
 
     case 'node_complete': {
       const nodeOutputs = { ...prev.nodeOutputs };
-      if (evt.node_id) nodeOutputs[evt.node_id] = evt.output || '';
+      if (evt.node_id) {
+        nodeOutputs[evt.node_id] = evt.output || '';
+      }
+
       const completed = evt.completed_nodes || Object.keys(nodeOutputs);
       const currentNodeId = evt.current_node || null;
+
       return {
         ...prev,
         status: 'running',
@@ -99,11 +126,15 @@ function applyStreamEvent(
         modality: intr.modality || 'Text',
         required: intr.required !== false,
       }));
+
       const completed = evt.completed_nodes || Object.keys(prev.nodeOutputs);
       // 正在等待输入的节点标记为 running
       const waiting = evt.waiting_nodes || pendingInputs.map(p => p.nodeId);
       const statuses = buildNodeStatuses(graphJson, completed, null);
-      for (const id of waiting) statuses[id] = 'running';
+      for (const id of waiting) {
+        statuses[id] = 'running';
+      }
+
       return {
         ...prev,
         status: 'waiting_input',
@@ -147,12 +178,14 @@ export function useGraphExecutor() {
     if (!graphJson) {
       return;
     }
+
     setExecState({
       ...initialState,
       status: 'ready',
       graphTitle: graphJson.title || null,
       graphDescription: graphJson.description || null,
     });
+
   }, []);
 
   const start = useCallback(async () => {
@@ -160,6 +193,7 @@ export function useGraphExecutor() {
     if (!graphJson) return;
 
     setExecState(prev => ({ ...prev, status: 'running', error: null }));
+
     try {
       await startExecutionStream(graphJson, evt => {
         if (evt.event === 'started' && evt.thread_id) {
@@ -167,6 +201,7 @@ export function useGraphExecutor() {
         }
         setExecState(prev => applyStreamEvent(evt, graphRef.current, prev));
       });
+
     } catch (e: any) {
       setExecState(prev => ({
         ...prev,
@@ -181,10 +216,12 @@ export function useGraphExecutor() {
     if (!threadId) return;
 
     setExecState(prev => ({ ...prev, status: 'running', pendingInputs: [], error: null }));
+
     try {
       await resumeExecutionStream(threadId, inputs, evt => {
         setExecState(prev => applyStreamEvent(evt, graphRef.current, prev));
       });
+
     } catch (e: any) {
       setExecState(prev => ({
         ...prev,
@@ -192,6 +229,7 @@ export function useGraphExecutor() {
         error: e?.message || String(e),
       }));
     }
+
   }, []);
 
   const reset = useCallback(() => {

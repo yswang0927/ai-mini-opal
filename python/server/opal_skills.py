@@ -139,7 +139,6 @@ def discover_skills(root: Optional[str] = None) -> Dict[str, Skill]:
 
 def get_skill(name: str, root: Optional[str] = None) -> Optional[Skill]:
     """按名称取单个 skill,不存在返回 None。"""
-    print(f">>> 读取 skill 信息: {name}")
     return discover_skills(root).get(name)
 
 
@@ -151,7 +150,6 @@ def list_skill_names(root: Optional[str] = None) -> List[str]:
 def load_skill_doc(name: str, root: Optional[str] = None) -> str:
     """返回某个 skill 的 SKILL.md 正文(不含 frontmatter);不存在返回空串。"""
     skill = get_skill(name, root)
-    print(f">>> 读取 skill 详细内容(SKILL.md): {name} {skill}")
     return skill.doc if skill else ""
 
 

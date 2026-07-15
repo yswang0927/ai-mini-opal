@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { RotateCcw, CirclePlus} from "lucide-react";
+import { useL10n } from "@/l10n";
 import type { ExecutionState, InputRequest } from "./types";
 
 interface ExecutorPanelProps {
@@ -11,14 +12,15 @@ interface ExecutorPanelProps {
 
 export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRestart }: ExecutorPanelProps) {
   const { status, pendingInputs, renderedHtml, error, nodeOutputs } = execState;
+  const { t } = useL10n();
 
   if (status === 'idle') return null;
 
   return (
     <div className="executor-panel">
       <div className="executor-panel-header">
-        <span className="executor-title">App Preview</span>
-        <button className="executor-close" onClick={onRestart} title="Restart app"><RotateCcw size={20} strokeWidth={1.5} /></button>
+        <span className="executor-title">{t('应用预览')}</span>
+        <button className="executor-close" onClick={onRestart} title={t('重启应用')}><RotateCcw size={20} strokeWidth={1.5} /></button>
       </div>
 
       <div className="executor-panel-body">
@@ -50,37 +52,45 @@ function SplashView({ title, description, onStart }: {
   description: string | null;
   onStart: () => void;
 }) {
+  const { t } = useL10n();
+
   return (
     <div className="executor-splash">
       <h2 className="executor-splash-title">{title || 'Untitled App'}</h2>
       {description && <p className="executor-splash-desc">{description}</p>}
-      <button className="executor-start-btn" onClick={onStart}>开始</button>
+      <button className="executor-start-btn" onClick={onStart}>{t('开始')}</button>
     </div>
   );
 }
 
 function RunningView({ title }: { title: string | null }) {
+  const { t } = useL10n();
+
   return (
     <div className="executor-running">
       <div className="executor-spinner" />
-      <p>{title ? `「${title}」正在处理...` : '正在处理...'}</p>
+      <p>{title ? `「${title}」` : ''}{`${t('正在处理')}...`}</p>
     </div>
   );
 }
 
 function ErrorView({ error }: { error: string | null }) {
+  const { t } = useL10n();
+
   return (
     <div className="executor-error">
-      <p>执行出错</p>
+      <p>{t('运行出错')}</p>
       <pre>{error}</pre>
     </div>
   );
 }
 
 function CompletedView({ outputs }: { outputs: Record<string, string> }) {
+  const { t } = useL10n();
+
   return (
     <div className="executor-completed">
-      <p>执行完成</p>
+      <p>{t('运行完成')}</p>
       {Object.entries(outputs).map(([nodeId, output]) => (
         <div key={nodeId} className="executor-output-item">
           <strong>{nodeId}</strong>
@@ -98,6 +108,8 @@ function InputCollector({
   inputs: InputRequest[];
   onSubmit: (values: Record<string, string>) => void;
 }) {
+  const { t } = useL10n();
+
   const [values, setValues] = useState<Record<string, string>>({});
   // 记录已选文件名,仅用于界面展示;实际提交的是本地磁盘物理绝对路径。
   const [fileNames, setFileNames] = useState<Record<string, string>>({});
@@ -160,7 +172,7 @@ function InputCollector({
           )}
         </div>
       ))}
-      <button type="submit" className="executor-submit-btn">继续</button>
+      <button type="submit" className="executor-submit-btn">{t('继续')}</button>
     </form>
   );
 }

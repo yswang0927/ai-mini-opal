@@ -187,7 +187,7 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
-                                handleTitleChange();
+                                (e.target as HTMLInputElement).blur();
                             }
                         }}
                         onBlur={handleTitleChange}

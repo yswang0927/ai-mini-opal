@@ -1,7 +1,8 @@
 import type { OpalJson } from "@/types";
+import { SERVER_BASE_URL } from "@/utils/Api";
 
 // Python 执行器服务基地址(与 ChatGraph.tsx 中的 /chat 接口保持一致)
-export const EXECUTOR_BASE_URL = "http://127.0.0.1:18765";
+export const EXECUTOR_BASE_URL = SERVER_BASE_URL;
 
 /** 单个 input 节点的 interrupt 载荷,对应服务端 _make_input_handler 的 interrupt(...) */
 export interface ServerInterrupt {

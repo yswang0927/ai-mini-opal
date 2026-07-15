@@ -24,6 +24,13 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   else if (nodeType === OpalNodeType.RenderOutputs) {
     desc = rawData.metadata.step_intent || rawData.configuration?.text?.content || '';
   }
+  else if (nodeType === OpalNodeType.AssetsText) {
+
+  }
+  else if (nodeType === OpalNodeType.AssetsFile) {
+    
+  }
+
   if (desc.length > 100) {
     desc = desc.substring(0, 100) + '...';
   }
@@ -69,5 +76,18 @@ export const GenerateNode = (data: FlowNode) => {
 export const OutputNode = (data: FlowNode) => {
   return (
     <BaseNode nodeData={data} nodeType={OpalNodeType.RenderOutputs} hasInput={true} hasOutput={true} />
+  );
+};
+
+// 4. 资产Text节点
+export const AssetsTextNode = (data: FlowNode) => {
+  return (
+    <BaseNode nodeData={data} nodeType={OpalNodeType.AssetsText} hasInput={false} hasOutput={true} />
+  );
+};
+// 5. 资产File点
+export const AssetsFileNode = (data: FlowNode) => {
+  return (
+    <BaseNode nodeData={data} nodeType={OpalNodeType.AssetsFile} hasInput={false} hasOutput={true} />
   );
 };

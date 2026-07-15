@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Sparkles, Proportions, MessageSquareText } from 'lucide-react';
+import { Sparkles, Proportions, MessageSquareText, FileText, Upload } from 'lucide-react';
 import { type Node } from '@xyflow/react';
 import { type OpalNode, OpalNodeType } from '@/types';
 
@@ -20,6 +20,14 @@ export const NodeTypesStyle: Record<OpalNodeType, NodeStyle> = {
   [OpalNodeType.RenderOutputs]: {
     "bgColor": "#bbf7d0",
     "icon": <Proportions size={20} strokeWidth={2.0} />
+  },
+  [OpalNodeType.AssetsText]: {
+    "bgColor": "#f6c9ad",
+    "icon": <FileText size={20} strokeWidth={2.0} />
+  },
+  [OpalNodeType.AssetsFile]: {
+    "bgColor": "#f6c9ad",
+    "icon": <Upload size={20} strokeWidth={2.0} />
   }
 };
 

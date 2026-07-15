@@ -280,6 +280,8 @@ table {
 .btn-icon {
   line-height: 1;
   font-size: 0;
+  display: inline-block;
+  flex: 0 0 auto;
 }
 
 [class*=blur], [class*=blur].light {

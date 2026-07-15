@@ -3,6 +3,9 @@ import { type AppData } from '@/types';
 
 const SETTINGS_FILE = "settings.json";
 
+// Python 执行器服务基地址
+export const SERVER_BASE_URL = "http://127.0.0.1:18765";
+
 const getUUID = () => {
   //return uuidv4().replace(/-/g, '');
   return uuidv4();
