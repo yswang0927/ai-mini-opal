@@ -29,6 +29,7 @@ import type { OpalJson, OpalNode, OpalEdge } from '@/types';
 import { OpalNodeType } from '@/types';
 import { useL10n } from "@/l10n";
 import DotsSpinner from '@/components/DotsSpinner';
+import TextArea from '@/components/TextArea';
 import { LayoutDagIcon, Undo, Redo, Spinner } from '@/utils/icons';
 import { useEditorContext } from '@/pages/editor/EditorContext';
 
@@ -568,7 +569,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           </div>
 
           <div className="graph-chatbox-input flex items-center">
-            <textarea rows={1}
+            <TextArea rows={1} autoHeight={true} maxHeight={200}
               placeholder={nodes.length === 0 ? t('描述你想构建的内容') : t('可以编辑这些步骤')}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -578,7 +579,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
                   handleChatSubmit();
                 }
               }}
-            ></textarea>
+            />
             <button className="graph-chatbox-submit" disabled={(chatting || chatInput.trim() === '')} onClick={handleChatSubmit}>
               {chatting ? <span className="chatting-spinner"><Spinner /></span> : <SendHorizontal size={24} strokeWidth={1.5} />}
             </button>
