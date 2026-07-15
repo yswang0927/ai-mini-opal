@@ -5,3 +5,6 @@ fastapi
 duckdb
 openpyxl
 pandas
+pypdf
+pdfplumber
+PIL
