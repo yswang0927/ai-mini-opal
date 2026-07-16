@@ -281,7 +281,7 @@ export default function Sidebar() {
         }
     }, [doRunPreview, execState.status]);
 
-    console.log(execState);
+    console.log('>> execState: ', execState);
 
     return (
         <div className="editor-side">

@@ -544,7 +544,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><span className="btn-icon"><MessageSquareText size={20} strokeWidth={1.5}/></span><span>{t('用户输入')}</span></button>
             <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><span className="btn-icon"><Sparkles size={20} strokeWidth={1.5}/></span><span>{t('AI生成')}</span></button>
             <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><span className="btn-icon"><Proportions size={20} strokeWidth={1.5}/></span><span>{t('输出')}</span></button>
-            <div className="divider"></div>
+            {/*<div className="divider"></div>
             <PopoverNext placement="bottom-start" arrow={false}
               content={
                 <Menu>
@@ -555,6 +555,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             >
               <button><span className="btn-icon"><SquarePlus size={20} strokeWidth={1.5}/></span><span>{t('添加资产')}</span></button>
             </PopoverNext>
+            */}
           </div>
         </div>
 

@@ -34,21 +34,74 @@ function isRenderNode(node: OpalNode): boolean {
  * 若未找到代码块,则回退为去除首尾可能残缺的围栏标记。
  */
 function stripHtmlFence(html: string): string {
-  // 优先提取带 html 语言标注的代码块
-  const htmlFence = html.match(/```html\s*\n?([\s\S]*?)\n?\s*```/i);
+  let content = html.trim();
+
+  // 1. 预处理：如果 LLM 输出中断导致末尾缺失 ```，我们手动补齐以确保正则匹配
+  const fenceCount = (content.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0 && content.startsWith('```')) {
+    content += '\n```';
+  }
+
+  // 2. 优先提取带 html 语言标注的代码块
+  const htmlFence = content.match(/```html\s*\n?([\s\S]*?)\n?\s*```/i);
   if (htmlFence) {
     return htmlFence[1].trim();
   }
-  // 其次尝试匹配无语言标注的代码块(内容看起来像 HTML 时)
-  const plainFence = html.match(/```\s*\n?([\s\S]*?)\n?\s*```/);
+
+  // 3. 兼容没有标注语言，但成对出现的代码块（内容包含 HTML 特征）
+  const plainFence = content.match(/```\s*\n?([\s\S]*?)\n?\s*```/);
   if (plainFence && /<[a-z!][\s\S]*>/i.test(plainFence[1])) {
     return plainFence[1].trim();
   }
-  // 回退:去除首尾残缺的围栏标记
-  return html
-    .replace(/^\s*```html\s*\n?/i, '')
+
+  // 4. 回退：直接截取从 <html> 开始到 </html>（或结尾）的内容
+  // 匹配起点必定是 <html，故统一补上 doctype 以保证 iframe 在标准模式下渲染
+  const htmlTagMatch = content.match(/<html[\s\S]*?(?:<\/html>|$)/i);
+  if (htmlTagMatch) {
+    return '<!DOCTYPE html>\n' + htmlTagMatch[0].trim();
+  }
+
+  // 5. 终极回退：去除首尾可能残缺的围栏标记，直接返回干净的文本
+  return content
+    .replace(/^\s*```(?:html)?\s*\n?/i, '')
     .replace(/\n?```\s*$/, '')
     .trim();
+}
+
+/**
+ * 计算某节点的「输入」:其数据依赖(前置)节点的输出拼接。
+ * 数据边规则与后端一致(opal_executor.py): out 为空串或 "context" 视为数据/依赖边,
+ * 其余非空 out 是条件路由边,不计入数据输入。
+ * 若无数据父节点、或父节点尚无输出,返回 null(交由 upsertLog 保留原有 input,
+ * 例如 user-input 节点在 waiting_input 阶段记录的提问内容)。
+ */
+function computeNodeInput(
+  graphJson: OpalJson | null,
+  nodeId: string,
+  outputs: Record<string, string>,
+): string | null {
+  if (!graphJson?.edges) return null;
+  const nodeMap = new Map((graphJson.nodes || []).map(n => [n.id, n]));
+
+  const parents: string[] = [];
+  for (const edge of graphJson.edges) {
+    if (edge.to !== nodeId) continue;
+    const out = (edge.out || '').trim();
+    // 只保留数据/依赖边;路由边(out 携带非空且非 "context" 标记)跳过
+    if (out === '' || out === 'context') {
+      if (!parents.includes(edge.from)) parents.push(edge.from);
+    }
+  }
+  if (parents.length === 0) return null;
+
+  const parts: string[] = [];
+  for (const pid of parents) {
+    const val = outputs[pid];
+    if (val === undefined || val === '') continue;
+    const title = nodeMap.get(pid)?.metadata?.title || pid;
+    parts.push(`• ${title}\n${val}`);
+  }
+  return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
 /** 从服务端 node_outputs 中提取第一个 render 节点产出的 HTML。 */
@@ -151,13 +204,14 @@ function applyStreamEvent(
       const currentNodeId = evt.current_node || null;
       const skipped = mergeSkipped(evt, prev);
 
-      // 记录刚完成的节点(含输出),并把新的当前节点标记为 running
+      // 记录刚完成的节点(含输入=前置依赖输出、输出),并把新的当前节点标记为 running
       let nodeExecLog = prev.nodeExecLog;
       if (evt.node_id) {
         nodeExecLog = upsertLog(nodeExecLog, {
           nodeId: evt.node_id,
           title: titleOf(evt.node_id) || evt.node_id,
           status: 'completed',
+          input: computeNodeInput(graphJson, evt.node_id, nodeOutputs) || undefined,
           output: evt.output || undefined,
         });
       }
@@ -166,6 +220,7 @@ function applyStreamEvent(
           nodeId: currentNodeId,
           title: titleOf(currentNodeId) || currentNodeId,
           status: 'running',
+          input: computeNodeInput(graphJson, currentNodeId, nodeOutputs) || undefined,
         });
       }
 
@@ -265,6 +320,7 @@ function applyStreamEvent(
           nodeId: id,
           title: titleOf(id) || id,
           status: 'completed',
+          input: computeNodeInput(graphJson, id, nodeOutputs) || undefined,
           output: nodeOutputs[id] || undefined,
         });
       }
