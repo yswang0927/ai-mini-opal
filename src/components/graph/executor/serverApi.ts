@@ -66,7 +66,7 @@ export async function resumeExecution(
 
 /** 服务端 SSE 推送的执行进度事件。 */
 export interface ServerStreamEvent {
-  event: 'started' | 'node_complete' | 'waiting_input' | 'completed' | 'error';
+  event: 'started' | 'node_complete' | 'node_skipped' | 'waiting_input' | 'completed' | 'error';
   thread_id?: string;
   node_id?: string;
   node_type?: string;
@@ -74,6 +74,8 @@ export interface ServerStreamEvent {
   interrupts?: ServerInterrupt[];
   waiting_nodes?: string[];
   completed_nodes?: string[];
+  // 因路由未命中而被跳过的节点 id 列表(node_skipped / completed 事件携带)
+  skipped_nodes?: string[];
   current_node?: string;
   node_outputs?: Record<string, string>;
   error?: string;

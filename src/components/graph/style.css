@@ -82,6 +82,9 @@
 .react-flow__node .node-run-state.completed {
     color: #10b981;
 }
+.react-flow__node .node-run-state.skipped {
+    color: #9ca3af;
+}
 .react-flow__node .node-run-state.error {
     color: #ef4444;
 }
@@ -394,4 +397,11 @@
 .react-flow__node .opal-node[data-runstate='error'] {
     outline: 2px solid #ef4444;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* 被路由跳过的节点:置灰、降低不透明度,与虚线边框区分 */
+.react-flow__node .opal-node[data-runstate='skipped'] {
+    outline: 2px dashed #d1d5db;
+    opacity: 0.6;
+    filter: grayscale(0.6);
 }

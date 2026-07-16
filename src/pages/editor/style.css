@@ -415,6 +415,9 @@
   background: #6366f1;
   animation: console-pulse 1s ease-in-out infinite;
 }
+.console-item-status[data-status="skipped"] {
+  background: #9ca3af;
+}
 .console-item-status[data-status="error"] {
   background: #ef4444;
 }
@@ -436,9 +439,9 @@
 
 .console-item-label {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: #999;
   text-transform: uppercase;
   margin-bottom: 4px;
 }

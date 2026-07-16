@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Check, TriangleAlert } from 'lucide-react';
+import { Check, TriangleAlert, SkipForward } from 'lucide-react';
 import { CaretRightIcon, Spinner } from '@/utils/icons'
 import { OpalNodeType } from '@/types';
 import { useEditorContext } from '@/pages/editor/EditorContext';
@@ -49,9 +49,10 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
           <div className="flex-1 text-ellipsis">{title}</div>
         </div>
         {/*<button className="node-run-btn"><CaretRightIcon /></button>*/}
-        <div>
+        <div className="nodrag">
           {runState === 'running' && (<span className="node-run-state running"><Spinner /></span>)}
           {runState === 'completed' && (<span className="node-run-state completed"><Check size={16} strokeWidth={1.5} /></span>)}
+          {runState === 'skipped' && (<span className="node-run-state skipped" title="已跳过(路由未选中)"><SkipForward size={16} strokeWidth={1.5} /></span>)}
           {runState === 'error' && (<span className="node-run-state error"><TriangleAlert size={16} strokeWidth={1.5} /></span>)}
         </div>
       </div>

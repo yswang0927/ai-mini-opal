@@ -62,11 +62,12 @@ function extractRenderedHtml(graphJson: OpalJson | null, outputs: Record<string,
   return null;
 }
 
-/** 根据 completed_nodes / current_node 重建节点状态映射。 */
+/** 根据 completed_nodes / skipped_nodes / current_node 重建节点状态映射。 */
 function buildNodeStatuses(
   graphJson: OpalJson | null,
   completed: string[],
   currentNodeId: string | null,
+  skipped: string[] = [],
 ): Record<string, NodeExecStatus> {
   const statuses: Record<string, NodeExecStatus> = {};
   for (const node of graphJson?.nodes || []) {
@@ -77,11 +78,30 @@ function buildNodeStatuses(
     statuses[id] = 'completed';
   }
 
-  if (currentNodeId && statuses[currentNodeId] !== 'completed') {
+  // 被路由跳过的节点标记为 skipped(不覆盖已完成的节点)
+  for (const id of skipped) {
+    if (statuses[id] !== 'completed') {
+      statuses[id] = 'skipped';
+    }
+  }
+
+  if (currentNodeId && statuses[currentNodeId] !== 'completed' && statuses[currentNodeId] !== 'skipped') {
     statuses[currentNodeId] = 'running';
   }
 
   return statuses;
+}
+
+/** 从上一轮状态映射中收集已被标记为 skipped 的节点 id,用于跨事件保留跳过状态。 */
+function prevSkipped(prev: ExecutionState): string[] {
+  return Object.entries(prev.nodeStatuses)
+    .filter(([, s]) => s === 'skipped')
+    .map(([id]) => id);
+}
+
+/** 合并事件携带的 skipped_nodes 与此前已知的跳过节点,去重。 */
+function mergeSkipped(evt: ServerStreamEvent, prev: ExecutionState): string[] {
+  return Array.from(new Set([...prevSkipped(prev), ...(evt.skipped_nodes || [])]));
 }
 
 /**
@@ -129,6 +149,7 @@ function applyStreamEvent(
 
       const completed = evt.completed_nodes || Object.keys(nodeOutputs);
       const currentNodeId = evt.current_node || null;
+      const skipped = mergeSkipped(evt, prev);
 
       // 记录刚完成的节点(含输出),并把新的当前节点标记为 running
       let nodeExecLog = prev.nodeExecLog;
@@ -155,7 +176,39 @@ function applyStreamEvent(
         renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
         currentNodeId,
         currentNodeTitle: titleOf(currentNodeId),
-        nodeStatuses: buildNodeStatuses(graphJson, completed, currentNodeId),
+        nodeStatuses: buildNodeStatuses(graphJson, completed, currentNodeId, skipped),
+        nodeExecLog,
+      };
+    }
+
+    case 'node_skipped': {
+      // 因路由未命中被跳过的节点:置为 skipped,不产生输出。
+      const skipped = mergeSkipped(evt, prev);
+      const completed = evt.completed_nodes || Object.keys(prev.nodeOutputs);
+      const currentNodeId = evt.current_node || null;
+
+      let nodeExecLog = prev.nodeExecLog;
+      if (evt.node_id) {
+        nodeExecLog = upsertLog(nodeExecLog, {
+          nodeId: evt.node_id,
+          title: titleOf(evt.node_id) || evt.node_id,
+          status: 'skipped',
+        });
+      }
+      if (currentNodeId) {
+        nodeExecLog = upsertLog(nodeExecLog, {
+          nodeId: currentNodeId,
+          title: titleOf(currentNodeId) || currentNodeId,
+          status: 'running',
+        });
+      }
+
+      return {
+        ...prev,
+        status: 'running',
+        currentNodeId,
+        currentNodeTitle: titleOf(currentNodeId),
+        nodeStatuses: buildNodeStatuses(graphJson, completed, currentNodeId, skipped),
         nodeExecLog,
       };
     }
@@ -170,9 +223,10 @@ function applyStreamEvent(
       }));
 
       const completed = evt.completed_nodes || Object.keys(prev.nodeOutputs);
+      const skipped = mergeSkipped(evt, prev);
       // 正在等待输入的节点标记为 running
       const waiting = evt.waiting_nodes || pendingInputs.map(p => p.nodeId);
-      const statuses = buildNodeStatuses(graphJson, completed, null);
+      const statuses = buildNodeStatuses(graphJson, completed, null, skipped);
       for (const id of waiting) {
         statuses[id] = 'running';
       }
@@ -202,6 +256,7 @@ function applyStreamEvent(
     case 'completed': {
       const nodeOutputs = evt.node_outputs || prev.nodeOutputs;
       const completed = evt.completed_nodes || Object.keys(nodeOutputs);
+      const skipped = mergeSkipped(evt, prev);
 
       // 用最终结果补全每个已完成节点的输出与状态
       let nodeExecLog = prev.nodeExecLog;
@@ -213,6 +268,14 @@ function applyStreamEvent(
           output: nodeOutputs[id] || undefined,
         });
       }
+      // 补全被跳过节点的日志状态
+      for (const id of skipped) {
+        nodeExecLog = upsertLog(nodeExecLog, {
+          nodeId: id,
+          title: titleOf(id) || id,
+          status: 'skipped',
+        });
+      }
 
       return {
         ...prev,
@@ -222,7 +285,7 @@ function applyStreamEvent(
         renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
         currentNodeId: null,
         currentNodeTitle: null,
-        nodeStatuses: buildNodeStatuses(graphJson, completed, null),
+        nodeStatuses: buildNodeStatuses(graphJson, completed, null, skipped),
         nodeExecLog,
       };
     }

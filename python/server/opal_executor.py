@@ -34,6 +34,8 @@ from operator import add
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt, Command
 from langgraph.checkpoint.memory import MemorySaver
@@ -210,20 +212,52 @@ def _topological_sort(nodes: List[Dict], edges: List[Dict]) -> List[str]:
 # 路由解析
 # ---------------------------------------------------------------------------
 
-ROUTING_TOOL_PATH = "control-flow/routing"
+ROUTING_TOOL_PATH = _ROUTING_TOOL_PATH
 
 
-def _extract_route_target(agent_output: str, routes_config: List[Dict]) -> Optional[str]:
+class _SelectRouteInput(BaseModel):
+    target: str = Field(
+        description="要跳转到的目标节点 id。必须从提供的候选 id 中精确选择一个。"
+    )
+
+
+def _build_route_tool(
+    targets: List[Dict[str, str]],
+    decision_holder: Dict[str, str],
+) -> StructuredTool:
+    """构建 select_route 控制流工具。
+
+    编译器为路由节点在 prompt 中写入 {{"type":"tool","path":"control-flow/routing",...}}
+    占位符,并在图上生成 out=<target_id> 的路由边。执行器把它实现为一个真实可调用的
+    工具:agent 通过调用 select_route(target=<id>) 显式表达它选择的分支,执行器据此在
+    conditional edge 中路由。
+
+    Args:
+        targets: [{"id": <step_id>, "title": <title>}, ...] 候选路由目标。
+        decision_holder: 用于回传 agent 选择的可变字典,写入 {"target": <id>}。
     """
-    从 agent 输出中解析它选择的路由目标。
-    Agent 在有 routes 时会输出包含 routing tool call 的信息,
-    我们从中提取 instance 字段(即目标 step_id)。
-    """
-    for route in routes_config:
-        target_id = route.get("target_step_id") or route.get("to")
-        if target_id and target_id in agent_output:
-            return target_id
-    return routes_config[0]["target_step_id"] if routes_config else None
+    valid_ids = {t["id"] for t in targets}
+    options_desc = "; ".join(f'"{t["id"]}"({t["title"]})' for t in targets)
+
+    def _select_route(target: str) -> str:
+        target = (target or "").strip()
+        if target not in valid_ids:
+            return (
+                f"无效的路由目标 '{target}'。请从以下候选中精确选择一个 id: {options_desc}"
+            )
+        decision_holder["target"] = target
+        return f"已选择路由目标: {target}"
+
+    return StructuredTool.from_function(
+        func=_select_route,
+        name="select_route",
+        description=(
+            "选择工作流接下来要执行的分支(路由)。当你根据判断条件确定应走哪条分支时,"
+            "调用本工具并传入目标节点 id。可选目标: " + options_desc + "。"
+            "你必须且只能调用一次本工具来确定唯一的后续分支。"
+        ),
+        args_schema=_SelectRouteInput,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +305,16 @@ class OpalExecutor:
                 # routing edge: out 字段携带路由目标标记
                 self.routes_map[edge["from"]].append(edge)
 
+        # 反向路由映射: target_node_id -> [router_source_ids]。
+        # 一个节点若出现在此表中,说明它是「路由目标」(受控节点):只有当某个
+        # 指向它的路由源实际选择了它时,它才应当执行;否则应被跳过。
+        # 没有入路由边的节点是纯数据流节点,总是执行。
+        self.routers_of: Dict[str, List[str]] = {nid: [] for nid in self.nodes_config}
+        for src, route_edges in self.routes_map.items():
+            for e in route_edges:
+                if e["to"] in self.routers_of:
+                    self.routers_of[e["to"]].append(src)
+
         # LLM 实例
         if llm:
             self.llm = llm
@@ -310,6 +354,10 @@ class OpalExecutor:
             current_node: str
             status: str
             error: str
+            # 路由节点 -> agent 通过 select_route 工具选定的目标节点 id
+            route_decisions: Dict[str, str]
+            # 因路由未命中而被跳过、不执行的节点 id 列表
+            skipped_nodes: List[str]
 
         builder = StateGraph(GraphState)
 
@@ -325,53 +373,68 @@ class OpalExecutor:
             elif node_type == "render-outputs":
                 builder.add_node(node_id, self._make_render_handler(node_id, node_config))
 
-        # 构建边: 按拓扑序串联,带路由的节点使用 conditional edge
-        nodes_with_routes = {nid for nid, routes in self.routes_map.items() if routes}
-
-        # 添加从 START 到第一个节点的边
+        # 边的构建:按拓扑序串成一条线性链。
+        #
+        # 关键设计:路由不是靠图拓扑(条件边)实现,而是靠每个节点 handler 在运行时
+        # 的执行门控(_should_execute)。原因:
+        #   - 线性链天然满足「父节点先于子节点」与 fan-in(汇聚节点在拓扑序上位于所有
+        #     父节点之后),这正是现有非路由图能正确运行的根基;
+        #   - 用条件边做分支跳过时,汇聚节点在 LangGraph 的 Pregel 模型下容易因等待
+        #     未触发的分支而行为异常。
+        # 因此这里只串线性链;被路由「没选中」的分支节点会在 handler 里自我跳过
+        # (不产出 output、记入 skipped_nodes),从而既修复「未选中分支仍执行」的缺陷,
+        # 又不动摇 fan-in 的正确性。
         if self.sorted_node_ids:
             builder.add_edge(START, self.sorted_node_ids[0])
 
-        # 为每对相邻节点添加边
         for i, node_id in enumerate(self.sorted_node_ids):
-            if node_id in nodes_with_routes:
-                # 带路由的节点: 添加 conditional edge
-                route_targets = [e["to"] for e in self.routes_map[node_id]]
-                builder.add_conditional_edges(
-                    node_id,
-                    self._make_route_selector(node_id, route_targets),
-                    {target: target for target in route_targets},
-                )
+            if i + 1 < len(self.sorted_node_ids):
+                builder.add_edge(node_id, self.sorted_node_ids[i + 1])
             else:
-                # 普通节点: 连接到拓扑序中的下一个节点
-                if i + 1 < len(self.sorted_node_ids):
-                    next_id = self.sorted_node_ids[i + 1]
-                    # 跳过路由目标节点(它们由 conditional edge 到达)
-                    all_route_targets = set()
-                    for routes in self.routes_map.values():
-                        for r in routes:
-                            all_route_targets.add(r["to"])
-                    if next_id not in all_route_targets or node_id in all_route_targets:
-                        builder.add_edge(node_id, next_id)
-                    else:
-                        # 找到下一个非路由目标节点
-                        found_next = False
-                        for j in range(i + 1, len(self.sorted_node_ids)):
-                            candidate = self.sorted_node_ids[j]
-                            if candidate not in all_route_targets:
-                                builder.add_edge(node_id, candidate)
-                                found_next = True
-                                break
-                        if not found_next:
-                            builder.add_edge(node_id, END)
-                else:
-                    builder.add_edge(node_id, END)
+                builder.add_edge(node_id, END)
 
         return builder.compile(checkpointer=self.checkpointer)
+
+    def _should_execute(self, node_id: str, state: Dict) -> bool:
+        """运行时执行门控:判断该节点在当前路由决定下是否应当执行。
+
+        因为节点按拓扑序执行,轮到某节点时其所有上游(数据父节点、路由源)都已
+        执行完或已被跳过,故可据 state 直接判定:
+
+        1. 路由目标节点(routers_of 非空):只有当指向它的某个路由源实际选择了它
+           (route_decisions[router] == node_id)时才执行;否则跳过。
+        2. 非路由目标、但有数据父节点:只要没有任何父节点产出 output(说明其所在
+           分支在上游已被整体裁剪),就跳过;否则执行。
+        3. 源节点(无任何父节点):总是执行。
+        """
+        routers = self.routers_of.get(node_id, [])
+        if routers:
+            decisions = state.get("route_decisions", {}) or {}
+            return any(decisions.get(r) == node_id for r in routers)
+
+        data_parents = self.parents_map.get(node_id, [])
+        if data_parents:
+            outputs = state.get("node_outputs", {})
+            skipped = set(state.get("skipped_nodes", []) or [])
+            # 至少一个父节点有产出(且不是被跳过的)即视为分支存活。
+            return any(p in outputs and p not in skipped for p in data_parents)
+
+        return True
+
+    def _skip_state(self, node_id: str, state: Dict) -> Dict:
+        """构造「跳过该节点」后的 state:不产出 output,记入 skipped_nodes。"""
+        skipped = list(state.get("skipped_nodes", []) or [])
+        if node_id not in skipped:
+            skipped.append(node_id)
+        return {**state, "skipped_nodes": skipped, "current_node": node_id}
 
     def _make_input_handler(self, node_id: str, node_config: Dict):
         """创建 input 节点的处理函数 — 使用 interrupt 等待用户输入。"""
         def handler(state: Dict) -> Dict:
+            # 路由未命中的分支上的输入节点:跳过,不向用户提问。
+            if not self._should_execute(node_id, state):
+                return self._skip_state(node_id, state)
+
             outputs = state.get("node_outputs", {})
 
             # 如果已有该节点的输出(resume 时提供的),直接跳过
@@ -404,7 +467,23 @@ class OpalExecutor:
 
     def _make_agent_handler(self, node_id: str, node_config: Dict):
         """创建 agent 节点的处理函数 — 调用 LLM 执行任务。"""
+        # 该节点声明的路由目标(编译期生成的 out=<target_id> 路由边)。
+        route_edges = self.routes_map.get(node_id, [])
+        route_targets = [
+            {
+                "id": e["to"],
+                "title": self.nodes_config.get(e["to"], {})
+                .get("metadata", {})
+                .get("title", e["to"]),
+            }
+            for e in route_edges
+        ]
+
         def handler(state: Dict) -> Dict:
+            # 路由未命中的分支上的节点:跳过,不调用 LLM。
+            if not self._should_execute(node_id, state):
+                return self._skip_state(node_id, state)
+
             outputs = state.get("node_outputs", {})
             config = node_config.get("configuration", {})
 
@@ -435,6 +514,12 @@ class OpalExecutor:
             # 声明了 skills 的节点,追加受限的 run_skill_script 工具(白名单=声明的 skills)。
             tools = tools + build_skill_tools(skill_names)
 
+            # 该节点是路由源:构建真实可调用的 select_route 工具,让 agent 显式选择分支。
+            # decision_holder 承接工具回传的选择,执行结束后写入 state.route_decisions。
+            decision_holder: Dict[str, str] = {}
+            if route_targets:
+                tools = tools + [_build_route_tool(route_targets, decision_holder)]
+
             # 调用 LLM(带工具则运行工具调用循环)
             try:
                 if tools:
@@ -447,12 +532,25 @@ class OpalExecutor:
 
             new_outputs = outputs.copy()
             new_outputs[node_id] = result
-            return {
+
+            new_state = {
                 **state,
                 "node_outputs": new_outputs,
                 "current_node": node_id,
                 "status": "running",
             }
+
+            # 记录路由决定(若 agent 调用了 select_route)。
+            if route_targets:
+                decisions = dict(state.get("route_decisions", {}))
+                chosen = decision_holder.get("target")
+                if not chosen:
+                    # agent 未显式选择:回退到第一个目标,保证图能继续推进。
+                    chosen = route_targets[0]["id"]
+                decisions[node_id] = chosen
+                new_state["route_decisions"] = decisions
+
+            return new_state
         return handler
 
     def _build_skill_docs_message(self, skill_names: List[str]) -> str:
@@ -524,6 +622,10 @@ class OpalExecutor:
     def _make_render_handler(self, node_id: str, node_config: Dict):
         """创建 render 节点的处理函数 — 调用 LLM 生成 HTML。"""
         def handler(state: Dict) -> Dict:
+            # 路由未命中的分支上的节点:跳过,不调用 LLM。
+            if not self._should_execute(node_id, state):
+                return self._skip_state(node_id, state)
+
             outputs = state.get("node_outputs", {})
             config = node_config.get("configuration", {})
 
@@ -560,21 +662,6 @@ class OpalExecutor:
             }
         return handler
 
-    def _make_route_selector(self, source_id: str, targets: List[str]):
-        """创建条件路由选择函数。"""
-        def selector(state: Dict) -> str:
-            outputs = state.get("node_outputs", {})
-            agent_output = outputs.get(source_id, "")
-
-            # 从 agent 输出中匹配路由目标
-            for target in targets:
-                if target in agent_output:
-                    return target
-
-            # 默认走第一个路由
-            return targets[0] if targets else END
-        return selector
-
     def _is_terminal(self, node_id: str) -> bool:
         """判断该节点是否是图的终端节点(没有下游边)。"""
         for edge in self.edges:
@@ -599,6 +686,8 @@ class OpalExecutor:
             "current_node": "",
             "status": "running",
             "error": "",
+            "route_decisions": {},
+            "skipped_nodes": [],
         }
 
         self.compiled_graph.invoke(initial_state, config=config)
@@ -644,6 +733,8 @@ class OpalExecutor:
             "current_node": "",
             "status": "running",
             "error": "",
+            "route_decisions": {},
+            "skipped_nodes": [],
         }
         yield from self._stream_run(initial_state, thread_id, config)
 
@@ -693,19 +784,35 @@ class OpalExecutor:
 
                 # 普通节点完成: chunk = {node_id: 该节点返回的 state}
                 for node_id, node_state in chunk.items():
-                    outputs = (node_state or {}).get("node_outputs", {}) if isinstance(node_state, dict) else {}
+                    ns = node_state if isinstance(node_state, dict) else {}
+                    outputs = ns.get("node_outputs", {})
+                    skipped = set(ns.get("skipped_nodes", []) or [])
+                    # 已完成 = 有产出;已跳过的节点视为「已处理」,不再计入待运行。
                     completed = [nid for nid in self.sorted_node_ids if nid in outputs]
-                    # 拓扑序中的下一个未完成节点视为「即将/正在运行」,供前端点亮。
+                    done = set(outputs) | skipped
+                    # 拓扑序中下一个既未完成也未跳过的节点视为「即将/正在运行」。
                     next_running = next(
-                        (nid for nid in self.sorted_node_ids if nid not in outputs),
+                        (nid for nid in self.sorted_node_ids if nid not in done),
                         "",
                     )
+                    # 本 chunk 对应的节点若是被跳过的,发 node_skipped 事件供前端置灰。
+                    if node_id in skipped and node_id not in outputs:
+                        yield {
+                            "event": "node_skipped",
+                            "node_id": node_id,
+                            "node_type": self.nodes_config.get(node_id, {}).get("type", ""),
+                            "completed_nodes": completed,
+                            "skipped_nodes": list(skipped),
+                            "current_node": next_running,
+                        }
+                        continue
                     yield {
                         "event": "node_complete",
                         "node_id": node_id,
                         "node_type": self.nodes_config.get(node_id, {}).get("type", ""),
                         "output": outputs.get(node_id, ""),
                         "completed_nodes": completed,
+                        "skipped_nodes": list(skipped),
                         "current_node": next_running,
                     }
 
@@ -718,6 +825,7 @@ class OpalExecutor:
                 "event": "completed",
                 "node_outputs": final.get("node_outputs", {}),
                 "completed_nodes": final.get("completed_nodes", []),
+                "skipped_nodes": final.get("skipped_nodes", []),
                 "current_node": "",
             }
         except Exception as e:  # noqa: BLE001 — 需要把任何执行错误转成事件回传前端
@@ -778,10 +886,12 @@ class OpalExecutor:
             return {"status": "pending", "node_outputs": {}}
 
         outputs = state.get("node_outputs", {})
+        skipped = set(state.get("skipped_nodes", []) or [])
         status = state.get("status", "running")
 
-        # 判断是否所有节点都已执行完
-        all_done = all(nid in outputs for nid in self.sorted_node_ids)
+        # 判断是否所有节点都已「处理完」:有产出 或 被路由跳过。
+        done = set(outputs) | skipped
+        all_done = all(nid in done for nid in self.sorted_node_ids)
         if all_done:
             status = "completed"
 
@@ -789,8 +899,12 @@ class OpalExecutor:
             "status": status,
             "current_node": state.get("current_node", ""),
             "node_outputs": outputs,
+            "route_decisions": dict(state.get("route_decisions", {}) or {}),
+            "skipped_nodes": [nid for nid in self.sorted_node_ids if nid in skipped],
             "completed_nodes": [nid for nid in self.sorted_node_ids if nid in outputs],
-            "pending_nodes": [nid for nid in self.sorted_node_ids if nid not in outputs],
+            "pending_nodes": [
+                nid for nid in self.sorted_node_ids if nid not in done
+            ],
         }
 
 

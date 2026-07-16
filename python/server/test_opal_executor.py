@@ -72,8 +72,10 @@ class TestTopologicalSort(unittest.TestCase):
     def test_sample_graph(self):
         graph = _load_sample_graph()
         result = _topological_sort(graph["nodes"], graph["edges"])
-        self.assertEqual(result[0], "input_your_topic_ab3fbf6e")
-        self.assertEqual(result[-1], "render_blog_post_display_da5a77f8")
+        # 源节点(user-inputs)排在最前,最终 render 节点排在最后。
+        self.assertIn(result[0], ("ask_user_client_name",
+                                  "9de7f9a7-3c63-4979-9956-c0c7bf60dacb"))
+        self.assertEqual(result[-1], "node_step_meeting_brief")
 
 
 class TestResolvePlaceholders(unittest.TestCase):
@@ -140,16 +142,18 @@ class TestExecutorBuild(unittest.TestCase):
     def test_build_from_sample(self):
         graph = _load_sample_graph()
         executor = OpalExecutor(graph)
-        self.assertEqual(len(executor.sorted_node_ids), 4)
+        self.assertEqual(len(executor.sorted_node_ids), len(graph["nodes"]))
         self.assertIsNotNone(executor.compiled_graph)
 
     def test_parents_map(self):
         graph = _load_sample_graph()
         executor = OpalExecutor(graph)
-        self.assertEqual(executor.parents_map["input_your_topic_ab3fbf6e"], [])
+        # 源输入节点没有数据父节点。
+        self.assertEqual(executor.parents_map["ask_user_client_name"], [])
+        # 最终 render 节点汇聚多个上游(fan-in)。
         self.assertIn(
-            "input_your_topic_ab3fbf6e",
-            executor.parents_map["agent_deep_researcher_b7463165"],
+            "node_step_brief_content",
+            executor.parents_map["node_step_meeting_brief"],
         )
 
     def test_start_pauses_at_input(self):
@@ -157,7 +161,9 @@ class TestExecutorBuild(unittest.TestCase):
         executor = OpalExecutor(graph)
         state = executor.start(thread_id="test-build-1")
         self.assertEqual(state["status"], "waiting_input")
-        self.assertIn("input_your_topic_ab3fbf6e", state.get("waiting_nodes", []))
+        # 拓扑序第一个节点是某个 user-inputs 节点,应在此暂停等待输入。
+        first = executor.sorted_node_ids[0]
+        self.assertIn(first, state.get("waiting_nodes", []))
 
 
 class TestFrontendEdgeClassification(unittest.TestCase):
@@ -310,17 +316,21 @@ class TestExecutorE2E(unittest.TestCase):
         state = executor.start(thread_id="e2e-full")
         self.assertEqual(state["status"], "waiting_input")
 
-        # Resume
+        # Resume — 依次提供所有 user-inputs 节点的值。
         state = executor.resume(
-            user_inputs={"input_your_topic_ab3fbf6e": "benefits of morning exercise"},
+            user_inputs={
+                "9de7f9a7-3c63-4979-9956-c0c7bf60dacb": "new client",
+                "ask_user_client_name": "Acme Corp",
+                "93719889-e5f0-4f0d-9976-fc2b6366b8ad": "no prior notes",
+            },
             thread_id="e2e-full",
         )
         self.assertEqual(state["status"], "completed")
-        self.assertEqual(len(state["completed_nodes"]), 4)
 
         outputs = state["node_outputs"]
-        self.assertEqual(outputs["input_your_topic_ab3fbf6e"], "benefits of morning exercise")
-        self.assertTrue(len(outputs["agent_deep_researcher_b7463165"]) > 100)
+        self.assertEqual(outputs["ask_user_client_name"], "Acme Corp")
+        # 最终 render 节点应产出网页内容。
+        self.assertTrue(len(outputs["node_step_meeting_brief"]) > 100)
         self.assertTrue(len(outputs["agent_blog_writer_23ca06a2"]) > 200)
         self.assertIn("<html", outputs["render_blog_post_display_da5a77f8"].lower())
 
@@ -408,6 +418,75 @@ class TestRouteExecution(unittest.TestCase):
         executor = OpalExecutor(graph)
         self.assertIn("agent_classifier", executor.routes_map)
         self.assertEqual(len(executor.routes_map["agent_classifier"]), 2)
+
+    def _make_fake_llm(self, route_choice: str):
+        """构造一个假 LLM:路由节点通过 select_route 工具选择 route_choice,
+        其余节点直接产出占位文本。用于在不调用真实 LLM 的情况下验证路由/跳过。"""
+        from langchain_core.messages import AIMessage
+
+        class FakeLLM:
+            def __init__(self):
+                self._tools = []
+
+            def bind_tools(self, tools):
+                self._tools = tools
+                return self
+
+            def invoke(self, _messages):
+                if any(getattr(t, "name", "") == "select_route" for t in self._tools):
+                    return AIMessage(
+                        content="",
+                        tool_calls=[{
+                            "name": "select_route",
+                            "args": {"target": route_choice},
+                            "id": "call_route",
+                        }],
+                    )
+                return AIMessage(content="[stub output]")
+
+        return FakeLLM()
+
+    def test_routing_executes_only_chosen_branch(self):
+        """回归:agent 选中某分支后,未选中的分支必须被跳过(不执行)。"""
+        graph = self._make_route_graph()
+
+        for chosen, other in (
+            ("render_positive", "render_negative"),
+            ("render_negative", "render_positive"),
+        ):
+            executor = OpalExecutor(graph, llm=self._make_fake_llm(chosen))
+            tid = f"route-{chosen}"
+            executor.start(thread_id=tid)
+            state = executor.resume(
+                user_inputs={"input_feedback": "great product"}, thread_id=tid
+            )
+
+            self.assertEqual(state["status"], "completed")
+            self.assertEqual(
+                state["route_decisions"]["agent_classifier"], chosen
+            )
+            outputs = state["node_outputs"]
+            # 选中分支执行、产出;未选中分支被跳过、无产出。
+            self.assertIn(chosen, outputs)
+            self.assertNotIn(other, outputs)
+            self.assertIn(other, state.get("skipped_nodes", []))
+
+    def test_invalid_route_choice_falls_back(self):
+        """agent 未做出有效选择时,回退到第一个路由目标以保证图能推进。"""
+        graph = self._make_route_graph()
+        executor = OpalExecutor(graph, llm=self._make_fake_llm("no_such_node"))
+        tid = "route-fallback"
+        executor.start(thread_id=tid)
+        state = executor.resume(
+            user_inputs={"input_feedback": "meh"}, thread_id=tid
+        )
+        self.assertEqual(state["status"], "completed")
+        # 第一个路由目标(render_positive)应被选中执行。
+        self.assertEqual(
+            state["route_decisions"]["agent_classifier"], "render_positive"
+        )
+        self.assertIn("render_positive", state["node_outputs"])
+        self.assertNotIn("render_negative", state["node_outputs"])
 
 
 # ---------------------------------------------------------------------------

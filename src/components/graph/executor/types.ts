@@ -1,6 +1,6 @@
 export type ExecutionStatus = 'idle' | 'ready' | 'waiting_input' | 'running' | 'completed' | 'error';
 
-export type NodeExecStatus = 'pending' | 'running' | 'completed' | 'error';
+export type NodeExecStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'error';
 
 export interface InputRequest {
   nodeId: string;
