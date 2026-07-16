@@ -12,13 +12,14 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   hasInput: boolean,
   hasOutput: boolean,
 }) => {
-  const { execState } = useEditorContext();
+  const { execState, runToNode } = useEditorContext();
   const rawData = nodeData.data;
   const nodeId = nodeData.id;
   const title = rawData.metadata.title || '';
 
   // 本节点的运行状态
   const runState = execState.nodeStatuses[nodeId] ?? '';
+  const isRunning = execState.status === 'running';
   
   let desc = '';
   if (nodeType === OpalNodeType.UserInputs) {
@@ -41,6 +42,12 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
     desc = desc.substring(0, 100) + '...';
   }
 
+  const handleRunHere = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRunning) return;
+    runToNode(nodeId);
+  };
+
   return (
     <div className={`opal-node${runState === 'running' ? ' glow-border' : ''}`} data-runstate={runState}>
       <div className="opal-node-header" style={{ backgroundColor: NodeTypesStyle[nodeType].bgColor }}>
@@ -48,8 +55,8 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
           <span className="opal-node-header-icon">{ NodeTypesStyle[nodeType].icon }</span>
           <div className="flex-1 text-ellipsis">{title}</div>
         </div>
-        {/*<button className="node-run-btn"><CaretRightIcon /></button>*/}
-        <div className="nodrag">
+        <div className="flex items-center nodrag">
+          {(execState.status === 'idle' || execState.status === 'ready') && (<button className="node-run-btn" title="点击运行到此节点" onClick={handleRunHere} disabled={isRunning}><CaretRightIcon /></button>)}
           {runState === 'running' && (<span className="node-run-state running"><Spinner /></span>)}
           {runState === 'completed' && (<span className="node-run-state completed"><Check size={16} strokeWidth={1.5} /></span>)}
           {runState === 'skipped' && (<span className="node-run-state skipped" title="已跳过(路由未选中)"><SkipForward size={16} strokeWidth={1.5} /></span>)}

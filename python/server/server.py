@@ -231,6 +231,8 @@ class GraphResponse(BaseModel):
 class ExecuteStartRequest(BaseModel):
     graph_json: Dict[str, Any]
     thread_id: Optional[str] = None
+    # 「运行到此节点」:仅执行该节点及其全部祖先,其余节点跳过。为空则整图执行。
+    target_node: Optional[str] = None
 
 
 class ExecuteResumeRequest(BaseModel):
@@ -431,7 +433,7 @@ async def execute_start_stream(req: ExecuteStartRequest):
     async def event_source():
         # 首帧下发 thread_id,前端 resume 时需要
         yield _sse_frame({"event": "started", "thread_id": thread_id})
-        async for frame in _drain_stream(executor.stream_start(thread_id)):
+        async for frame in _drain_stream(executor.stream_start(thread_id, req.target_node)):
             yield frame
 
     return StreamingResponse(

@@ -58,7 +58,7 @@ function SplashView({ title, description, onStart }: {
     <div className="executor-splash">
       <h2 className="executor-splash-title">{title || 'Untitled App'}</h2>
       {description && <p className="executor-splash-desc">{description}</p>}
-      <button className="executor-start-btn" onClick={onStart}>{t('开始')}</button>
+      <button className="executor-start-btn" onClick={() => onStart()}>{t('开始')}</button>
     </div>
   );
 }

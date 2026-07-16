@@ -330,7 +330,7 @@ export function useGraphExecutor() {
 
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (targetNode?: string) => {
     const graphJson = graphRef.current;
     if (!graphJson) return;
 
@@ -342,7 +342,7 @@ export function useGraphExecutor() {
           threadIdRef.current = evt.thread_id;
         }
         setExecState(prev => applyStreamEvent(evt, graphRef.current, prev));
-      });
+      }, undefined, targetNode);
 
     } catch (e: any) {
       setExecState(prev => ({
@@ -352,6 +352,31 @@ export function useGraphExecutor() {
       }));
     }
   }, []);
+
+  /**
+   * 「运行到此节点」:从头执行到目标节点(含其祖先)后停止,其余节点标记为 skipped。
+   * 会清空上一轮执行状态并另起一个新的 thread,再以 targetNode 为作用域重新执行。
+   */
+  const runToNode = useCallback(async (targetNode: string) => {
+    const graphJson = graphRef.current;
+    if (!graphJson || !targetNode) return;
+
+    // 结束上一轮 executor,避免服务端实例泄漏
+    if (threadIdRef.current) {
+      deleteExecutor(threadIdRef.current);
+      threadIdRef.current = null;
+    }
+
+    // 保留图信息,清空节点状态/日志/输出,重置为一次干净的执行
+    setExecState({
+      ...initialState,
+      status: 'running',
+      graphTitle: graphJson.title || null,
+      graphDescription: graphJson.description || null,
+    });
+
+    await start(targetNode);
+  }, [start]);
 
   const submitInput = useCallback(async (inputs: Record<string, string>) => {
     const threadId = threadIdRef.current;
@@ -383,5 +408,5 @@ export function useGraphExecutor() {
     setExecState(initialState);
   }, []);
 
-  return { execState, loadGraph, start, submitInput, reset };
+  return { execState, loadGraph, start, runToNode, submitInput, reset };
 }

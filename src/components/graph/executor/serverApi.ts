@@ -135,13 +135,21 @@ async function consumeSse(
   if (buffer.trim()) flushFrame(buffer);
 }
 
-/** 流式启动图执行,逐节点回调进度事件。 */
+/**
+ * 流式启动图执行,逐节点回调进度事件。
+ * targetNode 非空时为「运行到此节点」:仅执行该节点及其祖先,其余节点跳过。
+ */
 export async function startExecutionStream(
   graphJson: OpalJson,
   onEvent: (evt: ServerStreamEvent) => void,
-  threadId?: string
+  threadId?: string,
+  targetNode?: string
 ): Promise<void> {
-  return consumeSse('/execute/start_stream', { graph_json: graphJson, thread_id: threadId }, onEvent);
+  return consumeSse(
+    '/execute/start_stream',
+    { graph_json: graphJson, thread_id: threadId, target_node: targetNode },
+    onEvent
+  );
 }
 
 /** 流式提交用户输入并继续执行,逐节点回调进度事件。 */

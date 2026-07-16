@@ -343,6 +343,10 @@ class OpalExecutor:
         self.compiled_graph = self._build_langgraph()
         self.thread_id = "default"
 
+        # run-to-here 执行作用域:仅执行「目标节点及其全部祖先」,其余节点一律跳过。
+        # None 表示不限制(整图执行)。由 stream_start(target_node=...) 设定,resume 时保持。
+        self._run_scope: Optional[set] = None
+
     def _build_langgraph(self):
         """根据 Opal JSON 构建 LangGraph StateGraph。"""
 
@@ -407,6 +411,10 @@ class OpalExecutor:
            分支在上游已被整体裁剪),就跳过;否则执行。
         3. 源节点(无任何父节点):总是执行。
         """
+        # run-to-here 作用域限制:目标节点及其祖先之外的一律跳过。
+        if self._run_scope is not None and node_id not in self._run_scope:
+            return False
+
         routers = self.routers_of.get(node_id, [])
         if routers:
             decisions = state.get("route_decisions", {}) or {}
@@ -669,6 +677,33 @@ class OpalExecutor:
                 return False
         return True
 
+    def _ancestors_closure(self, node_id: str) -> set:
+        """计算「运行到此节点」所需的执行作用域:目标节点及其全部上游祖先。
+
+        沿数据父边(parents_map)与路由源边(routers_of)反向遍历。两类上游都要
+        纳入:数据父提供 prompt 占位符所需的产出;路由源负责做出选中本节点的路由决定
+        (否则 _should_execute 会因 route_decisions 缺失而把目标判为跳过)。
+        """
+        scope: set = set()
+        stack = [node_id]
+        while stack:
+            nid = stack.pop()
+            if nid in scope or nid not in self.nodes_config:
+                continue
+            scope.add(nid)
+            for parent in self.parents_map.get(nid, []):
+                stack.append(parent)
+            for router in self.routers_of.get(nid, []):
+                stack.append(router)
+        return scope
+
+    def _set_run_scope(self, target_node: Optional[str]) -> None:
+        """设置「运行到此节点」的执行作用域。target_node 为空或非法时清除限制(整图执行)。"""
+        if target_node and target_node in self.nodes_config:
+            self._run_scope = self._ancestors_closure(target_node)
+        else:
+            self._run_scope = None
+
     # ------------------------------------------------------------------
     # 公开 API
     # ------------------------------------------------------------------
@@ -714,7 +749,7 @@ class OpalExecutor:
 
         return self._get_current_state(thread_id)
 
-    def stream_start(self, thread_id: str = "default"):
+    def stream_start(self, thread_id: str = "default", target_node: Optional[str] = None):
         """
         流式启动执行。以生成器形式逐节点产出事件,便于前端通过 SSE 实时感知进度。
 
@@ -724,8 +759,12 @@ class OpalExecutor:
             {"event": "completed", "node_outputs": {...}}
             {"event": "error", "error": ...}
         每个事件都带 completed_nodes / current_node,方便前端重建节点状态。
+
+        target_node 非空时启用「运行到此节点」:仅执行目标节点及其全部祖先,
+        其余节点(含目标下游)全部跳过并发 node_skipped 事件。
         """
         self.thread_id = thread_id
+        self._set_run_scope(target_node)
         config = {"configurable": {"thread_id": thread_id}}
         initial_state = {
             "node_outputs": {},

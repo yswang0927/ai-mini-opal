@@ -77,6 +77,16 @@ const edgeHighlightOptions = {
   style: {...defaultEdgeOptions.style, stroke: '#000000'},
   markerEnd: {...defaultEdgeOptions.markerEnd, color: '#000000'}
 };
+// 边执行完成样式：绿色实线(去掉虚线),表示该条数据流已产出
+const edgeCompletedOptions = {
+  animated: false,
+  style: {
+    ...defaultEdgeOptions.style,
+    stroke: '#16a34a',
+    strokeDasharray: undefined,
+  },
+  markerEnd: {...defaultEdgeOptions.markerEnd, color: '#16a34a'},
+};
 
 const NODE_WIDTH = 300;
 
@@ -100,7 +110,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
   const chatListDomRef = useRef(null);
   const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
-  const { setSelectedNode, opalPayload, setOpalData } = useEditorContext();
+  const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
 
   const opalData = opalPayload.data;
 
@@ -490,6 +500,38 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       }, 100);
     }
   }, [chatHistory]);
+
+  useEffect(() => {
+    // 监听节点的执行状态, 将已完成节点的前置边都变为实线
+    // 如果状态发生重置, 则重置所有边的样式为默认样式
+    const statuses = execState.nodeStatuses;
+
+    // idle/ready 视为「未执行/已重置」:所有边恢复默认虚线样式
+    if (execState.status === 'idle' || execState.status === 'ready' || Object.keys(statuses).length === 0) {
+      setEdges((prevEdges) =>
+        prevEdges.map((edge) => ({
+          ...edge,
+          animated: false,
+          style: defaultEdgeOptions.style,
+          markerEnd: defaultEdgeOptions.markerEnd,
+        }))
+      );
+      return;
+    }
+
+    // 边的「后继节点」(target)已完成 => 该条前置边变实线;否则维持默认样式
+    setEdges((prevEdges) =>
+      prevEdges.map((edge) => {
+        const done = statuses[edge.target] === 'completed';
+        return {
+          ...edge,
+          animated: edgeCompletedOptions.animated,
+          style: done ? edgeCompletedOptions.style : defaultEdgeOptions.style,
+          markerEnd: done ? edgeCompletedOptions.markerEnd : defaultEdgeOptions.markerEnd,
+        };
+      })
+    );
+  }, [execState, setEdges]);
 
   return (
       <div className="absolute inset-0"

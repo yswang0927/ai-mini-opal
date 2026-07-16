@@ -25,6 +25,7 @@ type EditorContextValue = {
     execState: ExecutionState;
     loadGraph: (graphJson: OpalJson | null) => void;
     startExecution: () => Promise<void>;
+    runToNode: (targetNode: string) => Promise<void>;
     submitInput: (inputs: Record<string, string>) => void;
     resetExecutor: () => void;
 };
@@ -38,7 +39,7 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
     const [opalPayload, setOpalPayload] = useState<OpalDataPayload>({ data: null, silent: false });
     const [savingState, setSavingState] = useState<SaveState|null>(null);
     const [selectedNode, setSelectedNode] = useState<any>(null);
-    const { execState, loadGraph, start: startExecution, submitInput, reset: resetExecutor } = useGraphExecutor();
+    const { execState, loadGraph, start: startExecution, runToNode, submitInput, reset: resetExecutor } = useGraphExecutor();
 
     const isDataFetchingRef = useRef(true);
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,6 +51,16 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
     const toggleSidebar = () => {
         setSidebarShow(prev => !prev);
     };
+
+    // 「运行到此节点」:确保当前画布的图已加载进执行器,再运行到目标节点。
+    // 直接在节点上点击运行时,用户可能尚未打开预览(loadGraph 未触发),这里兜底加载。
+    const runToNodeSafe = useCallback((targetNode: string) => {
+        const data = opalPayload.data;
+        if (data) {
+            loadGraph(data);
+        }
+        return runToNode(targetNode);
+    }, [opalPayload.data, loadGraph, runToNode]);
 
     useEffect(() => {
         if (!id) return;
@@ -104,7 +115,7 @@ export const EditorProvider: React.FC<{ id: string; children: React.ReactNode }>
             dataLoading, savingState,
             opalPayload, setOpalData,
             selectedNode, setSelectedNode,
-            execState, loadGraph, startExecution, submitInput, resetExecutor,
+            execState, loadGraph, startExecution, runToNode: runToNodeSafe, submitInput, resetExecutor,
         }}>
             {children}
         </EditorContext.Provider>
