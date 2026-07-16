@@ -1,3 +1,4 @@
+dotenv
 langchain
 langchain-openai
 uvicorn
@@ -5,6 +6,11 @@ fastapi
 duckdb
 openpyxl
 pandas
+# skills:docx,xlsx,pptx,pdf required
 pypdf
 pdfplumber
-PIL
+defusedxml
+pdf2image
+pypdfium2
+lxml
+pandoc

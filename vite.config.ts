@@ -21,6 +21,10 @@ export default defineConfig(({ command }) => {
   const sourcemap = isServe || !!process.env.VSCODE_DEBUG
 
   return {
+    server: {
+      host: '127.0.0.1',
+      port: 15173
+    },
     resolve: {
       alias: {
         '@': path.join(__dirname, 'src'),

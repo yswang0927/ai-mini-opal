@@ -78,7 +78,11 @@ def _replace_dict(existing: dict, new: dict) -> dict:
 _PLACEHOLDER_RE = re.compile(r'\{\{([^{}]*)\}\}')
 
 
-def resolve_placeholders(text: str, outputs: Dict[str, str]) -> str:
+def resolve_placeholders(
+    text: str,
+    outputs: Dict[str, str],
+    skipped_nodes: Optional[set] = None,
+) -> str:
     """将 prompt 文本中的占位符解析处理。
 
     占位符是 JSON 对象,字段顺序不固定,例如:
@@ -105,6 +109,8 @@ def resolve_placeholders(text: str, outputs: Dict[str, str]) -> str:
         if ptype == "in":
             step_id = spec.get("path", "")
             title = spec.get("title", step_id)
+            if skipped_nodes and step_id in skipped_nodes:
+                return "[Skipped]"
             return str(outputs.get(step_id, f"[{title}: no output yet]"))
         # tool / asset / 其它类型:执行器不需要,移除
         return ""
@@ -497,7 +503,8 @@ class OpalExecutor:
 
             # 获取 prompt 并解析占位符
             prompt_content = config.get("config$prompt", {}).get("content", "")
-            resolved_prompt = resolve_placeholders(prompt_content, outputs)
+            skipped = set(state.get("skipped_nodes", []) or [])
+            resolved_prompt = resolve_placeholders(prompt_content, outputs, skipped)
 
             # 构建消息
             messages = [current_date_system_message()]
@@ -639,7 +646,8 @@ class OpalExecutor:
 
             # 获取 design brief 并解析占位符
             brief_content = config.get("text", {}).get("content", "")
-            resolved_brief = resolve_placeholders(brief_content, outputs)
+            skipped = set(state.get("skipped_nodes", []) or [])
+            resolved_brief = resolve_placeholders(brief_content, outputs, skipped)
 
             # 构建消息: 使用 render 节点的 system instruction
             messages = [current_date_system_message()]

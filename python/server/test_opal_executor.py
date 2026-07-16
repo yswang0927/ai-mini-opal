@@ -130,6 +130,12 @@ class TestResolvePlaceholders(unittest.TestCase):
         result = resolve_placeholders(text, {})
         self.assertIn("{{not valid json}}", result)
 
+    def test_skipped_placeholder_resolved_to_skipped(self):
+        text = 'Topic: {{"type":"in","path":"node_1","title":"My Input"}}'
+        outputs = {}
+        result = resolve_placeholders(text, outputs, skipped_nodes={"node_1"})
+        self.assertEqual(result, "Topic: [Skipped]")
+
 
 class TestExecutorBuild(unittest.TestCase):
     """测试 executor 的图构建(不触发 LLM)。"""

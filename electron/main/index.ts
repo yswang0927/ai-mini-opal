@@ -23,7 +23,10 @@ process.env.APP_ROOT = path.join(__dirname, '../..');
 
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
-export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+const devUrl = process.env.VITE_DEV_SERVER_URL;
+export const VITE_DEV_SERVER_URL = devUrl && devUrl.includes('localhost')
+  ? devUrl.replace('localhost', '127.0.0.1')
+  : devUrl;
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
@@ -32,12 +35,12 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 // 集成embedded-python环境
 const isPackaged: boolean = app.isPackaged;
 const pythonDir: string = isPackaged
-    ? path.join(process.resourcesPath, 'python')
-    : path.join(process.env.APP_ROOT, 'python', 'runtime');
+  ? path.join(process.resourcesPath, 'python')
+  : path.join(process.env.APP_ROOT, 'python', 'runtime');
 
 const pythonExe: string = process.platform === 'win32'
-    ? path.join(pythonDir, 'python.exe')
-    : path.join(pythonDir, 'bin', 'python3');
+  ? path.join(pythonDir, 'python.exe')
+  : path.join(pythonDir, 'bin', 'python3');
 
 // 全局变量用来存放进程实例
 let pyProcess: any = null;
@@ -87,7 +90,7 @@ const indexHtml = path.join(RENDERER_DIST, 'index.html');
 
 async function createWindow() {
   win = new BrowserWindow({
-    title: 'Main window',
+    title: 'Mini Opal',
     width: 1400,
     height: 800,
     autoHideMenuBar: VITE_DEV_SERVER_URL ? false : true,
@@ -95,7 +98,7 @@ async function createWindow() {
     webPreferences: {
       preload,
       // 保持上下文隔离开启，增强安全性
-      contextIsolation: true, 
+      contextIsolation: true,
       nodeIntegration: false,
     },
   });
@@ -246,15 +249,15 @@ ipcMain.handle('delete_file', async (_, filepath: string) => {
 ipcMain.handle('list-apps', async () => {
   const userDataPath = app.getPath('userData');
   const appsDir = path.join(userDataPath, 'apps');
-  
+
   // Ensure apps directory exists
   await fs.mkdir(appsDir, { recursive: true });
-  
+
   try {
     const files = await fs.readdir(appsDir);
     const jsonFiles = files.filter(file => file.endsWith('.json'));
     const apps = [];
-    
+
     for (const file of jsonFiles) {
       const filePath = path.join(appsDir, file);
       try {
@@ -263,7 +266,7 @@ ipcMain.handle('list-apps', async () => {
           fs.readFile(filePath, 'utf-8'),
           fs.stat(filePath)
         ]);
-        
+
         const data = JSON.parse(content);
         apps.push({
           id: file.replace('.json', ''),
@@ -275,13 +278,13 @@ ipcMain.handle('list-apps', async () => {
         console.error(`Failed to read ${file}:`, e);
       }
     }
-    
+
     // 3. 按照修改时间降序排序 (b - a 表示降序，即最新的在前)
     apps.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-    
+
     // 4. 如果不需要把 mtime 返回给前端，可以在这里将其清理掉（可选）
     return apps.map(({ mtime, ...appData }) => appData);
-    
+
   } catch (e) {
     console.error('Failed to list apps:', e);
     return [];
