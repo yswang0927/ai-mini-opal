@@ -13,6 +13,12 @@ button, input[type="text"], input[type="password"], textarea {
   font-size: var(--font-size);
 }
 
+button:disabled {
+  opacity: 0.6;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
+}
+
 /* 通用的layout-resizer样式 */
 .layout-resizer {
   position: absolute;

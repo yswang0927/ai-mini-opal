@@ -61,8 +61,8 @@ export default function Header() {
                             : ((SaveState.Failed === savingState) ? t('保存失败') : ''))
                     }
                 </div>
-                <button className="nav-share"><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
-                <button><EllipsisVertical size={18} strokeWidth={1.5} /></button>
+                <button className="nav-share" disabled><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
+                {/*<button><EllipsisVertical size={18} strokeWidth={1.5} /></button>*/}
                 <div style={{marginLeft: '0.5rem'}}>
                     <button onClick={toggleSidebar}>{ (sidebarShow ? <PanelRightClose size={18} strokeWidth={1.5} /> : <PanelRightOpen size={18} strokeWidth={1.5} />) }</button>
                 </div>
