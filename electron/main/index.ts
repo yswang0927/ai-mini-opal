@@ -100,6 +100,7 @@ async function createWindow() {
       // 保持上下文隔离开启，增强安全性
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true
     },
   });
 
