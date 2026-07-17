@@ -15,6 +15,126 @@
   font-display: swap;
 }
 
+:root,
+[data-theme="light"] {
+  /* ---------- 1. 背景色 Background ---------- */
+  --color-bg-primary: #faf9f5;      /* 页面底色:暖米白 */
+  --color-bg-secondary: #f0eee6;    /* 卡片/面板:比页面深一点 */
+  --color-bg-tertiary: #e8e5da;     /* 悬浮层/模态框/输入框:更深一级 */
+  --color-bg-elevated: #ffffff;     /* 弹出层/下拉菜单:比页面亮(用于强调层级) */
+ 
+  /* ---------- 2. 文字色 Text/Foreground ---------- */
+  --color-text-primary: #1f1e1c;    /* 主要文字:标题/正文 */
+  --color-text-secondary: #6b6a63;  /* 次要文字:说明/辅助信息 */
+  --color-text-disabled: #a8a69c;   /* 禁用/占位文字 */
+  --color-text-inverse: #faf9f5;    /* 反色文字:深色/主色背景上使用 */
+ 
+  /* ---------- 3. 边框/分割线 Border / Divider ---------- */
+  --color-border-default: #ddd9cc;  /* 常规边框 */
+  --color-border-focus: #cc785c;    /* 强调边框:输入框聚焦(品牌色) */
+  --color-divider: #e8e5da;         /* 分割线:比边框更淡 */
+ 
+  /* ---------- 4. 品牌色/主色 Brand / Primary ---------- */
+  --color-primary: #cc785c;         /* 主色:陶土橙 Clay */
+  --color-primary-hover: #b8654a;   /* hover:加深 */
+  --color-primary-active: #a5573e;  /* active/pressed:更深 */
+  --color-primary-disabled: #e0bcae;/* disabled:降饱和变浅 */
+  --color-primary-subtle: rgba(204, 120, 92, 0.1); /* 浅色底:选中态背景 */
+ 
+  /* ---------- 5. 语义色/功能色 Semantic ---------- */
+  --color-success: #3d8a5f;
+  --color-success-bg: rgba(61, 138, 95, 0.1);
+  --color-success-text: #2a6344;
+ 
+  --color-warning: #b8862e;
+  --color-warning-bg: rgba(184, 134, 46, 0.12);
+  --color-warning-text: #8f6a23;
+ 
+  --color-danger: #c0392b;
+  --color-danger-bg: rgba(192, 57, 43, 0.1);
+  --color-danger-text: #9c2e22;
+ 
+  --color-info: #3d6fa8;
+  --color-info-bg: rgba(61, 111, 168, 0.1);
+  --color-info-text: #2c5480;
+ 
+  /* ---------- 6. 交互状态色 Interactive States ---------- */
+  --color-state-hover: rgba(31, 30, 28, 0.05);   /* 通用 hover 遮罩 */
+  --color-state-active: rgba(31, 30, 28, 0.1);   /* 通用 active 遮罩 */
+  --color-state-focus-ring: rgba(204, 120, 92, 0.35); /* focus ring */
+  --color-state-disabled-bg: #ece9df;
+  --color-state-disabled-text: #a8a69c;
+ 
+  /* ---------- 7. 阴影/遮罩 Shadow / Overlay ---------- */
+  --shadow-sm: 0 1px 2px rgba(31, 30, 28, 0.06);
+  --shadow-md: 0 2px 8px rgba(31, 30, 28, 0.08);
+  --shadow-lg: 0 8px 24px rgba(31, 30, 28, 0.12);
+  --color-overlay: rgba(31, 30, 28, 0.4); /* Modal 遮罩层 */
+}
+ 
+/* ============================================
+   暗色主题
+   注意:暗色背景采用暖棕灰(而非纯黑/纯灰),
+   层级通过亮度递增体现;阴影减弱,依赖边框/
+   亮度差异来区分层次
+   ============================================ */
+[data-theme="dark"] {
+  /* ---------- 1. 背景色 Background ---------- */
+  --color-bg-primary: #1f1e1c;      /* 页面底色:暖炭灰 */
+  --color-bg-secondary: #262521;    /* 卡片/面板:略亮 */
+  --color-bg-tertiary: #302f2a;     /* 悬浮层/模态框/输入框:再亮一级 */
+  --color-bg-elevated: #383731;     /* 弹出层/下拉菜单:最亮的容器层级 */
+ 
+  /* ---------- 2. 文字色 Text/Foreground ---------- */
+  --color-text-primary: #f0eee6;    /* 主要文字 */
+  --color-text-secondary: #a8a69c;  /* 次要文字 */
+  --color-text-disabled: #6b6a63;   /* 禁用/占位文字 */
+  --color-text-inverse: #1f1e1c;    /* 反色文字:用于亮色按钮上的字 */
+ 
+  /* ---------- 3. 边框/分割线 Border / Divider ---------- */
+  --color-border-default: #3d3c36;
+  --color-border-focus: #e0906f;    /* 暗色下品牌色略提亮,避免刺眼但保持可辨识 */
+  --color-divider: #302f2a;
+ 
+  /* ---------- 4. 品牌色/主色 Brand / Primary ---------- */
+  --color-primary: #e0906f;         /* 暗色下品牌色提亮、降饱和 */
+  --color-primary-hover: #e8a488;
+  --color-primary-active: #f0b8a0;
+  --color-primary-disabled: #5c4a40;
+  --color-primary-subtle: rgba(224, 144, 111, 0.15);
+ 
+  /* ---------- 5. 语义色/功能色 Semantic ---------- */
+  --color-success: #5cb383;
+  --color-success-bg: rgba(92, 179, 131, 0.12);
+  --color-success-text: #7ec7a0;
+ 
+  --color-warning: #d4a24e;
+  --color-warning-bg: rgba(212, 162, 78, 0.14);
+  --color-warning-text: #e0b673;
+ 
+  --color-danger: #e0685a;
+  --color-danger-bg: rgba(224, 104, 90, 0.14);
+  --color-danger-text: #ea8a7e;
+ 
+  --color-info: #6d9bd1;
+  --color-info-bg: rgba(109, 155, 209, 0.14);
+  --color-info-text: #8fb3dd;
+ 
+  /* ---------- 6. 交互状态色 Interactive States ---------- */
+  --color-state-hover: rgba(240, 238, 230, 0.06);
+  --color-state-active: rgba(240, 238, 230, 0.12);
+  --color-state-focus-ring: rgba(224, 144, 111, 0.4);
+  --color-state-disabled-bg: #2b2a26;
+  --color-state-disabled-text: #6b6a63;
+ 
+  /* ---------- 7. 阴影/遮罩 Shadow / Overlay ---------- */
+  /* 暗色模式阴影明显减弱,更多依赖背景层级/边框来区分层次 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --color-overlay: rgba(0, 0, 0, 0.6); /* 暗色下遮罩更深,增强对比 */
+}
+
 :root {
   color-scheme: light;
   font-synthesis: none;
@@ -23,7 +143,7 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
-  --bg-color: #F8F8F6;
+  --bg-color: var(--color-bg-primary);
   --font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-family-en-title: 'GoogleSansFlex', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-size: 0.875rem;

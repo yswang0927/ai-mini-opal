@@ -18,7 +18,7 @@ import {
   Proportions,
   MessageSquareText,
   SquarePlus,
-  SendHorizontal,
+  ArrowUp,
   Undo2,
   Redo2
 } from 'lucide-react';
@@ -535,7 +535,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
   return (
       <div className="absolute inset-0"
-        style={{ backgroundColor: '#f8fafc', overflow: 'hidden' }}
+        style={{ overflow: 'hidden' }}
         ref={graphDomRef}
         onMouseDown={() => setChatListCollapsed(true)}
       >
@@ -583,7 +583,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           fitView
         >
           {/* 背景网格点 */}
-          <Background color="#C5CBD3" gap={20} size={1} />
+          <Background bgColor="var(--color-bg-primary)" color="var(--color-bg-tertiary)" gap={20} size={1} />
           <Controls position="bottom-right">
             <ControlButton onClick={() => doLayout()} title={t('自动布局')}><LayoutDagIcon /></ControlButton>
           </Controls>
@@ -639,8 +639,12 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
                 }
               }}
             />
-            <button className="graph-chatbox-submit" disabled={(chatting || chatInput.trim() === '')} onClick={handleChatSubmit}>
-              {chatting ? <span className="chatting-spinner"><Spinner /></span> : <SendHorizontal size={24} strokeWidth={1.5} />}
+            <button type="button" className="graph-chatbox-submit" 
+              onClick={handleChatSubmit} 
+              disabled={(chatting || chatInput.trim() === '')} 
+              title={t("发送消息") + ' Ctrl+Enter'}
+            >
+              {chatting ? <span className="chatting-spinner"><Spinner /></span> : <ArrowUp size={20} strokeWidth={1.5} />}
             </button>
           </div>
 

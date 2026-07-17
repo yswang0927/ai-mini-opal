@@ -31,7 +31,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from opal_graph import GraphValidationError, OpalGraphState
 from opal_skills import discover_skills
@@ -52,11 +52,70 @@ def _err(message: str) -> str:
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
 
 
+def _coerce_str_to_list(value: Any) -> Any:
+    """把 LLM 误传成字符串的列表参数纠正成真正的 list。
+
+    一些指令跟随能力较弱的模型(如部分 Qwen 版本)在 function calling 时,
+    会把列表参数写成 JSON 字符串,例如 tags 传成 '["health","bmi"]' 而不是
+    ["health","bmi"],导致工具校验失败,而模型往往读不懂错误、直接放弃重试。
+
+    这里在 pydantic 校验之前统一做一次宽容转换:
+    - '["a","b"]' / "['a','b']"  -> ["a", "b"]
+    - "a, b, c"                   -> ["a", "b", "c"]
+    - "a"                         -> ["a"]
+    - 已经是 list / None            -> 原样返回
+    """
+    if not isinstance(value, str):
+        return value
+
+    text = value.strip()
+    if text == "":
+        return []
+
+    # 优先尝试按 JSON 解析(兼容单引号写法)
+    if (text.startswith("[") and text.endswith("]")):
+        for candidate in (text, text.replace("'", '"')):
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, list):
+                    return [str(item) for item in parsed]
+            except (ValueError, TypeError):
+                pass
+
+    # 退化处理:逗号分隔的字符串 -> 列表;否则单元素列表
+    if "," in text:
+        return [part.strip() for part in text.split(",") if part.strip()]
+    return [text]
+
+
+class _CoercingArgs(BaseModel):
+    """所有工具参数模型的基类。
+
+    在字段校验前扫描本模型中被标注为 List 的字段,若 LLM 把它们误传成了
+    字符串,则自动转成列表(见 _coerce_str_to_list)。这样即使模型
+    function calling 参数格式不规范,工具依然能正常执行,避免因一次
+    格式错误就中断整个 agent loop。
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_list_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        for field_name, field_info in cls.model_fields.items():
+            annotation = str(field_info.annotation)
+            if "List" not in annotation and "list" not in annotation:
+                continue
+            if field_name in data and isinstance(data[field_name], str):
+                data[field_name] = _coerce_str_to_list(data[field_name])
+        return data
+
+
 # =======================================
 # 2.1 graph_get_overview
 # =======================================
 
-class _GetOverviewArgs(BaseModel):
+class _GetOverviewArgs(_CoercingArgs):
     pass
 
 
@@ -83,7 +142,7 @@ def _make_get_overview_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.2 create_input_step
 # =======================================
 
-class _CreateInputStepArgs(BaseModel):
+class _CreateInputStepArgs(_CoercingArgs):
     title: str = Field(..., description="The node title, which must be brief and clear (e.g., 'Height Cm', 'User Email', 'Upload File'). "
                                         "This is the exact title users will see on the canvas.")
     question_text: str = Field(..., description="The question or prompt text displayed to the user "
@@ -165,13 +224,13 @@ def _build_skills_field_description() -> str:
     return "\n".join(lines)
 
 
-class _RouteSpec(BaseModel):
+class _RouteSpec(_CoercingArgs):
     target_step_id: str = Field(..., description="The step_id of the target routing node.")
     label: str = Field(..., description="The semantic label of this route (e.g., 'Morning'/'Evening'). "
                                         "This will be incorporated into the prompt to guide the agent on when to select this route.")
 
 
-class _CreateAgentStepArgs(BaseModel):
+class _CreateAgentStepArgs(_CoercingArgs):
     title: str = Field(..., description="The node title summarizing the responsibility of this step (e.g., 'Calculate BMI And Category').")
     prompt: str = Field(
         ...,
@@ -301,7 +360,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.4 create_render_step
 # =======================================
 
-class _CreateRenderStepArgs(BaseModel):
+class _CreateRenderStepArgs(_CoercingArgs):
     title: str = Field(..., description="The node title, such as 'Design Dashboard'.")
     parents: List[str] = Field(
         default_factory=list,
@@ -376,7 +435,7 @@ def _make_create_render_step_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.5 edit_step
 # =======================================
 
-class _EditStepArgs(BaseModel):
+class _EditStepArgs(_CoercingArgs):
     step_id: str = Field(..., description="The step_id of the target node.")
     title: Optional[str] = Field(None, description="A new title for the node (optional).")
     prompt: Optional[str] = Field(None, description="The new prompt or design_brief text (optional; the specific meaning of this field depends on the node type).")
@@ -434,7 +493,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.6 remove_step
 # =======================================
 
-class _RemoveStepArgs(BaseModel):
+class _RemoveStepArgs(_CoercingArgs):
     step_id: str = Field(..., description="The step_id of the node to be deleted.")
 
 
@@ -460,7 +519,7 @@ def _make_remove_step_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.7 manage_connection
 # =======================================
 
-class _ManageConnectionArgs(BaseModel):
+class _ManageConnectionArgs(_CoercingArgs):
     action: str = Field(..., description="The action to perform: 'add' or 'remove'.")
     connection_type: str = Field(..., description="The type of connection: 'parent' (data dependency) or 'route' (conditional branching).")
     source_step_id: str = Field(..., description="The step_id of the source (origin) node.")
@@ -510,7 +569,7 @@ def _make_manage_connection_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.8 set_graph_metadata
 # =======================================
 
-class _SetGraphMetadataArgs(BaseModel):
+class _SetGraphMetadataArgs(_CoercingArgs):
     title: Optional[str] = Field(None, description="The title of the graph.")
     description: Optional[str] = Field(None, description="The description of the graph.")
     tags: Optional[List[str]] = Field(None, description="A list of tags associated with the graph.")
@@ -538,7 +597,7 @@ def _make_set_graph_metadata_tool(graph: OpalGraphState) -> StructuredTool:
 # 2.9 register_asset (v4新增)
 # =======================================
 
-class _RegisterAssetArgs(BaseModel):
+class _RegisterAssetArgs(_CoercingArgs):
     title: str = Field(..., description="The display name of the asset, such as 'Product_Specification.pdf' or 'Brand_Promo_Video'.")
     kind: str = Field(
         ...,

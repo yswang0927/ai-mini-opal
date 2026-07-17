@@ -4,10 +4,10 @@
     top: 0;
     z-index: 2;
     width: 100%;
-    background-color: #fff;
+    background-color: var(--color-bg-elevated);
     padding: 0 var(--padding-md);
     height: 50px;
-    border-bottom: 1px solid rgb(226, 226, 226);
+    border-bottom: 1px solid var(--color-divider);
 }
 .home-header::after {
     content: "";

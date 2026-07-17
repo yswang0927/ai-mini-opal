@@ -214,10 +214,10 @@ export default function Home() {
                 <div className="board-actions" onClick={(e) => e.stopPropagation()}>
                   <PopoverNext placement='bottom' content={
                     <Menu>
-                      <MenuItem icon="trash" text={t('删除')} intent="danger" onClick={() => openAction(app, 'delete')} />
-                      <MenuDivider />
                       <MenuItem icon="duplicate" text={t('复制副本')} onClick={() => openAction(app, 'duplicate')} />
                       <MenuItem icon="export" text={t('导出')} onClick={() => openAction(app, 'export')} />
+                      <MenuDivider />
+                      <MenuItem icon="trash" text={t('删除')} intent="danger" onClick={() => openAction(app, 'delete')} />
                     </Menu>
                   }>
                     <Button variant="minimal" icon="more" />

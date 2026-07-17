@@ -219,7 +219,7 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 
     if (execLog.length === 0 && !currentNodeId) {
         return (
-            <div className="console-empty">
+            <div className="empty-state">
                 <p>{t('运行预览后，节点执行日志将显示在这里')}</p>
             </div>
         );
