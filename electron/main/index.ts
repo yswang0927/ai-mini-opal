@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, screen } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -89,10 +89,16 @@ const preload = path.join(__dirname, '../preload/index.mjs');
 const indexHtml = path.join(RENDERER_DIST, 'index.html');
 
 async function createWindow() {
+  // 获取主屏幕的工作区尺寸（不含任务栏等）
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+  const winWidth = Math.round(screenWidth * 0.9);
+  const winHeight = Math.round(screenHeight * 0.9);
+
   win = new BrowserWindow({
     title: 'Mini Opal',
-    width: 1400,
-    height: 800,
+    width: winWidth,
+    height: winHeight,
     autoHideMenuBar: VITE_DEV_SERVER_URL ? false : true,
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
