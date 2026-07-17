@@ -32,11 +32,18 @@ from pydantic import BaseModel, Field
 from langchain_core.tools import StructuredTool
 
 from opal_skills import run_skill_script
+from logger import get_logger
 
 
-# ---------------------------------------------------------------------------
+# ----------------------------------------------
+# 日志配置:将工具调用日志写入当前目录下的 server.log
+# ----------------------------------------------
+logger = get_logger(__name__)
+
+
+# --------------------------------------------
 # code-execution — 本地受限 exec
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 # 允许在沙箱里使用的安全内建。刻意不暴露 open / __import__ / eval / exec 等。
 _SAFE_BUILTINS: Dict[str, Any] = {
@@ -85,11 +92,13 @@ class CodeExecutionInput(BaseModel):
 
 def _run_code(code: str) -> str:
     """在受限命名空间中执行代码,捕获 stdout / 异常。"""
-    print(f">>> tool_run_code: {code}")
+    logger.info(">>> tool_run_code: %s", code)
+
     safe_globals: Dict[str, Any] = {
         "__builtins__": _SAFE_BUILTINS,
         **_SAFE_MODULES,
     }
+
     stdout = io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout):
@@ -120,15 +129,16 @@ def _make_code_execution_tool() -> StructuredTool:
     )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # get-webpage — 抓取网页正文
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 class GetWebpageInput(BaseModel):
     url: str = Field(description="要抓取的网页 URL(http/https)。")
 
 
 def _get_webpage(url: str) -> str:
+    logger.info(">> tool_get_webpage: %s", url)
     if not url.lower().startswith(("http://", "https://")):
         return f"无效的 URL: {url}"
     try:
@@ -171,9 +181,9 @@ def _make_get_webpage_tool() -> StructuredTool:
     )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # search-web — 外部搜索(需配置 API)
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 class SearchWebInput(BaseModel):
     query: str = Field(description="搜索关键词。")
@@ -181,7 +191,7 @@ class SearchWebInput(BaseModel):
 
 def _search_web(query: str) -> str:
     """使用 Tavily API(若配置了 TAVILY_API_KEY)执行网络搜索。"""
-    print(f">>> tool_search_web: {query}")
+    logger.info(">> tool_search_web: %s", query)
     api_key = os.environ.get("TAVILY_API_KEY", "").strip()
     if not api_key:
         return (
@@ -225,9 +235,9 @@ def _make_search_web_tool() -> StructuredTool:
     )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # memory — 进程内简单记忆
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 class MemorySetInput(BaseModel):
     key: str = Field(description="记忆条目的键。")
@@ -266,9 +276,9 @@ def _make_memory_tools(store: Dict[str, str]) -> List[StructuredTool]:
     ]
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # read-file / write-file — 按绝对路径读写文件
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 # 单个文件读取上限(字节),防止读入超大文件撑爆上下文
 _FILE_MAX_BYTES = 1_000_000
@@ -281,6 +291,7 @@ class ReadFileInput(BaseModel):
 
 
 def _read_file(file_path: str) -> str:
+    logger.info(">> tool_read_file: %s", file_path)
     path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(path):
         return f"文件不存在: {file_path}"
@@ -303,6 +314,7 @@ class WriteFileInput(BaseModel):
 
 
 def _write_file(file_path: str, content: str) -> str:
+    logger.info(">> tool_write_file: %s \n %s", file_path, content)
     path = os.path.abspath(os.path.expanduser(file_path))
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -331,15 +343,16 @@ def _make_write_file_tool() -> StructuredTool:
     )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # search-internal — 内部检索占位
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 class SearchInternalInput(BaseModel):
     query: str = Field(description="内部知识库检索关键词。")
 
 
 def _search_internal(query: str) -> str:
+    logger.info(">> tool_search_internal: %s", query)
     return (
         "search-internal(内部检索)尚未接入后端知识库,无法返回结果。"
         "请基于已有上下文回答。"
@@ -355,9 +368,9 @@ def _make_search_internal_tool() -> StructuredTool:
     )
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # run_skill_script — 在声明的 skill 目录内执行脚本(受限)
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 
 class RunSkillScriptInput(BaseModel):
@@ -411,9 +424,9 @@ def build_skill_tools(skill_names: List[str]) -> List[StructuredTool]:
     return [_make_run_skill_script_tool(list(skill_names))]
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 # 工厂:按 tool path 构建运行时工具
-# ---------------------------------------------------------------------------
+# --------------------------------------------
 
 # prompt 占位符里出现的 path -> 构建器。
 def build_runtime_tools(

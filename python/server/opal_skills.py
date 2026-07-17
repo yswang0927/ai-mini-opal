@@ -33,7 +33,13 @@ import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, List, Optional
+from logger import get_logger
 
+
+# ----------------------------------------------
+# 日志配置:将工具调用日志写入当前目录下的 server.log
+# ----------------------------------------------
+logger = get_logger(__name__)
 
 # skills 根目录:默认取本文件同级的 skills/,可用环境变量覆盖。
 SKILLS_ROOT = os.environ.get(
@@ -230,7 +236,8 @@ def run_skill_script(
     else:
         cmd = [path, *args]
 
-    print(f">>> run_skill_script: {skill} -> {shlex.join(cmd)}")
+    logger.info(f">>> run_skill_script: %s -> %s", skill, shlex.join(cmd))
+
     try:
         proc = subprocess.run(
             cmd,

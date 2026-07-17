@@ -16,7 +16,7 @@ opie_tools.py
 
 设计要点:
 - 每个 tool 的 name / description / 参数 schema 与设计文档
-  《opie-tool-schema-design.md》第2节严格对应。
+  《opie-tool-schema-design.md》第2节对应。
 - 所有工具的返回值统一是 JSON 字符串(而不是 Python dict),
   因为 LangChain 的 ToolMessage content 期望是字符串;
   LLM 侧读到的是清晰的 JSON 文本,方便它在后续决策里引用 step_id。
@@ -28,8 +28,6 @@ opie_tools.py
 from __future__ import annotations
 
 import json
-import logging
-import os
 from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import StructuredTool
@@ -37,20 +35,13 @@ from pydantic import BaseModel, Field
 
 from opal_graph import GraphValidationError, OpalGraphState
 from opal_skills import discover_skills
+from logger import get_logger
 
 
-# ---------------------------------------------------------------------------
+# ------------------------------------------------
 # 日志配置:将工具调用日志写入当前目录下的 server.log
-# ---------------------------------------------------------------------------
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logger.setLevel(logging.INFO)
-    _log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.log")
-    _file_handler = logging.FileHandler(_log_path, encoding="utf-8")
-    _file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    )
-    logger.addHandler(_file_handler)
+# ------------------------------------------------
+logger = get_logger(__name__)
 
 
 def _ok(payload: Dict[str, Any]) -> str:
@@ -61,9 +52,9 @@ def _err(message: str) -> str:
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
 
 
-# ===========================================================================
+# =======================================
 # 2.1 graph_get_overview
-# ===========================================================================
+# =======================================
 
 class _GetOverviewArgs(BaseModel):
     pass
@@ -88,9 +79,9 @@ def _make_get_overview_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.2 create_input_step
-# ===========================================================================
+# =======================================
 
 class _CreateInputStepArgs(BaseModel):
     title: str = Field(..., description="The node title, which must be brief and clear (e.g., 'Height Cm', 'User Email', 'Upload File'). "
@@ -119,7 +110,7 @@ class _CreateInputStepArgs(BaseModel):
 
 def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
     def _run(title: str, question_text: str, modality: str = "Any", required: bool = True) -> str:
-        logger.info("Tools<create_input_step> invoked: %s - %s", title, question_text)
+        logger.info("Tools<create_input_step> invoked: title: %s , desc: %s", title, question_text)
         try:
             step = graph.add_input_step(
                 title=title, question_text=question_text, modality=modality, required=required
@@ -147,9 +138,9 @@ def _make_create_input_step_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.3 create_agent_step
-# ===========================================================================
+# =======================================
 
 
 def _build_skills_field_description() -> str:
@@ -271,7 +262,7 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
         routes: Optional[List[Dict[str, str]]] = None,
         asset_ids: Optional[List[str]] = None,
     ) -> str:
-        logger.info("Tools<create_agent_step> invoked: %s", title)
+        logger.info("Tools<create_agent_step> invoked: title: %s", title)
         try:
             step = graph.add_agent_step(
                 title=title,
@@ -306,9 +297,9 @@ def _make_create_agent_step_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.4 create_render_step
-# ===========================================================================
+# =======================================
 
 class _CreateRenderStepArgs(BaseModel):
     title: str = Field(..., description="The node title, such as 'Design Dashboard'.")
@@ -357,7 +348,7 @@ def _make_create_render_step_tool(graph: OpalGraphState) -> StructuredTool:
         asset_ids: Optional[List[str]] = None,
         render_mode: str = "Auto",
     ) -> str:
-        logger.info("Tools<create_render_step> invoked: %s", title)
+        logger.info("Tools<create_render_step> invoked: title: %s", title)
         try:
             step = graph.add_render_step(
                 title=title,
@@ -381,9 +372,9 @@ def _make_create_render_step_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.5 edit_step
-# ===========================================================================
+# =======================================
 
 class _EditStepArgs(BaseModel):
     step_id: str = Field(..., description="The step_id of the target node.")
@@ -411,7 +402,7 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
         asset_ids: Optional[List[str]] = None,
         render_mode: Optional[str] = None,
     ) -> str:
-        logger.info("Tools<edit_step> invoked: %s(%s)", step_id, title)
+        logger.info("Tools<edit_step> invoked: step_id: %s, title: %s", step_id, title)
         try:
             step = graph.edit_step(
                 step_id=step_id,
@@ -439,9 +430,9 @@ def _make_edit_step_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.6 remove_step
-# ===========================================================================
+# =======================================
 
 class _RemoveStepArgs(BaseModel):
     step_id: str = Field(..., description="The step_id of the node to be deleted.")
@@ -449,7 +440,7 @@ class _RemoveStepArgs(BaseModel):
 
 def _make_remove_step_tool(graph: OpalGraphState) -> StructuredTool:
     def _run(step_id: str) -> str:
-        logger.info("Tools<remove_step> invoked: %s", step_id)
+        logger.info("Tools<remove_step> invoked: step_id: %s", step_id)
         try:
             graph.remove_step(step_id)
             return _ok({"removed_step_id": step_id})
@@ -465,9 +456,9 @@ def _make_remove_step_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.7 manage_connection
-# ===========================================================================
+# =======================================
 
 class _ManageConnectionArgs(BaseModel):
     action: str = Field(..., description="The action to perform: 'add' or 'remove'.")
@@ -515,9 +506,9 @@ def _make_manage_connection_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.8 set_graph_metadata
-# ===========================================================================
+# =======================================
 
 class _SetGraphMetadataArgs(BaseModel):
     title: Optional[str] = Field(None, description="The title of the graph.")
@@ -531,7 +522,7 @@ def _make_set_graph_metadata_tool(graph: OpalGraphState) -> StructuredTool:
         description: Optional[str] = None,
         tags: Optional[List[str]] = None,
     ) -> str:
-        logger.info("Tools<set_graph_metadata> invoked: %s %s", title, description)
+        logger.info("Tools<set_graph_metadata> invoked: title: %s , description: %s", title, description)
         result = graph.set_metadata(title=title, description=description, tags=tags)
         return _ok(result)
 
@@ -543,9 +534,9 @@ def _make_set_graph_metadata_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 2.9 register_asset (v4新增)
-# ===========================================================================
+# =======================================
 
 class _RegisterAssetArgs(BaseModel):
     title: str = Field(..., description="The display name of the asset, such as 'Product_Specification.pdf' or 'Brand_Promo_Video'.")
@@ -613,9 +604,9 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
     )
 
 
-# ===========================================================================
+# =======================================
 # 工厂函数:一次性构建全部 9 个工具
-# ===========================================================================
+# =======================================
 
 def build_opie_tools(graph: OpalGraphState) -> List[StructuredTool]:
     """

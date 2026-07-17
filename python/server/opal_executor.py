@@ -267,6 +267,68 @@ def _build_route_tool(
 
 
 # ---------------------------------------------------------------------------
+# XML 风格工具调用解析 (Qwen / Hermes 等)
+# ---------------------------------------------------------------------------
+
+# 匹配 <tool_call>...</tool_call> 内的正文(可跨行)。
+_XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+
+
+def _parse_xml_tool_calls(content: str) -> List[Dict[str, Any]]:
+    """从 LLM 文本输出中解析 <tool_call>...</tool_call> 形式的工具调用。
+
+    部分模型(如阿里 Qwen、Hermes 系)不返回 OpenAI 原生的 tool_calls 结构,
+    而是把工具调用编码在正文里,常见几种写法:
+        标准: <tool_call>{"name": "get_weather", "arguments": {"city": "北京"}}</tool_call>
+        参数键为 parameters: <tool_call>{"name": "get_weather", "parameters": {...}}</tool_call>
+        扁平: <tool_call>{"name": "get_weather", "city": "北京"}</tool_call>
+    本函数把它们统一解析为与原生 tool_calls 对齐的 {"name", "args", "id"} 列表。
+    解析不到合法调用时返回空列表。
+    """
+    if not content or "<tool_call>" not in content:
+        return []
+
+    calls: List[Dict[str, Any]] = []
+    for idx, raw in enumerate(_XML_TOOL_CALL_RE.findall(content)):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+
+        name = data.get("name") or data.get("tool") or data.get("function")
+        if not name:
+            continue
+
+        # 优先取标准 arguments / parameters;否则把除 name 外的键视为扁平参数。
+        args = data.get("arguments")
+        if args is None:
+            args = data.get("parameters")
+        if args is None:
+            args = {
+                k: v
+                for k, v in data.items()
+                if k not in ("name", "tool", "function")
+            }
+        # arguments 有时被模型再次编码成 JSON 字符串,尝试二次解析。
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+        if not isinstance(args, dict):
+            args = {}
+
+        calls.append({"name": str(name), "args": args, "id": f"xmltool_{idx}"})
+
+    return calls
+
+
+# ---------------------------------------------------------------------------
 # OpalExecutor
 # ---------------------------------------------------------------------------
 
@@ -605,10 +667,21 @@ class OpalExecutor:
             convo.append(ai_msg)
 
             tool_calls = getattr(ai_msg, "tool_calls", None) or []
+
+            # 回退: 部分模型(如 Qwen)不返回原生 tool_calls,而是把工具调用
+            # 以 <tool_call>{...}</tool_call> 的形式编码在正文里,这里补充解析。
+            # 这类调用没有真实的 tool_call_id,不能用 ToolMessage 回填(OpenAI 兼容
+            # 接口会因缺少对应的 tool_calls 而报错),需以 HumanMessage 形式回传结果。
+            is_xml_tool_call = False
+            if not tool_calls:
+                tool_calls = _parse_xml_tool_calls(ai_msg.content or "")
+                is_xml_tool_call = bool(tool_calls)
+
             if not tool_calls:
                 return ai_msg.content or ""
 
             # 执行每个被请求的工具,回填结果
+            xml_results: List[str] = []
             for call in tool_calls:
                 name = call.get("name")
                 args = call.get("args", {}) or {}
@@ -621,9 +694,15 @@ class OpalExecutor:
                         tool_result = tool.invoke(args)
                     except Exception as e:  # noqa: BLE001
                         tool_result = f"[工具 {name} 执行出错: {e}]"
-                convo.append(
-                    ToolMessage(content=str(tool_result), tool_call_id=call_id)
-                )
+                if is_xml_tool_call:
+                    xml_results.append(f"工具 {name} 的返回结果:\n{tool_result}")
+                else:
+                    convo.append(
+                        ToolMessage(content=str(tool_result), tool_call_id=call_id)
+                    )
+
+            if is_xml_tool_call:
+                convo.append(HumanMessage(content="\n\n".join(xml_results)))
 
         # 达到最大轮数仍在调用工具 — 强制让 LLM 基于已有信息给出最终回答
         convo.append(
