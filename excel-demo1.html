@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超市订单数据地区销售额分析报告</title>
+    <style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+    }
+    </style>
+</head>
+<body>
+    <iframe srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh-CN&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+&lt;title&gt;超市订单数据地区销售额分析报告&lt;/title&gt;
+&lt;style&gt;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  :root {
+    --navy-900: #0A1930;
+    --navy-800: #0F2749;
+    --navy-700: #14355F;
+    --blue-600: #1E5FD9;
+    --blue-500: #2563EB;
+    --blue-400: #3B82F6;
+    --blue-300: #60A5FA;
+    --cyan-500: #06B6D4;
+    --emerald-500: #10B981;
+    --amber-500: #F59E0B;
+    --rose-500: #F43F5E;
+    --violet-500: #8B5CF6;
+    --slate-50: #F8FAFC;
+    --slate-100: #F1F5F9;
+    --slate-200: #E2E8F0;
+    --slate-400: #94A3B8;
+    --slate-600: #475569;
+    --slate-800: #1E293B;
+    --slate-900: #0F172A;
+  }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, &quot;Helvetica Neue&quot;, sans-serif;
+    background: #EEF2F7;
+    color: var(--slate-800);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    position: relative;
+    border-radius: 28px;
+    padding: 44px 40px;
+    background:
+      radial-gradient(1200px 400px at -10% -20%, rgba(96,165,250,0.35), transparent 60%),
+      radial-gradient(800px 400px at 110% 0%, rgba(6,182,212,0.25), transparent 60%),
+      linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 60%, var(--blue-600) 100%);
+    color: #fff;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(10, 25, 48, 0.35);
+  }
+  .hero::before {
+    content: &quot;&quot;;
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at 30% 30%, black 30%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-inner { position: relative; z-index: 2; }
+
+  .hero-top {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px; margin-bottom: 22px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 600; letter-spacing: 0.5px;
+  }
+  .brand-dot {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--blue-400), var(--cyan-500));
+    display: grid; place-items: center;
+    box-shadow: 0 8px 20px -6px rgba(6,182,212,0.6);
+  }
+  .brand-dot svg { width: 20px; height: 20px; }
+  .brand span { opacity: 0.85; font-size: 14px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px);
+    font-size: 13px;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #34D399; box-shadow: 0 0 10px #34D399; }
+
+  .hero h1 {
+    font-size: clamp(26px, 3.2vw, 40px);
+    font-weight: 700; letter-spacing: -0.5px;
+    line-height: 1.25; margin-bottom: 12px;
+  }
+  .hero h1 .accent {
+    background: linear-gradient(90deg, #93C5FD, #67E8F9);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p.subtitle {
+    color: rgba(255,255,255,0.75);
+    font-size: 15px; max-width: 720px;
+  }
+
+  .hero-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; margin-top: 28px;
+  }
+  .meta-card {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 16px; padding: 16px 18px;
+    backdrop-filter: blur(10px);
+  }
+  .meta-card .label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: rgba(255,255,255,0.6); margin-bottom: 6px;
+  }
+  .meta-card .value {
+    font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .meta-card .value .ico {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.12);
+  }
+
+  /* ===== SECTION ===== */
+  .section { margin-top: 32px; }
+  .section-head {
+    display: flex; align-items: end; justify-content: space-between;
+    gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .section-title {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 20px; font-weight: 700; color: var(--slate-900);
+  }
+  .section-title .num {
+    width: 32px; height: 32px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+    color: #fff; display: grid; place-items: center;
+    font-size: 14px; font-weight: 700;
+    box-shadow: 0 6px 14px -4px rgba(37,99,235,0.5);
+  }
+  .section-sub { color: var(--slate-600); font-size: 13px; }
+
+  /* ===== KPI BENTO ===== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+  }
+  .kpi {
+    position: relative;
+    background: #fff;
+    border-radius: 20px;
+    padding: 22px;
+    border: 1px solid var(--slate-200);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .kpi:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px -20px rgba(15, 23, 42, 0.15);
+  }
+  .kpi .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--slate-600);
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--slate-100);
+  }
+  .kpi .big {
+    font-size: 34px; font-weight: 800; letter-spacing: -1px;
+    margin-top: 10px; color: var(--slate-900);
+    line-height: 1.1;
+  }
+  .kpi .desc {
+    font-size: 13px; color: var(--slate-600); margin-top: 6px;
+  }
+  .kpi .trend {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; margin-top: 10px;
+    padding: 3px 8px; border-radius: 6px;
+  }
+  .trend.up { color: #065F46; background: #D1FAE5; }
+  .trend.down { color: #991B1B; background: #FEE2E2; }
+  .trend.neutral { color: #78350F; background: #FEF3C7; }
+
+  .kpi .bg-ico {
+    position: absolute; right: -10px; bottom: -20px;
+    width: 120px; height: 120px; opacity: 0.08;
+  }
+  .kpi.c1 { grid-column: span 3; }
+  .kpi.c2 { grid-column: span 3; }
+  .kpi.c3 { grid-column: span 3; }
+  .kpi.c4 { grid-column: span 3; }
+  .kpi.c5 { grid-column: span 4; }
+  .kpi.c6 { grid-column: span 4; }
+  .kpi.c7 { grid-column: span 4; }
+
+  .kpi.accent-blue { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #BFDBFE; }
+  .kpi.accent-cyan { background: linear-gradient(135deg, #ECFEFF, #CFFAFE); border-color: #A5F3FC; }
+  .kpi.accent-emerald { background: linear-gradient(135deg, #ECFDF5, #D1FAE5); border-color: #A7F3D0; }
+  .kpi.accent-violet { background: linear-gradient(135deg, #F5F3FF, #EDE9FE); border-color: #DDD6FE; }
+  .kpi.accent-amber { background: linear-gradient(135deg, #FFFBEB, #FEF3C7); border-color: #FDE68A; }
+  .kpi.accent-rose { background: linear-gradient(135deg, #FFF1F2, #FFE4E6); border-color: #FECDD3; }
+
+  /* ===== CHART PANELS ===== */
+  .panel {
+    background: #fff;
+    border-radius: 22px;
+    padding: 26px;
+    border: 1px solid var(--slate-200);
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 12px;
+  }
+  .panel-title { font-size: 16px; font-weight: 700; color: var(--slate-900); }
+  .panel-sub { font-size: 12px; color: var(--slate-600); margin-top: 2px; }
+
+  .two-col {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px;
+  }
+
+  /* Bar chart */
+  .bar-list { display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: grid; grid-template-columns: 60px 1fr 130px; gap: 12px; align-items: center; }
+  .bar-label {
+    font-size: 14px; font-weight: 600; color: var(--slate-800);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .bar-rank {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+    background: var(--slate-400);
+  }
+  .bar-rank.r1 { background: linear-gradient(135deg, #F59E0B, #F97316); }
+  .bar-rank.r2 { background: linear-gradient(135deg, #3B82F6, #2563EB); }
+  .bar-rank.r3 { background: linear-gradient(135deg, #10B981, #059669); }
+  .bar-rank.r4, .bar-rank.r5, .bar-rank.r6 { background: var(--slate-400); }
+
+  .bar-track {
+    height: 28px; background: var(--slate-100); border-radius: 8px;
+    overflow: hidden; position: relative;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 8px;
+    background: linear-gradient(90deg, var(--blue-500), var(--cyan-500));
+    position: relative;
+    animation: barGrow 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    transform-origin: left;
+  }
+  .bar-fill::after {
+    content: &quot;&quot;; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    animation: shimmer 2.5s infinite;
+  }
+  @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  .bar-value { font-size: 14px; font-weight: 700; color: var(--slate-900); text-align: right; }
+  .bar-value small { display: block; font-size: 11px; color: var(--slate-600); font-weight: 500; }
+
+  /* Donut chart */
+  .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .donut { position: relative; width: 220px; height: 220px; }
+  .donut svg { transform: rotate(-90deg); }
+  .donut-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .donut-center .t1 { font-size: 11px; color: var(--slate-600); letter-spacing: 1px; text-transform: uppercase; }
+  .donut-center .t2 { font-size: 26px; font-weight: 800; color: var(--slate-900); margin-top: 4px; }
+  .donut-center .t3 { font-size: 12px; color: var(--slate-600); }
+
+  .legend { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .legend-item {
+    display: grid; grid-template-columns: 10px 1fr auto; gap: 10px;
+    align-items: center; font-size: 13px;
+  }
+  .legend-item .sw { width: 10px; height: 10px; border-radius: 3px; }
+  .legend-item .name { color: var(--slate-800); font-weight: 500; }
+  .legend-item .val { color: var(--slate-600); font-variant-numeric: tabular-nums; }
+
+  /* Efficiency table */
+  .eff-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-size: 13px;
+  }
+  .eff-table th {
+    text-align: left; padding: 12px 14px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--slate-600); font-weight: 600;
+    background: var(--slate-50); border-bottom: 1px solid var(--slate-200);
+  }
+  .eff-table th:first-child { border-top-left-radius: 12px; }
+  .eff-table th:last-child { border-top-right-radius: 12px; }
+  .eff-table td {
+    padding: 14px; border-bottom: 1px solid var(--slate-100);
+    color: var(--slate-800); font-variant-numeric: tabular-nums;
+  }
+  .eff-table tr:last-child td { border-bottom: none; }
+  .eff-table tr:hover td { background: var(--slate-50); }
+  .eff-table .region-cell { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .region-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .eff-table .best {
+    color: #065F46; background: #D1FAE5;
+    padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 12px;
+  }
+  .eff-table .weak {
+    color: #991B1B; background: #FEE2E2;
+    padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 12px;
+  }
+
+  /* Line chart */
+  .line-chart { width: 100%; height: 260px; }
+
+  /* Findings */
+  .findings {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .finding {
+    background: #fff; border-radius: 20px; padding: 24px;
+    border: 1px solid var(--slate-200);
+    position: relative; overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+  .finding:hover { transform: translateY(-3px); }
+  .finding::before {
+    content: &quot;&quot;; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--blue-500), var(--cyan-500));
+  }
+  .finding .f-ico {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center; margin-bottom: 14px;
+    background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+    color: var(--blue-600);
+  }
+  .finding h4 { font-size: 15px; font-weight: 700; color: var(--slate-900); margin-bottom: 8px; }
+  .finding p { font-size: 13px; color: var(--slate-600); line-height: 1.6; }
+  .finding .metric {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--slate-200);
+  }
+  .finding .metric .v { font-size: 22px; font-weight: 800; color: var(--blue-600); }
+  .finding .metric .l { font-size: 12px; color: var(--slate-600); }
+
+  /* Recommendations */
+  .rec-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .rec {
+    background: #fff; border-radius: 20px; padding: 24px;
+    border: 1px solid var(--slate-200);
+    position: relative;
+  }
+  .rec-head {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .rec-ico {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center; color: #fff;
+    flex-shrink: 0;
+  }
+  .rec-ico.a { background: linear-gradient(135deg, var(--blue-500), var(--blue-600)); }
+  .rec-ico.b { background: linear-gradient(135deg, var(--cyan-500), #0891B2); }
+  .rec-ico.c { background: linear-gradient(135deg, var(--amber-500), #D97706); }
+  .rec-ico.d { background: linear-gradient(135deg, var(--emerald-500), #059669); }
+  .rec-ico.e { background: linear-gradient(135deg, var(--violet-500), #7C3AED); }
+  .rec-ico.f { background: linear-gradient(135deg, var(--rose-500), #E11D48); }
+  .rec h4 { font-size: 15px; font-weight: 700; color: var(--slate-900); }
+  .rec .tag {
+    font-size: 11px; color: var(--slate-600); margin-top: 2px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .rec ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .rec li {
+    font-size: 13px; color: var(--slate-700); padding-left: 22px;
+    position: relative; line-height: 1.55;
+  }
+  .rec li::before {
+    content: &quot;&quot;; position: absolute; left: 0; top: 7px;
+    width: 12px; height: 12px; border-radius: 4px;
+    background: var(--slate-100);
+    background-image: linear-gradient(135deg, var(--blue-500), var(--cyan-500));
+    mask: url(&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'&gt;&lt;path d='M20 6L9 17l-5-5' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/&gt;&lt;/svg&gt;&quot;) center/contain no-repeat;
+    -webkit-mask: url(&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'&gt;&lt;path d='M20 6L9 17l-5-5' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/&gt;&lt;/svg&gt;&quot;) center/contain no-repeat;
+  }
+
+  /* Footer note */
+  .foot {
+    margin-top: 32px; padding: 20px 24px;
+    background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+    color: rgba(255,255,255,0.85);
+    border-radius: 18px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+    font-size: 13px;
+  }
+  .foot strong { color: #fff; }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .kpi.c1, .kpi.c2, .kpi.c3, .kpi.c4 { grid-column: span 6; }
+    .kpi.c5, .kpi.c6, .kpi.c7 { grid-column: span 6; }
+    .two-col { grid-template-columns: 1fr; }
+    .findings, .rec-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 18px 14px 40px; }
+    .hero { padding: 28px 22px; border-radius: 22px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .kpi.c1, .kpi.c2, .kpi.c3, .kpi.c4,
+    .kpi.c5, .kpi.c6, .kpi.c7 { grid-column: span 1; }
+    .kpi .big { font-size: 26px; }
+    .panel { padding: 20px; border-radius: 18px; }
+    .findings, .rec-grid { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 50px 1fr 90px; gap: 8px; }
+    .bar-value { font-size: 12px; }
+    .bar-label { font-size: 13px; }
+    .eff-table { font-size: 12px; }
+    .eff-table th, .eff-table td { padding: 10px 8px; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 4px; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;page&quot;&gt;
+
+  &lt;!-- HERO --&gt;
+  &lt;section class=&quot;hero&quot;&gt;
+    &lt;div class=&quot;hero-inner&quot;&gt;
+      &lt;div class=&quot;hero-top&quot;&gt;
+        &lt;div class=&quot;brand&quot;&gt;
+          &lt;div class=&quot;brand-dot&quot;&gt;
+            &lt;svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;
+              &lt;path d=&quot;M3 3v18h18&quot;/&gt;&lt;path d=&quot;M7 14l4-4 4 4 5-6&quot;/&gt;
+            &lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;div style=&quot;font-size:15px;&quot;&gt;DataInsight Analytics&lt;/div&gt;
+            &lt;span&gt;智能数据分析平台&lt;/span&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;pill&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt; 分析完成 · 2026-07-14&lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;h1&gt;超市订单数据 &lt;span class=&quot;accent&quot;&gt;地区销售额&lt;/span&gt; 分析报告&lt;/h1&gt;
+      &lt;p class=&quot;subtitle&quot;&gt;基于 9,959 条有效订单记录，深入分析全国 6 大地区的销售表现、盈利能力和经营效率，为区域战略决策提供数据支撑。&lt;/p&gt;
+
+      &lt;div class=&quot;hero-meta&quot;&gt;
+        &lt;div class=&quot;meta-card&quot;&gt;
+          &lt;div class=&quot;label&quot;&gt;📁 数据文件&lt;/div&gt;
+          &lt;div class=&quot;value&quot;&gt;
+            &lt;span class=&quot;ico&quot;&gt;
+              &lt;svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot;&gt;&lt;path d=&quot;M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z&quot;/&gt;&lt;path d=&quot;M14 2v6h6&quot;/&gt;&lt;/svg&gt;
+            &lt;/span&gt;
+            超市订单数据.xlsx
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;meta-card&quot;&gt;
+          &lt;div class=&quot;label&quot;&gt;🎯 分析需求&lt;/div&gt;
+          &lt;div class=&quot;value&quot;&gt;
+            &lt;span class=&quot;ico&quot;&gt;
+              &lt;svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;6&quot;/&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;2&quot;/&gt;&lt;/svg&gt;
+            &lt;/span&gt;
+            按地区统计销售额
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;meta-card&quot;&gt;
+          &lt;div class=&quot;label&quot;&gt;📊 数据规模&lt;/div&gt;
+          &lt;div class=&quot;value&quot;&gt;
+            &lt;span class=&quot;ico&quot;&gt;
+              &lt;svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot;&gt;&lt;rect x=&quot;3&quot; y=&quot;3&quot; width=&quot;7&quot; height=&quot;7&quot;/&gt;&lt;rect x=&quot;14&quot; y=&quot;3&quot; width=&quot;7&quot; height=&quot;7&quot;/&gt;&lt;rect x=&quot;14&quot; y=&quot;14&quot; width=&quot;7&quot; height=&quot;7&quot;/&gt;&lt;rect x=&quot;3&quot; y=&quot;14&quot; width=&quot;7&quot; height=&quot;7&quot;/&gt;&lt;/svg&gt;
+            &lt;/span&gt;
+            10,009 条 · 23 字段
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;meta-card&quot;&gt;
+          &lt;div class=&quot;label&quot;&gt;🗺️ 覆盖地区&lt;/div&gt;
+          &lt;div class=&quot;value&quot;&gt;
+            &lt;span class=&quot;ico&quot;&gt;
+              &lt;svg width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/&gt;&lt;path d=&quot;M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20&quot;/&gt;&lt;/svg&gt;
+            &lt;/span&gt;
+            6 大区域 · 全国覆盖
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- KPI OVERVIEW --&gt;
+  &lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;section-head&quot;&gt;
+      &lt;div&gt;
+        &lt;div class=&quot;section-title&quot;&gt;&lt;span class=&quot;num&quot;&gt;1&lt;/span&gt; 数据概览&lt;/div&gt;
+        &lt;div class=&quot;section-sub&quot;&gt;关键指标一览 · 快速掌握整体数据规模与质量&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;kpi-grid&quot;&gt;
+      &lt;div class=&quot;kpi c1 accent-blue&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;💰 总销售额&lt;/span&gt;
+        &lt;div class=&quot;big&quot;&gt;¥1,606.9&lt;span style=&quot;font-size:18px;color:var(--slate-600);&quot;&gt;万&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;全国 6 大地区累计&lt;/div&gt;
+        &lt;div class=&quot;trend up&quot;&gt;▲ 核心市场稳健&lt;/div&gt;
+        &lt;svg class=&quot;bg-ico&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;currentColor&quot;&gt;&lt;path d=&quot;M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6&quot;/&gt;&lt;/svg&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;kpi c2 accent-emerald&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;📦 有效订单&lt;/span&gt;
+        &lt;div class=&quot;big&quot;&gt;9,959&lt;span style=&quot;font-size:18px;color:var(--slate-600);&quot;&gt; 条&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;约 50 条缺失关键字段&lt;/div&gt;
+        &lt;div class=&quot;trend up&quot;&gt;▲ 99.5% 有效率&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;kpi c3 accent-cyan&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;👥 客户总数&lt;/span&gt;
+        &lt;div class=&quot;big&quot;&gt;2,829&lt;span style=&quot;font-size:18px;color:var(--slate-600);&quot;&gt; 人&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;覆盖全国 6 大区域&lt;/div&gt;
+        &lt;div class=&quot;trend up&quot;&gt;▲ 华东 667 人居首&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;kpi c4 accent-violet&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;📈 平均利润率&lt;/span&gt;
+        &lt;div class=&quot;big&quot;&gt;13.2&lt;span style=&quot;font-size:18px;color:var(--slate-600);&quot;&gt;%&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;华北最高 17.6%&lt;/div&gt;
+        &lt;div class=&quot;trend neutral&quot;&gt;◆ 区域差异明显&lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;kpi c5 accent-amber&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;🏆 最高单笔订单&lt;/span&gt;
+        &lt;div class=&quot;big&quot; style=&quot;font-size:28px;&quot;&gt;¥35,621.36&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;华北地区 · 单笔最高记录&lt;/div&gt;
+        &lt;div class=&quot;trend up&quot;&gt;▲ 高客单价潜力&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;kpi c6 accent-rose&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;⚠️ 最低单笔订单&lt;/span&gt;
+        &lt;div class=&quot;big&quot; style=&quot;font-size:28px;&quot;&gt;¥13.44&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;中南地区 · 需关注订单质量&lt;/div&gt;
+        &lt;div class=&quot;trend down&quot;&gt;▼ 拉低整体均值&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;kpi c7&quot; style=&quot;background:linear-gradient(135deg,#F0F9FF,#E0F2FE);border-color:#BAE6FD;&quot;&gt;
+        &lt;span class=&quot;tag&quot;&gt;📊 数据字段&lt;/span&gt;
+        &lt;div class=&quot;big&quot;&gt;23&lt;span style=&quot;font-size:18px;color:var(--slate-600);&quot;&gt; 个&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;desc&quot;&gt;含销售额、利润、折扣、地区等核心字段&lt;/div&gt;
+        &lt;div class=&quot;trend neutral&quot;&gt;◆ 三表联动分析&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- CORE ANALYSIS: RANKING + DISTRIBUTION --&gt;
+  &lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;section-head&quot;&gt;
+      &lt;div&gt;
+        &lt;div class=&quot;section-title&quot;&gt;&lt;span class=&quot;num&quot;&gt;2&lt;/span&gt; 地区销售额排名与分布&lt;/div&gt;
+        &lt;div class=&quot;section-sub&quot;&gt;华东、中南双核驱动，贡献 54.4% 总销售额&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;two-col&quot;&gt;
+      &lt;div class=&quot;panel&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;
+          &lt;div&gt;
+            &lt;div class=&quot;panel-title&quot;&gt;📊 各地区销售额排名&lt;/div&gt;
+            &lt;div class=&quot;panel-sub&quot;&gt;单位：元 · 按总销售额降序排列&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div style=&quot;font-size:12px;color:var(--slate-600);&quot;&gt;共 6 个地区&lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&quot;bar-list&quot;&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r1&quot;&gt;1&lt;/span&gt;华东&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:100%;&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;468.45 万&lt;small&gt;28.9% · 1,226 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r2&quot;&gt;2&lt;/span&gt;中南&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:88.3%;background:linear-gradient(90deg,#3B82F6,#60A5FA);&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;413.74 万&lt;small&gt;25.5% · 1,095 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r3&quot;&gt;3&lt;/span&gt;东北&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:57.2%;background:linear-gradient(90deg,#10B981,#34D399);&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;268.16 万&lt;small&gt;16.5% · 752 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r4&quot;&gt;4&lt;/span&gt;华北&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:52.2%;background:linear-gradient(90deg,#8B5CF6,#A78BFA);&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;244.73 万&lt;small&gt;15.1% · 601 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r5&quot;&gt;5&lt;/span&gt;西南&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:27.8%;background:linear-gradient(90deg,#F59E0B,#FBBF24);&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;130.31 万&lt;small&gt;8.0% · 414 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;bar-row&quot;&gt;
+            &lt;div class=&quot;bar-label&quot;&gt;&lt;span class=&quot;bar-rank r6&quot;&gt;6&lt;/span&gt;西北&lt;/div&gt;
+            &lt;div class=&quot;bar-track&quot;&gt;&lt;div class=&quot;bar-fill&quot; style=&quot;width:17.4%;background:linear-gradient(90deg,#F43F5E,#FB7185);&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;bar-value&quot;&gt;81.50 万&lt;small&gt;5.0% · 233 单&lt;/small&gt;&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;panel&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;
+          &lt;div&gt;
+            &lt;div class=&quot;panel-title&quot;&gt;🍩 销售额占比分布&lt;/div&gt;
+            &lt;div class=&quot;panel-sub&quot;&gt;各地区贡献度可视化&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;donut-wrap&quot;&gt;
+          &lt;div class=&quot;donut&quot;&gt;
+            &lt;svg width=&quot;220&quot; height=&quot;220&quot; viewBox=&quot;0 0 220 220&quot;&gt;
+              &lt;!-- Circumference = 2π*80 ≈ 502.65 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#E2E8F0&quot; stroke-width=&quot;28&quot;/&gt;
+              &lt;!-- 华东 28.9% = 145.26 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#2563EB&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;145.26 502.65&quot; stroke-dashoffset=&quot;0&quot; stroke-linecap=&quot;butt&quot;/&gt;
+              &lt;!-- 中南 25.5% = 128.18, offset = -145.26 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#06B6D4&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;128.18 502.65&quot; stroke-dashoffset=&quot;-145.26&quot;/&gt;
+              &lt;!-- 东北 16.5% = 82.94, offset = -273.44 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#10B981&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;82.94 502.65&quot; stroke-dashoffset=&quot;-273.44&quot;/&gt;
+              &lt;!-- 华北 15.1% = 75.90, offset = -356.38 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#8B5CF6&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;75.90 502.65&quot; stroke-dashoffset=&quot;-356.38&quot;/&gt;
+              &lt;!-- 西南 8.0% = 40.21, offset = -432.28 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#F59E0B&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;40.21 502.65&quot; stroke-dashoffset=&quot;-432.28&quot;/&gt;
+              &lt;!-- 西北 5.0% = 25.13, offset = -472.49 --&gt;
+              &lt;circle cx=&quot;110&quot; cy=&quot;110&quot; r=&quot;80&quot; fill=&quot;none&quot; stroke=&quot;#F43F5E&quot; stroke-width=&quot;28&quot;
+                stroke-dasharray=&quot;25.13 502.65&quot; stroke-dashoffset=&quot;-472.49&quot;/&gt;
+            &lt;/svg&gt;
+            &lt;div class=&quot;donut-center&quot;&gt;
+              &lt;div class=&quot;t1&quot;&gt;TOTAL&lt;/div&gt;
+              &lt;div class=&quot;t2&quot;&gt;1,606.9万&lt;/div&gt;
+              &lt;div class=&quot;t3&quot;&gt;6 个地区&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;legend&quot;&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#2563EB;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;华东&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;28.9%&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#06B6D4;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;中南&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;25.5%&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#10B981;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;东北&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;16.5%&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#8B5CF6;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;华北&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;15.1%&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#F59E0B;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;西南&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;8.0%&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;legend-item&quot;&gt;&lt;span class=&quot;sw&quot; style=&quot;background:#F43F5E;&quot;&gt;&lt;/span&gt;&lt;span class=&quot;name&quot;&gt;西北&lt;/span&gt;&lt;span class=&quot;val&quot;&gt;5.0%&lt;/span&gt;&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- EFFICIENCY + LINE CHART --&gt;
+  &lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;section-head&quot;&gt;
+      &lt;div&gt;
+        &lt;div class=&quot;section-title&quot;&gt;&lt;span class=&quot;num&quot;&gt;3&lt;/span&gt; 地区经营效率分析&lt;/div&gt;
+        &lt;div class=&quot;section-sub&quot;&gt;从平均订单金额、利润率、折扣策略等维度综合评估&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;two-col&quot;&gt;
+      &lt;div class=&quot;panel&quot; style=&quot;padding:0;overflow:hidden;&quot;&gt;
+        &lt;div style=&quot;padding:22px 26px 0;&quot;&gt;
+          &lt;div class=&quot;panel-head&quot; style=&quot;margin-bottom:8px;&quot;&gt;
+            &lt;div&gt;
+              &lt;div class=&quot;panel-title&quot;&gt;📋 经营效率指标对比&lt;/div&gt;
+              &lt;div class=&quot;panel-sub&quot;&gt;核心经营数据横向对比&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div style=&quot;overflow-x:auto;&quot;&gt;
+          &lt;table class=&quot;eff-table&quot;&gt;
+            &lt;thead&gt;
+              &lt;tr&gt;
+                &lt;th&gt;地区&lt;/th&gt;
+                &lt;th&gt;平均订单额&lt;/th&gt;
+                &lt;th&gt;平均利润&lt;/th&gt;
+                &lt;th&gt;利润率&lt;/th&gt;
+                &lt;th&gt;折扣率&lt;/th&gt;
+              &lt;/tr&gt;
+            &lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#2563EB;&quot;&gt;&lt;/span&gt;华东&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;¥1,591.20&lt;/td&gt;
+                &lt;td&gt;¥206.26&lt;/td&gt;
+                &lt;td&gt;13.0%&lt;/td&gt;
+                &lt;td&gt;11.25%&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#06B6D4;&quot;&gt;&lt;/span&gt;中南&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;¥1,603.03&lt;/td&gt;
+                &lt;td&gt;¥259.93&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;best&quot;&gt;16.2%&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;8.99%&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#10B981;&quot;&gt;&lt;/span&gt;东北&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;¥1,609.58&lt;/td&gt;
+                &lt;td&gt;¥145.37&lt;/td&gt;
+                &lt;td&gt;9.0%&lt;/td&gt;
+                &lt;td&gt;14.09%&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#8B5CF6;&quot;&gt;&lt;/span&gt;华北&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;best&quot;&gt;¥1,787.66&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;best&quot;&gt;¥314.87&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;best&quot;&gt;17.6%&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;best&quot;&gt;5.41%&lt;/span&gt;&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#F59E0B;&quot;&gt;&lt;/span&gt;西南&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;¥1,414.90&lt;/td&gt;
+                &lt;td&gt;¥106.01&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;weak&quot;&gt;8.1%&lt;/span&gt;&lt;/td&gt;
+                &lt;td&gt;&lt;span class=&quot;weak&quot;&gt;14.57%&lt;/span&gt;&lt;/td&gt;
+              &lt;/tr&gt;
+              &lt;tr&gt;
+                &lt;td&gt;&lt;div class=&quot;region-cell&quot;&gt;&lt;span class=&quot;region-dot&quot; style=&quot;background:#F43F5E;&quot;&gt;&lt;/span&gt;西北&lt;/div&gt;&lt;/td&gt;
+                &lt;td&gt;¥1,705.10&lt;/td&gt;
+                &lt;td&gt;¥206.18&lt;/td&gt;
+                &lt;td&gt;12.1%&lt;/td&gt;
+                &lt;td&gt;11.17%&lt;/td&gt;
+              &lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;panel&quot;&gt;
+        &lt;div class=&quot;panel-head&quot;&gt;
+          &lt;div&gt;
+            &lt;div class=&quot;panel-title&quot;&gt;📈 折扣率 vs 利润率&lt;/div&gt;
+            &lt;div class=&quot;panel-sub&quot;&gt;折扣与利润的负相关关系&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;svg class=&quot;line-chart&quot; viewBox=&quot;0 0 400 260&quot; preserveAspectRatio=&quot;none&quot;&gt;
+          &lt;defs&gt;
+            &lt;linearGradient id=&quot;areaGrad&quot; x1=&quot;0&quot; x2=&quot;0&quot; y1=&quot;0&quot; y2=&quot;1&quot;&gt;
+              &lt;stop offset=&quot;0%&quot; stop-color=&quot;#2563EB&quot; stop-opacity=&quot;0.3&quot;/&gt;
+              &lt;stop offset=&quot;100%&quot; stop-color=&quot;#2563EB&quot; stop-opacity=&quot;0&quot;/&gt;
+            &lt;/linearGradient&gt;
+          &lt;/defs&gt;
+          &lt;!-- Grid --&gt;
+          &lt;g stroke=&quot;#E2E8F0&quot; stroke-width=&quot;1&quot;&gt;
+            &lt;line x1=&quot;50&quot; y1=&quot;40&quot; x2=&quot;380&quot; y2=&quot;40&quot;/&gt;
+            &lt;line x1=&quot;50&quot; y1=&quot;100&quot; x2=&quot;380&quot; y2=&quot;100&quot;/&gt;
+            &lt;line x1=&quot;50&quot; y1=&quot;160&quot; x2=&quot;380&quot; y2=&quot;160&quot;/&gt;
+            &lt;line x1=&quot;50&quot; y1=&quot;220&quot; x2=&quot;380&quot; y2=&quot;220&quot;/&gt;
+          &lt;/g&gt;
+          &lt;!-- Y labels --&gt;
+          &lt;g fill=&quot;#94A3B8&quot; font-size=&quot;10&quot; text-anchor=&quot;end&quot;&gt;
+            &lt;text x=&quot;44&quot; y=&quot;44&quot;&gt;20%&lt;/text&gt;
+            &lt;text x=&quot;44&quot; y=&quot;104&quot;&gt;15%&lt;/text&gt;
+            &lt;text x=&quot;44&quot; y=&quot;164&quot;&gt;10%&lt;/text&gt;
+            &lt;text x=&quot;44&quot; y=&quot;224&quot;&gt;5%&lt;/text&gt;
+          &lt;/g&gt;
+          &lt;!-- X labels --&gt;
+          &lt;g fill=&quot;#64748B&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot;&gt;
+            &lt;text x=&quot;80&quot; y=&quot;245&quot;&gt;华北&lt;/text&gt;
+            &lt;text x=&quot;140&quot; y=&quot;245&quot;&gt;中南&lt;/text&gt;
+            &lt;text x=&quot;200&quot; y=&quot;245&quot;&gt;华东&lt;/text&gt;
+            &lt;text x=&quot;260&quot; y=&quot;245&quot;&gt;西北&lt;/text&gt;
+            &lt;text x=&quot;320&quot; y=&quot;245&quot;&gt;东北&lt;/text&gt;
+            &lt;text x=&quot;370&quot; y=&quot;245&quot;&gt;西南&lt;/text&gt;
+          &lt;/g&gt;
+          &lt;!-- Profit rate line (blue) --&gt;
+          &lt;!--华北17.6, 中南16.2, 华东13, 西北12.1, 东北9, 西南8.1--&gt;
+          &lt;!-- y = 220 - (val-5)*12 --&gt;
+          &lt;path d=&quot;M 80 56.8 L 140 73.6 L 200 112 L 260 122.8 L 320 160 L 370 170.8&quot;
+            fill=&quot;none&quot; stroke=&quot;#2563EB&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/&gt;
+          &lt;path d=&quot;M 80 56.8 L 140 73.6 L 200 112 L 260 122.8 L 320 160 L 370 170.8 L 370 220 L 80 220 Z&quot;
+            fill=&quot;url(#areaGrad)&quot;/&gt;
+          &lt;!-- Discount rate line (orange) --&gt;
+          &lt;!--华北5.41, 中南8.99, 华东11.25, 西北11.17, 东北14.09, 西南14.57--&gt;
+          &lt;path d=&quot;M 80 203.1 L 140 160.1 L 200 133 L 260 133.96 L 320 98.9 L 370 93.2&quot;
+            fill=&quot;none&quot; stroke=&quot;#F59E0B&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot; stroke-dasharray=&quot;5 3&quot;/&gt;
+          &lt;!-- Points profit --&gt;
+          &lt;g fill=&quot;#fff&quot; stroke=&quot;#2563EB&quot; stroke-width=&quot;2.5&quot;&gt;
+            &lt;circle cx=&quot;80&quot; cy=&quot;56.8&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;140&quot; cy=&quot;73.6&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;200&quot; cy=&quot;112&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;260&quot; cy=&quot;122.8&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;320&quot; cy=&quot;160&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;370&quot; cy=&quot;170.8&quot; r=&quot;4&quot;/&gt;
+          &lt;/g&gt;
+          &lt;!-- Points discount --&gt;
+          &lt;g fill=&quot;#fff&quot; stroke=&quot;#F59E0B&quot; stroke-width=&quot;2.5&quot;&gt;
+            &lt;circle cx=&quot;80&quot; cy=&quot;203.1&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;140&quot; cy=&quot;160.1&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;200&quot; cy=&quot;133&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;260&quot; cy=&quot;133.96&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;320&quot; cy=&quot;98.9&quot; r=&quot;4&quot;/&gt;
+            &lt;circle cx=&quot;370&quot; cy=&quot;93.2&quot; r=&quot;4&quot;/&gt;
+          &lt;/g&gt;
+          &lt;!-- Legend --&gt;
+          &lt;g font-size=&quot;11&quot; fill=&quot;#475569&quot;&gt;
+            &lt;line x1=&quot;60&quot; y1=&quot;20&quot; x2=&quot;80&quot; y2=&quot;20&quot; stroke=&quot;#2563EB&quot; stroke-width=&quot;2.5&quot;/&gt;
+            &lt;text x=&quot;85&quot; y=&quot;24&quot;&gt;利润率&lt;/text&gt;
+            &lt;line x1=&quot;150&quot; y1=&quot;20&quot; x2=&quot;170&quot; y2=&quot;20&quot; stroke=&quot;#F59E0B&quot; stroke-width=&quot;2.5&quot; stroke-dasharray=&quot;5 3&quot;/&gt;
+            &lt;text x=&quot;175&quot; y=&quot;24&quot;&gt;折扣率&lt;/text&gt;
+          &lt;/g&gt;
+        &lt;/svg&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- KEY FINDINGS --&gt;
+  &lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;section-head&quot;&gt;
+      &lt;div&gt;
+        &lt;div class=&quot;section-title&quot;&gt;&lt;span class=&quot;num&quot;&gt;4&lt;/span&gt; 核心发现&lt;/div&gt;
+        &lt;div class=&quot;section-sub&quot;&gt;三大关键洞察 · 揭示数据背后的商业逻辑&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;findings&quot;&gt;
+      &lt;div class=&quot;finding&quot;&gt;
+        &lt;div class=&quot;f-ico&quot;&gt;
+          &lt;svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;
+            &lt;path d=&quot;M3 3v18h18&quot;/&gt;&lt;path d=&quot;M7 12l4-4 4 4 5-5&quot;/&gt;
+          &lt;/svg&gt;
+        &lt;/div&gt;
+        &lt;h4&gt;🎯 双核驱动格局&lt;/h4&gt;
+        &lt;p&gt;华东与中南地区合计贡献 &lt;strong&gt;54.4%&lt;/strong&gt; 的总销售额，形成明显的&quot;双核&quot;市场结构。前两名与后两名差距达 3-6 倍，区域分化显著。&lt;/p&gt;
+        &lt;div class=&quot;metric&quot;&gt;
+          &lt;span class=&quot;v&quot;&gt;54.4%&lt;/span&gt;
+          &lt;span class=&quot;l&quot;&gt;双核市场占比&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;finding&quot;&gt;
+        &lt;div class=&quot;f-ico&quot; style=&quot;background:linear-gradient(135deg,#ECFDF5,#D1FAE5);color:#059669;&quot;&gt;
+          &lt;svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;
+            &lt;path d=&quot;M12 2L2 7l10 5 10-5-10-5z&quot;/&gt;&lt;path d=&quot;M2 17l10 5 10-5M2 12l10 5 10-5&quot;/&gt;
+          &lt;/svg&gt;
+        &lt;/div&gt;
+        &lt;h4&gt;💎 华北质量最优&lt;/h4&gt;
+        &lt;p&gt;华北地区销售额排名第 4，但平均订单金额 &lt;strong&gt;¥1,787.66&lt;/strong&gt; 和利润率 &lt;strong&gt;17.6%&lt;/strong&gt; 均居首位，折扣率仅 5.41%，是高质量增长典范。&lt;/p&gt;
+        &lt;div class=&quot;metric&quot;&gt;
+          &lt;span class=&quot;v&quot;&gt;17.6%&lt;/span&gt;
+          &lt;span class=&quot;l&quot;&gt;华北利润率&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;finding&quot;&gt;
+        &lt;div class=&quot;f-ico&quot; style=&quot;background:linear-gradient(135deg,#FEF3C7,#FDE68A);color:#B45309;&quot;&gt;
+          &lt;svg width=&quot;22&quot; height=&quot;22&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;
+            &lt;path d=&quot;M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z&quot;/&gt;&lt;line x1=&quot;12&quot; y1=&quot;9&quot; x2=&quot;12&quot; y2=&quot;13&quot;/&gt;&lt;line x1=&quot;12&quot; y1=&quot;17&quot; x2=&quot;12.01&quot; y2=&quot;17&quot;/&gt;
+          &lt;/svg&gt;
+        &lt;/div&gt;
+        &lt;h4&gt;⚠️ 折扣陷阱警示&lt;/h4&gt;
+        &lt;p&gt;西南折扣最高（14.57%）却利润率最低（8.1%）；华北折扣最低（5.41%）却利润最高。说明&lt;strong&gt;过度折扣侵蚀利润&lt;/strong&gt;，并未有效拉动销售。&lt;/p&gt;
+        &lt;div class=&quot;metric&quot;&gt;
+          &lt;span class=&quot;v&quot;&gt;-9.5%&lt;/span&gt;
+          &lt;span class=&quot;l&quot;&gt;折扣与利润差&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- RECOMMENDATIONS --&gt;
+  &lt;section class=&quot;section&quot;&gt;
+    &lt;div class=&quot;section-head&quot;&gt;
+      &lt;div&gt;
+        &lt;div class=&quot;section-title&quot;&gt;&lt;span class=&quot;num&quot;&gt;5&lt;/span&gt; 战略建议与运营优化&lt;/div&gt;
+        &lt;div class=&quot;section-sub&quot;&gt;基于数据分析的专业建议 · 助力区域协同发展&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+
+    &lt;div class=&quot;rec-grid&quot;&gt;
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico a&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;path d=&quot;M13 2L3 14h9l-1 8 10-12h-9l1-8z&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;核心市场巩固&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;华东 · 中南&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;保持市场投入，巩固领先地位&lt;/li&gt;
+          &lt;li&gt;重点提升客户粘性和复购率&lt;/li&gt;
+          &lt;li&gt;优化产品结构，提高高毛利产品占比&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico b&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;polyline points=&quot;23 6 13.5 15.5 8.5 10.5 1 18&quot;/&gt;&lt;polyline points=&quot;17 6 23 6 23 12&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;高潜力市场拓展&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;华北地区&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;华北盈利能力强，应加大拓展力度&lt;/li&gt;
+          &lt;li&gt;复制华北成功经验到其他地区&lt;/li&gt;
+          &lt;li&gt;坚持&quot;低折扣、高客单价&quot;模式&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico c&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/&gt;&lt;line x1=&quot;12&quot; y1=&quot;8&quot; x2=&quot;12&quot; y2=&quot;12&quot;/&gt;&lt;line x1=&quot;12&quot; y1=&quot;16&quot; x2=&quot;12.01&quot; y2=&quot;16&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;弱势市场重塑&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;西南 · 西北&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;重新评估折扣策略，避免恶性循环&lt;/li&gt;
+          &lt;li&gt;分析当地消费特点，调整产品组合&lt;/li&gt;
+          &lt;li&gt;采用差异化竞争而非单纯价格战&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico d&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;path d=&quot;M20 7h-9M14 17H5&quot;/&gt;&lt;circle cx=&quot;17&quot; cy=&quot;17&quot; r=&quot;3&quot;/&gt;&lt;circle cx=&quot;7&quot; cy=&quot;7&quot; r=&quot;3&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;折扣管控体系&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;运营优化&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;建立分级折扣体系，避免过度让利&lt;/li&gt;
+          &lt;li&gt;设定各区域折扣率红线&lt;/li&gt;
+          &lt;li&gt;定期审计折扣执行效果&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico e&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;path d=&quot;M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2&quot;/&gt;&lt;circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/&gt;&lt;path d=&quot;M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;客户分层运营&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;客户价值&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;针对高价值客户提供专属服务&lt;/li&gt;
+          &lt;li&gt;提升客单价与复购频次&lt;/li&gt;
+          &lt;li&gt;华东市场重点提升客户价值&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;rec&quot;&gt;
+        &lt;div class=&quot;rec-head&quot;&gt;
+          &lt;div class=&quot;rec-ico f&quot;&gt;
+            &lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;white&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;10&quot;/&gt;&lt;line x1=&quot;2&quot; y1=&quot;12&quot; x2=&quot;22&quot; y2=&quot;12&quot;/&gt;&lt;path d=&quot;M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z&quot;/&gt;&lt;/svg&gt;
+          &lt;/div&gt;
+          &lt;div&gt;
+            &lt;h4&gt;区域协同机制&lt;/h4&gt;
+            &lt;div class=&quot;tag&quot;&gt;经验推广&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ul&gt;
+          &lt;li&gt;加强跨区域经验交流&lt;/li&gt;
+          &lt;li&gt;推广华北最佳实践&lt;/li&gt;
+          &lt;li&gt;提升高毛利产品销售占比&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;!-- FOOTER NOTE --&gt;
+  &lt;div class=&quot;foot&quot;&gt;
+    &lt;div&gt;
+      &lt;strong&gt;📊 报告生成时间&lt;/strong&gt; · 2026-07-14 18:54&lt;br&gt;
+      &lt;span style=&quot;opacity:0.7;font-size:12px;&quot;&gt;数据来源：超市订单数据.xlsx · 订单表 9,959 条有效记录&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div style=&quot;text-align:right;&quot;&gt;
+      &lt;strong&gt;DataInsight Analytics&lt;/strong&gt;&lt;br&gt;
+      &lt;span style=&quot;opacity:0.7;font-size:12px;&quot;&gt;Powered by AI Data Analysis&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;" sandbox="allow-scripts allow-same-origin" title="App Output" style="width: 100%; height: 100%; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial;"></iframe>
+</body>
+</html>

@@ -1,0 +1,212 @@
+{
+    "metadata": {
+        "intent": "自动分析客户反馈内容，将严重投诉导向紧急处理（生成道歉信与退款方案），将普通建议归入需求池（整理为表格），最终以精美 Dashboard 展示结果。",
+        "revision_intents": [],
+        "raw_intent": "自动分析客户反馈内容，将严重投诉导向紧急处理（生成道歉信与退款方案），将普通建议归入需求池（整理为表格），最终以精美 Dashboard 展示结果。",
+        "tags": [
+            "客服",
+            "投诉处理",
+            "反馈分类",
+            "自动化"
+        ],
+        "parameters": {}
+    },
+    "assets": {},
+    "title": "客户投诉与建议分类处理",
+    "description": "自动分析客户反馈内容，将严重投诉导向紧急处理（生成道歉信与退款方案），将普通建议归入需求池（整理为表格），最终以精美 Dashboard 展示结果。",
+    "version": "0.0.1",
+    "nodes": [
+        {
+            "id": "input_step_8fb890b2",
+            "metadata": {
+                "title": "输入反馈内容",
+                "visual": {
+                    "x": 12,
+                    "y": 246
+                },
+                "userModified": false,
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "请详细描述您的投诉或产品建议：",
+                        "list": false
+                    }
+                ]
+            },
+            "type": "user-inputs",
+            "configuration": {
+                "description": {
+                    "content": "请详细描述您的投诉或产品建议：",
+                    "role": "user"
+                },
+                "p-modality": "Text",
+                "p-required": true
+            }
+        },
+        {
+            "id": "agent_step_7c4891c2",
+            "metadata": {
+                "title": "紧急处理",
+                "visual": {
+                    "x": 920,
+                    "y": 238
+                },
+                "userModified": false,
+                "step_intent": "你是一位专业的客户服务经理。根据收到的客户投诉内容，你需要完成两项工作：\n\n1. 写一封真诚的道歉信，语气诚恳、温暖，承认问题并表达歉意。\n2. 给出一个合理的退款或补偿方案，具体说明处理方式。\n\n投诉内容来自上游输入，请直接基于此内容进行回应。\n\n返回格式：\n先输出道歉信全文（开头称呼、正文、落款），然后空一行，再输出「退款方案」标题和具体方案描述。",
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "一封完整的道歉信和具体的退款/补偿方案",
+                        "list": false
+                    }
+                ]
+            },
+            "type": "agent-generate",
+            "configuration": {
+                "config$prompt": {
+                    "content": "1. Objective: 你是一位专业的客户服务经理。根据收到的客户投诉内容，你需要完成两项工作：\n\n1. 写一封真诚的道歉信，语气诚恳、温暖，承认问题并表达歉意。\n2. 给出一个合理的退款或补偿方案，具体说明处理方式。\n\n投诉内容来自上游输入，请直接基于此内容进行回应。\n\n返回格式：\n先输出道歉信全文（开头称呼、正文、落款），然后空一行，再输出「退款方案」标题和具体方案描述。\n\n2. Output Format: 一封完整的道歉信和具体的退款/补偿方案\n\n3. User Input / Context:\n输入反馈内容: {{\"type\": \"in\", \"path\": \"input_step_8fb890b2\", \"title\": \"输入反馈内容\"}}",
+                    "role": "user"
+                },
+                "generation-mode": "agent",
+                "config$ask-user": false,
+                "config$list": false
+            }
+        },
+        {
+            "id": "agent_step_c08afa1a",
+            "metadata": {
+                "title": "需求池",
+                "visual": {
+                    "x": 920,
+                    "y": 12
+                },
+                "userModified": false,
+                "step_intent": "你是一位产品经理。将用户提交的产品建议整理成结构化的表格格式。\n\n分析用户反馈内容，提取以下信息：\n- 建议主题（用一个简短标题概括）\n- 建议类别（功能改进、用户体验、性能优化、新功能、其他）\n- 具体描述（精简提炼核心诉求）\n- 优先级评估（高/中/低）\n- 预期价值（简要说明该建议可能带来的好处）\n\n将以上信息以清晰表格的文本形式输出，列与列之间用竖线分隔，表头加粗。",
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "结构化的建议表格，包含建议主题、类别、具体描述、优先级评估、预期价值等列",
+                        "list": false
+                    }
+                ]
+            },
+            "type": "agent-generate",
+            "configuration": {
+                "config$prompt": {
+                    "content": "1. Objective: 你是一位产品经理。将用户提交的产品建议整理成结构化的表格格式。\n\n分析用户反馈内容，提取以下信息：\n- 建议主题（用一个简短标题概括）\n- 建议类别（功能改进、用户体验、性能优化、新功能、其他）\n- 具体描述（精简提炼核心诉求）\n- 优先级评估（高/中/低）\n- 预期价值（简要说明该建议可能带来的好处）\n\n将以上信息以清晰表格的文本形式输出，列与列之间用竖线分隔，表头加粗。\n\n2. Output Format: 结构化的建议表格，包含建议主题、类别、具体描述、优先级评估、预期价值等列\n\n3. User Input / Context:\n输入反馈内容: {{\"type\": \"in\", \"path\": \"input_step_8fb890b2\", \"title\": \"输入反馈内容\"}}",
+                    "role": "user"
+                },
+                "generation-mode": "agent",
+                "config$ask-user": false,
+                "config$list": false
+            }
+        },
+        {
+            "id": "agent_step_e6046608",
+            "metadata": {
+                "title": "意图分析器",
+                "visual": {
+                    "x": 469,
+                    "y": 115
+                },
+                "userModified": false,
+                "step_intent": "你是一位客户反馈分析专家。分析用户输入的反馈内容，判断其属于以下哪种情况：\n\n1. 严重投诉：用户表达了强烈不满、遇到了产品质量问题、服务失误、需要退款/赔偿等情况。例如：产品损坏、服务态度恶劣、功能完全无法使用、造成经济损失等。\n2. 普通产品建议：用户提出了改进建议、功能需求、使用体验反馈、想法分享等。例如：希望增加某个功能、界面优化的建议、新的使用场景想法等。\n\n仔细阅读反馈内容，判断用户的意图和情绪强度。如果用户情绪强烈、涉及产品质量或服务失误，属于严重投诉；如果用户平和地提出想法或建议，属于普通产品建议。\n\n根据你的判断，选择对应的路由：严重投诉请走\"紧急处理\"路线，普通建议请走\"需求池\"路线。",
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "根据判断结果，输出路由决策对应的内容摘要",
+                        "list": false
+                    }
+                ]
+            },
+            "type": "agent-generate",
+            "configuration": {
+                "config$prompt": {
+                    "content": "1. Objective: 你是一位客户反馈分析专家。分析用户输入的反馈内容，判断其属于以下哪种情况：\n\n1. 严重投诉：用户表达了强烈不满、遇到了产品质量问题、服务失误、需要退款/赔偿等情况。例如：产品损坏、服务态度恶劣、功能完全无法使用、造成经济损失等。\n2. 普通产品建议：用户提出了改进建议、功能需求、使用体验反馈、想法分享等。例如：希望增加某个功能、界面优化的建议、新的使用场景想法等。\n\n仔细阅读反馈内容，判断用户的意图和情绪强度。如果用户情绪强烈、涉及产品质量或服务失误，属于严重投诉；如果用户平和地提出想法或建议，属于普通产品建议。\n\n根据你的判断，选择对应的路由：严重投诉请走\"紧急处理\"路线，普通建议请走\"需求池\"路线。\n\n2. Output Format: 根据判断结果，输出路由决策对应的内容摘要\n\n3. User Input / Context:\n输入反馈内容: {{\"type\": \"in\", \"path\": \"input_step_8fb890b2\", \"title\": \"输入反馈内容\"}}\n\nUse tools:\n{{\"type\": \"tool\", \"path\": \"control-flow/routing\", \"instance\": \"agent_step_7c4891c2\", \"title\": \"紧急处理\"}} {{\"type\": \"tool\", \"path\": \"control-flow/routing\", \"instance\": \"agent_step_c08afa1a\", \"title\": \"需求池\"}}\n\nChoose exactly one route based on the result: if 严重投诉 → 紧急处理, use the \"紧急处理\" routing tool; if 普通建议 → 需求池, use the \"需求池\" routing tool.",
+                    "role": "user"
+                },
+                "generation-mode": "agent",
+                "config$ask-user": false,
+                "config$list": false
+            }
+        },
+        {
+            "id": "render_dashboard_66cdd06c",
+            "metadata": {
+                "title": "处理结果 Dashboard",
+                "visual": {
+                    "x": 1375,
+                    "y": 238
+                },
+                "userModified": false,
+                "step_intent": "Create an HTML page presenting: 设计一个现代、精致的结果展示看板页面。整体风格清新专业，使用左右分栏布局。\n\n页面顶部是标题区域：显示\"客户反馈处理结果\"，下方用标签badge标明最终处理类型（投诉处理/建议收录）。\n\n左侧主内容区：\n- 如果显示了\"紧急处理\"的输出：用",
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "HTML code for a rendered result page",
+                        "list": false
+                    }
+                ]
+            },
+            "type": "render-outputs",
+            "configuration": {
+                "text": {
+                    "role": "user",
+                    "content": "设计一个现代、精致的结果展示看板页面。整体风格清新专业，使用左右分栏布局。\n\n页面顶部是标题区域：显示\"客户反馈处理结果\"，下方用标签badge标明最终处理类型（投诉处理/建议收录）。\n\n左侧主内容区：\n- 如果显示了\"紧急处理\"的输出：用设计的卡片展示道歉信全文和退款方案，文字排版清晰，行距宽松，背景使用柔和的暖色调。\n- 如果显示了\"需求池\"的输出：将表格渲染成美观的 HTML 表格，表头用品牌色背景，行间条纹交替，带圆角和阴影。\n\n右侧边栏：\n- \"原始反馈\"卡片：以引用块样式展示用户输入的原始内容。\n- \"处理状态\"卡片：用一个简约的状态指示器，标明\"已处理\"状态。\n- 底部加一句简短的服务声明。\n\n整个页面自适应布局，移动端时左右栏堆叠展示。\n\n输入反馈内容: {{\"type\": \"in\", \"path\": \"input_step_8fb890b2\", \"title\": \"输入反馈内容\"}}\n紧急处理: {{\"type\": \"in\", \"path\": \"agent_step_7c4891c2\", \"title\": \"紧急处理\"}}\n需求池: {{\"type\": \"in\", \"path\": \"agent_step_c08afa1a\", \"title\": \"需求池\"}}"
+                },
+                "p-render-mode": "Auto",
+                "b-render-model-name": "gemini-flash"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "from": "input_step_8fb890b2",
+            "to": "agent_step_7c4891c2",
+            "out": "context",
+            "in": "p-z-input_step_8fb890b2"
+        },
+        {
+            "from": "input_step_8fb890b2",
+            "to": "agent_step_c08afa1a",
+            "out": "context",
+            "in": "p-z-input_step_8fb890b2"
+        },
+        {
+            "from": "input_step_8fb890b2",
+            "to": "agent_step_e6046608",
+            "out": "context",
+            "in": "p-z-input_step_8fb890b2"
+        },
+        {
+            "from": "agent_step_e6046608",
+            "to": "agent_step_7c4891c2",
+            "out": "agent_step_7c4891c2",
+            "in": "p-z-agent_step_e6046608"
+        },
+        {
+            "from": "agent_step_e6046608",
+            "to": "agent_step_c08afa1a",
+            "out": "agent_step_c08afa1a",
+            "in": "p-z-agent_step_e6046608"
+        },
+        {
+            "from": "input_step_8fb890b2",
+            "to": "render_dashboard_66cdd06c",
+            "out": "context",
+            "in": "p-z-input_step_8fb890b2"
+        },
+        {
+            "from": "agent_step_7c4891c2",
+            "to": "render_dashboard_66cdd06c",
+            "out": "context",
+            "in": "p-z-agent_step_7c4891c2"
+        },
+        {
+            "from": "agent_step_c08afa1a",
+            "to": "render_dashboard_66cdd06c",
+            "out": "context",
+            "in": "p-z-agent_step_c08afa1a"
+        }
+    ]
+}
