@@ -22,7 +22,7 @@
   color: #111827;
 }
 
-.executor-close {
+.executor-restart {
   width: 28px;
   height: 28px;
   border: none;
@@ -35,7 +35,7 @@
   justify-content: center;
 }
 
-.executor-close:hover {
+.executor-restart:hover {
   background: #f3f4f6;
   color: #111827;
 }

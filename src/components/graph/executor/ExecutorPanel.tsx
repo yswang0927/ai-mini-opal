@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { RotateCcw, CirclePlus} from "lucide-react";
+import { RotateCcw, CirclePlus, FileDown } from "lucide-react";
+import { Button, Intent, Icon } from "@blueprintjs/core";
 import { useL10n } from "@/l10n";
+import { downloadFile, AppToaster } from "@/utils";
 import type { ExecutionState, InputRequest } from "./types";
 
 interface ExecutorPanelProps {
@@ -14,13 +16,62 @@ export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRes
   const { status, pendingInputs, renderedHtml, error, nodeOutputs } = execState;
   const { t } = useL10n();
 
-  if (status === 'idle') return null;
+  if (status === 'idle') {
+    return null;
+  }
+
+  // 下载生成的HTML输出文件
+  const handleDownloadReport = async () => {
+    if (!renderedHtml) return;
+
+    // 文件名规则: <title> -> 第一个 <h1> -> 默认 "输出<日期>"
+    let filename = '';
+    const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
+    const titleMatch = renderedHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    
+    if (titleMatch) {
+      filename = stripTags(titleMatch[1]);
+    }
+
+    if (!filename) {
+      const h1Match = renderedHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+      if (h1Match) {
+        filename = stripTags(h1Match[1]);
+      }
+    }
+    
+    if (!filename) {
+      const now = new Date();
+      const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      filename = `输出${date}`;
+    }
+
+    // 去除文件名中的非法字符
+    filename = `${filename.replace(/[\\/:*?"<>|]/g, '_')}.html`;
+
+    const result = await downloadFile(filename, renderedHtml);
+    if (result.success) {
+      (await AppToaster).show({
+        message: `「${filename}」${t("下载完成")} ${result.filePath ? (': '+result.filePath) : ''}`, 
+        intent: Intent.SUCCESS 
+      });
+    }
+    else if (!result.canceled) {
+      (await AppToaster).show({
+        message: `「${filename}」${t('下载失败')}: ${result.error}`, 
+        intent: Intent.DANGER 
+      });
+    }
+  };
 
   return (
     <div className="executor-panel">
       <div className="executor-panel-header">
         <span className="executor-title">{t('应用预览')}</span>
-        <button className="executor-close" onClick={onRestart} title={t('重启应用')}><RotateCcw size={20} strokeWidth={1.5} /></button>
+        <div className="flex gap-md">
+          {renderedHtml && (<Button onClick={handleDownloadReport} variant="minimal" icon={<span className="bp6-icon"><FileDown size={20} strokeWidth={1.5} /></span>} title={t('下载')} />)}
+          <Button onClick={onRestart} variant="minimal" icon={<span className="bp6-icon"><RotateCcw size={20} strokeWidth={1.5} /></span>} title={t('重启应用')} />
+        </div>
       </div>
 
       <div className="executor-panel-body">

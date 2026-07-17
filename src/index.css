@@ -129,7 +129,6 @@ button {
   justify-content: center;
   flex-wrap: nowrap;
   white-space: nowrap;
-  gap: var(--gap-md);
   line-height: 1.4;
   cursor: pointer;
   user-select: none;

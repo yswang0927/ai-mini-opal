@@ -68,8 +68,7 @@ button.create-new-app:disabled {
 }
 .gallery-wrapper h1 {
     font-size: 2rem;
-    margin: 0 auto;
-    margin-bottom: 2rem;
+    margin: 2rem auto;
     max-width: 560px;
     text-align: center;
     font-family: var(--font-family-en-title);

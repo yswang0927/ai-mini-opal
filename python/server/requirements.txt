@@ -6,6 +6,9 @@ fastapi
 duckdb
 openpyxl
 pandas
+matplotlib
+reportlab
+scikit-learn
 # skills:docx,xlsx,pptx,pdf required
 pypdf
 pdfplumber

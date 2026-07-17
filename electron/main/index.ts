@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, screen, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -202,7 +202,7 @@ ipcMain.handle('get-data-dir', async () => {
 });
 
 // Read file (relative to userData)
-ipcMain.handle('read_file', async (_, filepath: string) => {
+ipcMain.handle('read-file', async (_, filepath: string) => {
   const userDataPath = app.getPath('userData')
   const fullPath = path.join(userDataPath, filepath)
   // Ensure directory exists
@@ -224,7 +224,7 @@ ipcMain.handle('read_file', async (_, filepath: string) => {
 });
 
 // Write file (relative to userData)
-ipcMain.handle('write_file', async (_, filepath: string, content: string) => {
+ipcMain.handle('write-file', async (_, filepath: string, content: string) => {
   const userDataPath = app.getPath('userData');
   const fullPath = path.join(userDataPath, filepath);
   // Ensure directory exists
@@ -239,7 +239,7 @@ ipcMain.handle('write_file', async (_, filepath: string, content: string) => {
 });
 
 // Delete file (relative to userData)
-ipcMain.handle('delete_file', async (_, filepath: string) => {
+ipcMain.handle('delete-file', async (_, filepath: string) => {
   const userDataPath = app.getPath('userData')
   const fullPath = path.join(userDataPath, filepath)
   try {
@@ -295,5 +295,42 @@ ipcMain.handle('list-apps', async () => {
   } catch (e) {
     console.error('Failed to list apps:', e);
     return [];
+  }
+});
+
+// 通用文件保存：弹出系统"另存为"对话框并将内容写入用户选择的路径。
+// content 为 string 时按 utf-8 文本写入；为 Uint8Array 时按二进制写入（图片、二进制文件等）。
+ipcMain.handle('save-as-file', async (event, defaultFileName: string, content: string | Uint8Array) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender) ?? win ?? undefined;
+
+  // 依据文件扩展名生成对话框过滤器
+  const ext = path.extname(defaultFileName).replace(/^\./, '').toLowerCase();
+  const filters = ext
+    ? [
+        { name: `${ext.toUpperCase()} 文件`, extensions: [ext] },
+        { name: '所有文件', extensions: ['*'] },
+      ]
+    : [{ name: '所有文件', extensions: ['*'] }];
+
+  const { canceled, filePath } = await dialog.showSaveDialog(senderWin as BrowserWindow, {
+    title: '保存文件',
+    defaultPath: defaultFileName,
+    filters,
+  });
+
+  if (canceled || !filePath) {
+    return { success: false, canceled: true };
+  }
+
+  try {
+    if (typeof content === 'string') {
+      await fs.writeFile(filePath, content, 'utf-8');
+    } else {
+      await fs.writeFile(filePath, Buffer.from(content));
+    }
+    return { success: true, filePath };
+  } catch (e) {
+    console.error('Failed to save file:', e);
+    return { success: false, error: String(e) };
   }
 });

@@ -32,14 +32,24 @@ interface App {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  readFile: (filepath: string): Promise<string | null> => ipcRenderer.invoke('read_file', filepath),
-  writeFile: (filepath: string, content: string): Promise<boolean> => ipcRenderer.invoke('write_file', filepath, content),
-  deleteFile: (filepath: string): Promise<boolean> => ipcRenderer.invoke('delete_file', filepath),
+  readFile: (filepath: string): Promise<string | null> => ipcRenderer.invoke('read-file', filepath),
+  writeFile: (filepath: string, content: string): Promise<boolean> => ipcRenderer.invoke('write-file', filepath, content),
+  deleteFile: (filepath: string): Promise<boolean> => ipcRenderer.invoke('delete-file', filepath),
   getDataDir: (): Promise<string> => ipcRenderer.invoke('get-data-dir'),
   listApps: (): Promise<App[]> => ipcRenderer.invoke('list-apps'),
   // Electron 已移除 File.path,通过 webUtils 从 File 对象取本地磁盘物理绝对路径(无需上传)。
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  // 通用文件保存：弹出系统"另存为"对话框并写入文件（文本或二进制）
+  saveAsFile: (defaultFileName: string, content: string | Uint8Array): Promise<SaveFileResult> =>
+    ipcRenderer.invoke('save-as-file', defaultFileName, content),
 })
+
+interface SaveFileResult {
+  success: boolean
+  filePath?: string
+  canceled?: boolean
+  error?: string
+}
 
 // --------- Preload scripts loading ---------
 function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
@@ -69,12 +79,7 @@ const safeDOM = {
   },
 }
 
-/**
- * https://tobiasahlin.com/spinkit
- * https://connoratherton.com/loaders
- * https://projects.lukehaas.me/css-loaders
- * https://matejkustec.github.io/SpinThatShit
- */
+
 function useLoading() {
   const className = `loaders-css-spin`
   const styleContent = `

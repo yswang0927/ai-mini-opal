@@ -6,6 +6,13 @@ interface App {
   tags?: string[]
 }
 
+interface SaveFileResult {
+  success: boolean
+  filePath?: string
+  canceled?: boolean
+  error?: string
+}
+
 interface ElectronAPI {
   listApps: () => Promise<App[]>
   readFile: (filepath: string) => Promise<string | null>
@@ -13,6 +20,7 @@ interface ElectronAPI {
   deleteFile: (filepath: string) => Promise<boolean>
   getDataDir: () => Promise<string>
   getPathForFile: (file: File) => string
+  saveAsFile: (defaultFileName: string, content: string | Uint8Array) => Promise<SaveFileResult>
 }
 
 interface Window {

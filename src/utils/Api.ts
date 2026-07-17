@@ -79,7 +79,7 @@ class Api {
 
   async saveAppData(appId: string, appData: any): Promise<boolean> {
     try {
-      await this.writeFile(`apps/${appId}.json`, JSON.stringify(appData, null, 2));
+      await this.writeFile(`apps/${appId}.json`, typeof appData === 'string' ? appData : JSON.stringify(appData, null, 2));
       return true;
     } catch(e) {
       console.error('Failed to save app data:', e);

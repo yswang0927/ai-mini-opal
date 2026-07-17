@@ -1,3 +1,5 @@
+import { OverlayToaster, Position } from "@blueprintjs/core";
+
 /**
  * 防抖函数返回值接口，扩展了取消和立即执行的方法
  */
@@ -418,3 +420,82 @@ export class LayoutResizer {
     window.removeEventListener('mouseup', this._handleMouseUp);
   }
 }
+
+/** downloadFile 支持的内容类型：文本、二进制缓冲、Blob。 */
+export type DownloadContent = string | ArrayBuffer | ArrayBufferView | Blob;
+
+/** downloadFile 返回结果。canceled 表示用户在 Electron 保存对话框中取消。 */
+export interface DownloadResult {
+  success: boolean;
+  /** Electron 下保存成功时的绝对路径（浏览器下载无此字段）。 */
+  filePath?: string;
+  canceled?: boolean;
+  error?: string;
+}
+
+/** 将任意内容归一化为可用于浏览器下载的 Blob。 */
+async function toBlob(content: DownloadContent, mimeType?: string): Promise<Blob> {
+  if (content instanceof Blob) return content;
+  const type = mimeType || 'application/octet-stream';
+  if (typeof content === 'string') {
+    return new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+  }
+  // ArrayBuffer / TypedArray / DataView
+  return new Blob([content as BlobPart], { type });
+}
+
+/** 将任意内容归一化为可通过 IPC 传输的类型（结构化克隆友好）：string 或 Uint8Array。 */
+async function toIpcPayload(content: DownloadContent): Promise<string | Uint8Array> {
+  if (typeof content === 'string') return content;
+  if (content instanceof Blob) return new Uint8Array(await content.arrayBuffer());
+  if (content instanceof ArrayBuffer) return new Uint8Array(content);
+  // ArrayBufferView (TypedArray / DataView)
+  const view = content as ArrayBufferView;
+  return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+}
+
+/**
+ * 通用文件下载：在 Electron 中弹出系统"另存为"对话框并写入磁盘；
+ * 在普通浏览器环境中回退到 `<a download>` 方式。
+ *
+ * @param filename 建议的文件名（含扩展名），如 "报告.html"、"data.json"、"image.png"
+ * @param content  文件内容，支持字符串（文本）、ArrayBuffer/TypedArray、Blob（二进制）
+ * @param mimeType 可选 MIME 类型，仅用于浏览器回退时的 Blob 类型
+ */
+export async function downloadFile(
+  filename: string,
+  content: DownloadContent,
+  mimeType?: string
+): Promise<DownloadResult> {
+  const electronAPI = (window as any).electronAPI as
+    | { saveAsFile?: (name: string, data: string | Uint8Array) => Promise<DownloadResult> }
+    | undefined;
+
+  // Electron 环境：走主进程原生保存对话框
+  if (electronAPI?.saveAsFile) {
+    const payload = await toIpcPayload(content);
+    return electronAPI.saveAsFile(filename, payload);
+  }
+
+  // 浏览器回退：Blob + <a download>
+  try {
+    const blob = await toBlob(content, mimeType);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+export const AppToaster = OverlayToaster.create({
+  className: "opal-toaster",
+  position: Position.TOP,
+  usePortal: true
+});
