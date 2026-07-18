@@ -96,8 +96,8 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
         setClosestTarget(nearestTarget);
         // 实时塞入单例通道
         __NODEZATOR_ACTIVE_SNAP_TARGET__ = {
-          nodeId: nearestTarget.nodeId,
-          handleId: nearestTarget.id
+          nodeId: (nearestTarget as ActiveTarget).nodeId,
+          handleId: (nearestTarget as ActiveTarget).id
         };
       } else {
         setClosestTarget(null);

@@ -435,7 +435,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   }, [onEdgesChange]);
 
   // 1. 当用户刚从某个 Handle 按住鼠标往外拉线时触发
-  const handleConnectStart = useCallback((event: React.MouseEvent | React.TouchEvent, params: OnConnectStartParams) => {
+  const handleConnectStart = useCallback((event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
     const targetElement = event.target as HTMLElement;
     if (!targetElement) return;
 
