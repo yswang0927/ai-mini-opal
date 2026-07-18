@@ -9,6 +9,8 @@ import {
   MarkerType,
   Controls,
   ControlButton,
+  getBezierPath,
+  type ConnectionLineComponentProps,
   type Node,
   type Edge,
 } from '@xyflow/react';
@@ -86,6 +88,36 @@ const edgeCompletedOptions = {
     strokeDasharray: undefined,
   },
   markerEnd: {...defaultEdgeOptions.markerEnd, color: '#16a34a'},
+};
+
+// 自定义连接线组件
+const CustomConnectionLine: React.FC<ConnectionLineComponentProps> = ({
+  fromX, fromY, fromPosition, toX, toY, toPosition,
+}) => {
+  // 实时计算贝塞尔曲线路径
+  const [edgePath] = getBezierPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+  });
+
+  const ORANGE_COLOR = '#F97316'; // 橘黄色 (Tailwind orange-500)
+
+  return (
+    <g>
+      {/* 1. 橘黄色连接线 */}
+      <path fill="none" stroke={ORANGE_COLOR} strokeWidth={2} d={edgePath} />
+
+      {/* 2. 起点实心小圆点 */}
+      <circle cx={fromX} cy={fromY} fill={ORANGE_COLOR} r={5} />
+
+      {/* 3. 终点实心小圆点（紧随鼠标指针） */}
+      <circle cx={toX} cy={toY} fill={ORANGE_COLOR} r={5} />
+    </g>
+  );
 };
 
 const NODE_WIDTH = 300;
@@ -575,9 +607,12 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           onInit={(instance) => reactFlowRef.current = instance }
           nodeTypes={customNodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
+          connectionLineComponent={CustomConnectionLine}
           nodeDragThreshold={5}
+          connectionRadius={40}
           snapToGrid={true}
           snapGrid={[10, 10]}
+          autoPanOnNodeFocus={true}
           minZoom={0.1}
           deleteKeyCode={['Backspace', 'Delete']}
           fitView
@@ -633,7 +668,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && e.ctrlKey) {
                   e.preventDefault();
                   handleChatSubmit();
                 }

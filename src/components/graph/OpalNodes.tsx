@@ -69,7 +69,12 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
       </div>
       
       {/* 左侧输入锚点 */}
-      {hasInput && (<Handle type="target" position={Position.Left} style={{ left: '0px' }} />)}
+      {hasInput && (
+          <Handle
+              type="target"
+              position={Position.Left}
+              style={{ left: '0px' }} />
+      )}
 
       {/* 右侧输出锚点 */}
       {hasOutput && (<Handle type="source" position={Position.Right} style={{ right: '0px' }} />)}

@@ -56,12 +56,26 @@
 }
 
 .react-flow__handle {
-    width: 14px;
-    height: 14px;
-    background-color: #fff;
-    border: 2px solid #383E47;
+    width: 30px;
+    height: 30px;
+    border: 8px solid transparent !important;
+    background-clip: padding-box !important;
+    border-radius: 50% !important;
+    background-color: transparent !important;
+    --handle-color: #383E47;
 }
-
+.react-flow__handle::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid var(--handle-color);
+    background-color: #fff;
+}
 .react-flow__handle::after {
     content: '';
     position: absolute;
@@ -70,9 +84,8 @@
     border-radius: 50%;
     left: 50%;
     top: 50%;
-    margin-left: -2px;
-    margin-top: -2px;
-    background-color: #383E47;
+    transform: translate(-50%, -50%);
+    background-color: var(--handle-color);
 }
 
 .react-flow__node .node-run-state svg {

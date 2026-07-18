@@ -7,6 +7,7 @@ import {
     PanelRightOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Tooltip } from "@blueprintjs/core";
 import { useEditorContext } from './EditorContext';
 import { useL10n } from "@/l10n";
 import { SaveState } from '@/types';
@@ -64,7 +65,9 @@ export default function Header() {
                 <button className="nav-share" disabled><Share2 size={18} strokeWidth={1.5} /> <span>{t('分享')}</span></button>
                 {/*<button><EllipsisVertical size={18} strokeWidth={1.5} /></button>*/}
                 <div style={{marginLeft: '0.5rem'}}>
+                    <Tooltip content={sidebarShow ? t("收起侧边栏") : t("展开侧边栏")} placement="bottom-end">
                     <button onClick={toggleSidebar}>{ (sidebarShow ? <PanelRightClose size={18} strokeWidth={1.5} /> : <PanelRightOpen size={18} strokeWidth={1.5} />) }</button>
+                    </Tooltip>
                 </div>
             </div>
         </div>
