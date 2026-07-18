@@ -82,7 +82,7 @@ function ChatGraphEditorContent() {
                         </div>
 
                         <div ref={sidebarDomRef} className={`layout-sidebar${sidebarShow ? '' : ' is-hidden'}`}>
-                            <div className="layout-resizer" data-region="right" data-min="300" data-max="1200"></div>
+                            <div className="layout-resizer" data-region="right" data-min="300" data-max="1500"></div>
                             <div className="layout-sidebar-body">
                                 <Sidebar />
                             </div>

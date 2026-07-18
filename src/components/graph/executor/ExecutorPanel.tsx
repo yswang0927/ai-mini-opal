@@ -1,9 +1,16 @@
 import React, { useState } from "react";
 import { RotateCcw, CirclePlus, FileDown } from "lucide-react";
-import { Button, Intent, Icon } from "@blueprintjs/core";
+import {
+  Button,
+  Intent,
+  PopoverNext,
+  Menu,
+  MenuItem,
+  MenuDivider,
+} from "@blueprintjs/core";
 import { useL10n } from "@/l10n";
 import { downloadFile, AppToaster } from "@/utils";
-import type { ExecutionState, InputRequest } from "./types";
+import type { ExecutionState, InputRequest, RenderedOutput } from "./types";
 
 interface ExecutorPanelProps {
   execState: ExecutionState;
@@ -13,7 +20,7 @@ interface ExecutorPanelProps {
 }
 
 export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRestart }: ExecutorPanelProps) {
-  const { status, pendingInputs, renderedHtml, error, nodeOutputs } = execState;
+  const { status, pendingInputs, renderedOutputs, error, nodeOutputs } = execState;
   const { t } = useL10n();
 
   if (status === 'idle') {
@@ -21,10 +28,15 @@ export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRes
   }
 
   // 下载生成的HTML输出文件
-  const handleDownloadReport = async () => {
-    if (!renderedHtml) return;
+  const handleDownloadReport = async (reportName:string) => {
+    if (!renderedOutputs || renderedOutputs.length === 0) return;
 
     // 文件名规则: <title> -> 第一个 <h1> -> 默认 "输出<日期>"
+    // 测试：取第一个
+    const filtered = renderedOutputs.filter(item => item.title === reportName);
+    if (!filtered || filtered.length === 0) return;
+
+    const renderedHtml = filtered[0]?.content || '';
     let filename = '';
     const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
     const titleMatch = renderedHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -69,7 +81,15 @@ export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRes
       <div className="executor-panel-header">
         <span className="executor-title">{t('应用预览')}</span>
         <div className="flex gap-md">
-          {renderedHtml && (<Button onClick={handleDownloadReport} variant="minimal" icon={<span className="bp6-icon"><FileDown size={20} strokeWidth={1.5} /></span>} title={t('下载')} />)}
+          {(renderedOutputs !== null && renderedOutputs.length > 0) && (
+            <PopoverNext placement='bottom' content={
+              <Menu>
+                {renderedOutputs.map(output => <MenuItem text={output.title} onClick={() => handleDownloadReport(output.title)} />)}
+              </Menu>
+            }>
+              <Button variant="minimal" icon={<span className="bp6-icon"><FileDown size={20} strokeWidth={1.5} /></span>} title={t('下载')} />
+            </PopoverNext>
+          )}
           <Button onClick={onRestart} variant="minimal" icon={<span className="bp6-icon"><RotateCcw size={20} strokeWidth={1.5} /></span>} title={t('重启应用')} />
         </div>
       </div>
@@ -86,10 +106,10 @@ export default function ExecutorPanel({ execState, onSubmitInput, onStart, onRes
         {status === 'waiting_input' && (
           <InputCollector inputs={pendingInputs} onSubmit={onSubmitInput} />
         )}
-        {status === 'completed' && renderedHtml && (
-          <HtmlRenderer html={renderedHtml} />
+        {status === 'completed' && renderedOutputs !== null && (
+          <OutputsRenderer outputs={renderedOutputs} />
         )}
-        {status === 'completed' && !renderedHtml && (
+        {status === 'completed' && !renderedOutputs && (
           <CompletedView outputs={nodeOutputs} />
         )}
         {status === 'error' && <ErrorView error={error} />}
@@ -228,15 +248,24 @@ function InputCollector({
   );
 }
 
-function HtmlRenderer({ html }: { html: string }) {
+function OutputsRenderer({ outputs }: {outputs: RenderedOutput[]}) {
   return (
-    <div className="executor-html-render">
-      <iframe
-        srcDoc={html}
-        sandbox="allow-scripts allow-same-origin"
-        style={{ width: '100%', height: '100%', border: 'none' }}
-        title="App Output"
-      />
+    <div className="executor-html-render flex">
+      {outputs.map(output => {
+        return (
+          <div className="flex-1 flex flex-col">
+            <h3>{output.title}</h3>
+            <div className="flex-1" style={{height:'100%'}}>
+              <iframe
+                srcDoc={output.content}
+                sandbox="allow-scripts allow-same-origin"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="App Output"
+              />
+            </div>
+          </div>
+        )
+      })}
     </div>
   );
 }

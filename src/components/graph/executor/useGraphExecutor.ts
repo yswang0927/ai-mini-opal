@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { OpalJson, OpalNode } from "@/types";
 import { OpalNodeType } from "@/types";
-import type { ExecutionState, InputRequest, NodeExecStatus, NodeExecInfo } from "./types";
+import type { ExecutionState, InputRequest, NodeExecStatus, NodeExecInfo, RenderedOutput } from "./types";
 import {
   startExecutionStream,
   resumeExecutionStream,
@@ -13,7 +13,7 @@ const initialState: ExecutionState = {
   status: 'idle',
   pendingInputs: [],
   nodeOutputs: {},
-  renderedHtml: null,
+  renderedOutputs: null,
   error: null,
   currentNodeId: null,
   currentNodeTitle: null,
@@ -104,15 +104,20 @@ function computeNodeInput(
   return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
-/** 从服务端 node_outputs 中提取第一个 render 节点产出的 HTML。 */
-function extractRenderedHtml(graphJson: OpalJson | null, outputs: Record<string, string>): string | null {
+/** 从服务端 node_outputs 中提取输出节点的输出内容 */
+function extractRenderedOutputs(graphJson: OpalJson | null, outputs: Record<string, string>): RenderedOutput[] | null {
   if (!graphJson?.nodes) return null;
+  const renderedOutputs: RenderedOutput[] = [];
   for (const node of graphJson.nodes) {
     if (isRenderNode(node) && outputs[node.id]) {
-      return stripHtmlFence(outputs[node.id]);
+      renderedOutputs.push({
+        title: node.metadata.title,
+        type: 'html', // 目前只支持html一个输出
+        content: stripHtmlFence(outputs[node.id])
+      });
     }
   }
-  return null;
+  return renderedOutputs;
 }
 
 /** 根据 completed_nodes / skipped_nodes / current_node 重建节点状态映射。 */
@@ -228,7 +233,7 @@ function applyStreamEvent(
         ...prev,
         status: 'running',
         nodeOutputs,
-        renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
+        renderedOutputs: extractRenderedOutputs(graphJson, nodeOutputs),
         currentNodeId,
         currentNodeTitle: titleOf(currentNodeId),
         nodeStatuses: buildNodeStatuses(graphJson, completed, currentNodeId, skipped),
@@ -338,7 +343,7 @@ function applyStreamEvent(
         status: 'completed',
         pendingInputs: [],
         nodeOutputs,
-        renderedHtml: extractRenderedHtml(graphJson, nodeOutputs),
+        renderedOutputs: extractRenderedOutputs(graphJson, nodeOutputs),
         currentNodeId: null,
         currentNodeTitle: null,
         nodeStatuses: buildNodeStatuses(graphJson, completed, null, skipped),

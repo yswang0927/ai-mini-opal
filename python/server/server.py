@@ -206,20 +206,46 @@ app.add_middleware(
 
 
 # --------------------------------
-# 统一异常响应
+# 统一响应
 # --------------------------------
+
+class ApiResponse(BaseModel):
+    """统一响应结果"""
+
+    code: int
+    message: str
+    data: Any = None
+
+    @classmethod
+    def success(cls, data: Any = None, message: str = "操作成功"):
+        """
+        成功返回
+        """
+        return cls(
+            code=0,
+            message=message,
+            data=data
+        )
+
+    @classmethod
+    def error(cls, message: str = "操作失败", code: int = 500):
+        """
+        失败返回
+        """
+        return cls(
+            code=code,
+            message=message,
+            data=None
+        )
+
 #
 # 所有接口的错误都归一为以下 JSON 结构,前端可据 code/message 统一处理:
-#   {"ok": false, "error": {"code": <http_status>, "message": <描述>, "type": <异常类别>}}
-
+#   {"code": error_code, "error": {"message": <描述>, "type": <异常类别>}}
 
 def _error_response(status_code: int, message: str, err_type: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
-        content={
-            "ok": False,
-            "error": {"code": status_code, "message": message, "type": err_type},
-        },
+        content=ApiResponse.error(message=f"{message}({err_type})", code=status_code).model_dump()
     )
 
 
@@ -292,7 +318,7 @@ class ExecuteResponse(BaseModel):
 # Endpoints
 # ----------------------
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat")
 async def chat(req: ChatRequest):
     """多轮对话接口。session_id 由前端传入,首次使用时自动创建会话。"""
     session_id = req.session_id
@@ -342,22 +368,22 @@ async def chat(req: ChatRequest):
 
     _save_session_to_disk(session_id, session)
 
-    return ChatResponse(
+    return ApiResponse.success(data=ChatResponse(
         session_id=session_id,
         reply=reply,
         tool_calls=tool_calls_log,
         graph=session.graph_state.compile_to_opal_json(),
-    )
+    ))
 
 
-@app.get("/graph/{session_id}", response_model=GraphResponse)
+@app.get("/graph/{session_id}")
 async def get_graph(session_id: str):
     """获取指定 session 当前编译出的 Opal Graph JSON。"""
     session = sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     graph = session.graph_state.compile_to_opal_json()
-    return GraphResponse(session_id=session_id, graph=graph)
+    return ApiResponse.success(data=GraphResponse(session_id=session_id, graph=graph))
 
 
 @app.delete("/session/{session_id}")
@@ -366,13 +392,13 @@ async def delete_session(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     del sessions[session_id]
-    return {"ok": True}
+    return ApiResponse.success(data={"session_id": session_id})
 
 
 @app.get("/sessions")
 async def list_sessions():
     """列出所有活跃 session（调试用）。"""
-    return [
+    return ApiResponse.success(data=[
         {
             "session_id": sid,
             "created_at": s.created_at,
@@ -381,7 +407,7 @@ async def list_sessions():
         }
         for sid, s in sessions.items()
         if not s.is_expired()
-    ]
+    ])
 
 
 # ----------------------
@@ -407,7 +433,7 @@ async def execute_start(req: ExecuteStartRequest):
         executors[thread_id] = executor
 
         state = await asyncio.to_thread(executor.start, thread_id)
-        return ExecuteResponse(thread_id=thread_id, **_sanitize_state(state))
+        return ApiResponse.success(data=ExecuteResponse(thread_id=thread_id, **_sanitize_state(state)))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
 
@@ -424,7 +450,7 @@ async def execute_resume(req: ExecuteResumeRequest):
 
     try:
         state = await asyncio.to_thread(executor.resume, req.user_inputs, req.thread_id)
-        return ExecuteResponse(thread_id=req.thread_id, **_sanitize_state(state))
+        return ApiResponse.success(data=ExecuteResponse(thread_id=req.thread_id, **_sanitize_state(state)))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 

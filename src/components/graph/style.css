@@ -261,7 +261,7 @@
     z-index: 1;
     width: 100%;
     max-height: 50px;
-    background-color: var(--bg-color);
+    background-color: var(--color-bg-secondary);
     border-radius: 16px;
     border: 1px solid rgba(0, 0, 0, 0.1);
     transform: translateY(-100%);
@@ -300,7 +300,7 @@
     word-break: break-all;
     word-wrap: break-word;
     white-space: normal;
-    background-color: #EFEEEB;
+    background-color: var(--color-bg-primary);
     color: rgba(0,0,0,0.8);
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
@@ -310,6 +310,12 @@
 }
 .graph-chat-msg-list .graph-chat-msg.thinking {
     color: rgba(0,0,0,0.6);
+}
+.graph-chat-msg-list .graph-chat-msg.error .graph-chat-msg-content {
+    color: var(--color-danger-text);
+    background-color: var(--color-danger-bg);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
 }
 .graph-chat-msg-list .graph-chat-msg-content ul,
 .graph-chat-msg-list .graph-chat-msg-content ol {

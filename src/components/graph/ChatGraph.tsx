@@ -557,13 +557,18 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       })
     })
       .then(response => response.json())
-      .then(data => {
+      .then(jsonData => {
         // {session_id:string, reply:string, graph:OpalJson}
-        console.log('Chat response:', data);
+        console.log('Chat response:', jsonData);
         setChatInput('');
         setChatting(false);
-        setOpalData(data.graph);
-        setChatHistory((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+        if (jsonData.code === 0) {
+          const rawData = jsonData.data;
+          setOpalData(rawData.graph);
+          setChatHistory((prev) => [...prev, {role: 'assistant', content: rawData.reply}]);
+        } else {
+          setChatHistory((prev) => [...prev, {role: 'error', content: jsonData.message}]);
+        }
       })
       .catch(error => {
         setChatting(false);
@@ -696,8 +701,8 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
               {chatHistory.map((msg, index) => (
                   <div key={index} className={`graph-chat-msg ${msg.role}`}>
                     <div className="graph-chat-msg-content">
-                      { msg.role === 'user'
-                          ? <span>{msg.content}</span>
+                      { (msg.role === 'user' ||  msg.role === 'error')
+                          ? <span style={{whiteSpace:'pre-wrap'}}>{msg.content}</span>
                           : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
                       }
                     </div>

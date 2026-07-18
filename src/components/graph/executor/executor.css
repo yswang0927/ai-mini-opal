@@ -208,6 +208,9 @@
   flex: 1;
   min-height: 0;
 }
+.executor-html-render h3 {
+  padding-left: 0.5rem;
+}
 
 .executor-splash {
   flex: 1;
