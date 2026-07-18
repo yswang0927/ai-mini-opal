@@ -422,3 +422,13 @@
     opacity: 0.6;
     filter: grayscale(0.6);
 }
+
+
+/* 磁吸大圆点与手臂的公共过渡类（让伸缩富有弹性） */
+.nodezator-arm-path {
+  transition: d 0.05s ease-out;
+}
+
+.nodezator-magnetic-dot {
+  transition: r 0.1s ease-out, fill 0.2s;
+}

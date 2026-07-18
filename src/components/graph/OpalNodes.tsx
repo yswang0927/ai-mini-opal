@@ -5,6 +5,7 @@ import { OpalNodeType } from '@/types';
 import { useEditorContext } from '@/pages/editor/EditorContext';
 import { NodeTypesStyle, type FlowNode } from './types';
 
+import { NodezatorHandle } from "./NodezatorHandle";
 
 const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
   nodeData: FlowNode,
@@ -69,15 +70,10 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
       </div>
       
       {/* 左侧输入锚点 */}
-      {hasInput && (
-          <Handle
-              type="target"
-              position={Position.Left}
-              style={{ left: '0px' }} />
-      )}
+      {hasInput && (<NodezatorHandle type="target" position={Position.Left} style={{ left: '0px' }} /> )}
 
       {/* 右侧输出锚点 */}
-      {hasOutput && (<Handle type="source" position={Position.Right} style={{ right: '0px' }} />)}
+      {hasOutput && (<NodezatorHandle type="source" position={Position.Right} style={{ right: '0px' }} />)}
     </div>
   );
 };

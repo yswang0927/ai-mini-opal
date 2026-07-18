@@ -11,8 +11,10 @@ import {
   ControlButton,
   getBezierPath,
   type ConnectionLineComponentProps,
+  type OnConnectStartParams,
   type Node,
   type Edge,
+  type Connection,
 } from '@xyflow/react';
 
 import {
@@ -44,6 +46,7 @@ import { useEditorContext } from '@/pages/editor/EditorContext';
 import { UserInputNode, GenerateNode, OutputNode, AssetsTextNode, AssetsFileNode } from './OpalNodes';
 import { type FlowNode } from './types';
 import autoLayout from './AutoLayout';
+import {NodezatorConnectionLine, __NODEZATOR_ACTIVE_SNAP_TARGET__} from "./NodezatorConnectionLine";
 
 import '@xyflow/react/dist/style.css';
 import './style.css';
@@ -136,6 +139,8 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const reactFlowRef = useRef<any>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  // 用一个极其稳定的 Ref 缓存当前的连线起点数据
+  const connectingSourceRef = useRef<{ nodeId: string; handleId: string | null } | null>(null);
   const isGraphInitializedRef = useRef<boolean>(false);
   const [chatInput, setChatInput] = useState<string>('');
   const [chatting, setChatting] = useState<boolean>(false);
@@ -270,10 +275,9 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     );
   }, [setEdges]);
 
-  const onConnect = useCallback((params: any) => {
+  const onConnect = useCallback((conn: Connection) => {
     setEdges((eds) => {
-      const newEdges = addEdge(params, eds);
-      console.log(newEdges);
+      const newEdges = addEdge(conn, eds);
       // 拿到了绝对最新的连线数据 newEdges，以及当前的 nodes
       onGraphChanged(nodes, newEdges);
       return newEdges;
@@ -429,6 +433,50 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     // 调用原始的 onEdgesChange
     onEdgesChange(changes);
   }, [onEdgesChange]);
+
+  // 1. 当用户刚从某个 Handle 按住鼠标往外拉线时触发
+  const handleConnectStart = useCallback((event: React.MouseEvent | React.TouchEvent, params: OnConnectStartParams) => {
+    const targetElement = event.target as HTMLElement;
+    if (!targetElement) return;
+
+    const nodeId = targetElement.getAttribute('data-nodeid') || '';
+    const handleId = targetElement.getAttribute('data-id') || targetElement.getAttribute('id') || '';
+    if (nodeId) {
+      connectingSourceRef.current = {
+        nodeId: nodeId,
+        handleId: handleId
+      };
+    }
+  }, []);
+
+  // 2. 精准接管 React Flow 连线生命周期终点事件
+  const handleConnectEnd = useCallback((_event: MouseEvent | TouchEvent) => {
+    const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
+    const source = connectingSourceRef.current;
+
+    // 如果松手的一瞬间，小手处于相撞变橘黄状态，且我们记录到了源头
+    if (snapTarget && source && source.nodeId) {
+      setEdges((eds) => {
+        return addEdge(
+          {
+            source: source.nodeId,
+            sourceHandle: null,
+            target: snapTarget.nodeId,
+            targetHandle: null
+          },
+          eds
+        );
+      });
+
+      // 顺滑存盘，绕过 React Flow 的批处理延迟
+      setTimeout(() => {
+        onGraphChanged();
+      }, 30);
+    }
+
+    // 无论连线成功与否，落幕时彻底清空起点缓存，防止污染下次连线
+    connectingSourceRef.current = null;
+  }, [setEdges, onGraphChanged]);
 
   // 传入的 graphData 上图
   useEffect(() => {
@@ -600,6 +648,8 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
           onConnect={onConnect}
+          onConnectStart={handleConnectStart}
+          onConnectEnd={handleConnectEnd}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onNodeDragStop={onNodeDragStop}
@@ -607,7 +657,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           onInit={(instance) => reactFlowRef.current = instance }
           nodeTypes={customNodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
-          connectionLineComponent={CustomConnectionLine}
+          connectionLineComponent={NodezatorConnectionLine}
           nodeDragThreshold={5}
           connectionRadius={40}
           snapToGrid={true}
