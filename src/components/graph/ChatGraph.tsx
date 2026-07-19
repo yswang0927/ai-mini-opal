@@ -485,6 +485,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
     const source = connectingSourceRef.current;
 
+    console.log('>> 动态吸附连线：', source, snapTarget);
     // 如果松手的一瞬间，小手处于相撞变橘黄状态，且我们记录到了源头
     if (snapTarget && source && source.nodeId) {
       // 不允许连接自己
@@ -502,9 +503,11 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       };
 
       if (isEdgeExists(newEdge, rf.getEdges())) {
+        console.log('>> 连接已存在忽略动态吸附连线');
         return;
       }
 
+      console.log('>> 创建动态吸附连线');
       setEdges((eds) => addEdge(newEdge, eds));
 
       setTimeout(() => {
