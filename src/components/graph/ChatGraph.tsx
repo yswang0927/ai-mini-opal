@@ -1,52 +1,40 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  ReactFlow,
-  Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
-  ConnectionLineType,
-  MarkerType,
-  Controls,
-  ControlButton,
-  getBezierPath,
-  type ConnectionLineComponentProps,
-  type OnConnectStartParams,
-  type Node,
-  type Edge,
+  Background,
   type Connection,
+  type ConnectionLineComponentProps,
+  ConnectionLineType,
+  ControlButton,
+  Controls,
+  type Edge,
+  getBezierPath,
+  MarkerType,
+  type Node,
+  type OnConnectStartParams,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
 } from '@xyflow/react';
 
-import {
-  Sparkles,
-  Proportions,
-  MessageSquareText,
-  SquarePlus,
-  ArrowUp,
-  Undo2,
-  Redo2
-} from 'lucide-react';
+import {ArrowUp, MessageSquareText, Proportions, Sparkles, SquarePlus} from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { 
-  PopoverNext, 
-  Menu, 
-  MenuItem, 
-} from "@blueprintjs/core";
+import {Menu, MenuItem, PopoverNext,} from "@blueprintjs/core";
 
-import type { OpalJson, OpalNode, OpalEdge } from '@/types';
-import { OpalNodeType } from '@/types';
-import { SERVER_BASE_URL } from "@/utils/Api";
-import { useL10n } from "@/l10n";
+import {type OpalEdge, type OpalNode, OpalNodeType} from '@/types';
+import {SERVER_BASE_URL} from "@/utils/Api";
+import {uuid} from "@/utils";
+import {useL10n} from "@/l10n";
 import DotsSpinner from '@/components/DotsSpinner';
 import TextArea from '@/components/TextArea';
-import { LayoutDagIcon, Undo, Redo, Spinner } from '@/utils/icons';
-import { useEditorContext } from '@/pages/editor/EditorContext';
+import {LayoutDagIcon, Spinner} from '@/utils/icons';
+import {useEditorContext} from '@/pages/editor/EditorContext';
 
-import { UserInputNode, GenerateNode, OutputNode, AssetsTextNode, AssetsFileNode } from './OpalNodes';
-import { type FlowNode } from './types';
+import {AssetsFileNode, AssetsTextNode, GenerateNode, OutputNode, UserInputNode} from './OpalNodes';
+import {type FlowNode} from './types';
 import autoLayout from './AutoLayout';
-import {NodezatorConnectionLine, __NODEZATOR_ACTIVE_SNAP_TARGET__} from "./NodezatorConnectionLine";
+import {__NODEZATOR_ACTIVE_SNAP_TARGET__, NodezatorConnectionLine} from "./NodezatorConnectionLine";
 
 import '@xyflow/react/dist/style.css';
 import './style.css';
@@ -137,16 +125,20 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const { t } = useL10n();
   const graphDomRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
+  const emptyStateDomRef = useRef<HTMLDivElement|null>(null);
+  const [inDragDropMode, setInDragDropMode] = useState<boolean>(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  // 用一个极其稳定的 Ref 缓存当前的连线起点数据
+  // 用 Ref 缓存当前的连线起点数据
   const connectingSourceRef = useRef<{ nodeId: string; handleId: string | null } | null>(null);
   const isGraphInitializedRef = useRef<boolean>(false);
+
   const [chatInput, setChatInput] = useState<string>('');
   const [chatting, setChatting] = useState<boolean>(false);
   const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
   const chatListDomRef = useRef(null);
   const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
+
   const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
 
   const opalData = opalPayload.data;
@@ -159,7 +151,13 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     const currentNodes = nextNodes || rf.getNodes();
     const currentEdges = nextEdges || rf.getEdges();
 
-    const opalNodes: OpalNode[] = currentNodes.map((fNode: any): OpalNode => {
+    const normalNodeTypes = new Set<string>([OpalNodeType.UserInputs, OpalNodeType.AgentGenerate, OpalNodeType.RenderOutputs]);
+    const assetsNodeTypes = new Set<string>([OpalNodeType.AssetsText, OpalNodeType.AssetsFile]);
+
+    const normalNodes = currentNodes.filter((item:Node) => normalNodeTypes.has(item.type || ""));
+    const assetNodes = new Map(currentNodes.filter((item:Node) => assetsNodeTypes.has(item.type || "")).map((aNode: Node) => [aNode.id, aNode.data]));
+
+    const opalNodes: OpalNode[] = normalNodes.map((fNode: Node): OpalNode => {
       const position = fNode.position;
       const rawData = { ...(fNode.data as OpalNode) };
       if (rawData.metadata) {
@@ -171,7 +169,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       return rawData;
     });
 
-    const opalEdges: OpalEdge[] = currentEdges.map((edge: Edge): OpalEdge => {
+    const opalEdges: OpalEdge[] = currentEdges.filter((edge: Edge) => !assetNodes.has(edge.source)).map((edge: Edge): OpalEdge => {
       const from = edge.source;
       const to = edge.target;
       const data = (edge.data || {}) as { out?: string; in?: string };
@@ -188,7 +186,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       };
     });
 
-    setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges }, true);
+    setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges, assets: Object.fromEntries(assetNodes) }, true);
   }, [opalData, setOpalData]);
 
   const doLayout = useCallback(async () => {
@@ -199,7 +197,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     rf.setEdges(result.edges);
     rf.fitView();
 
-    onGraphChanged(result.nodes, result.edges);
+    //onGraphChanged(result.nodes, result.edges);
   }, [onGraphChanged]);
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -285,7 +283,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   }, [setEdges, nodes, onGraphChanged]);
 
   const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }) => {
-    const nodeId = `${type}-${Date.now()}`;
+    const nodeId = `${type}-${uuid()}`;
     const newNode: Node = {
       id: nodeId,
       type: type,
@@ -333,6 +331,16 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         "system-instruction": {
           role: "user",
           content: ""
+        }
+      };
+    }
+    else if (type === OpalNodeType.AssetsText) {
+      rawType = OpalNodeType.AssetsText;
+      rawTitle = t("静态文本");
+      configuration = {
+        text: {
+          content: "",
+          role: "user"
         }
       };
     }
@@ -384,6 +392,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const onDragStart = (event: React.DragEvent, nodeType: OpalNodeType) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
     event.dataTransfer.effectAllowed = 'move';
+    setInDragDropMode(true);
   };
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -393,6 +402,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
   const onDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
+    setInDragDropMode(false);
     const type = event.dataTransfer.getData('application/reactflow/type');
     if (!type || !reactFlowRef.current) {
       return;
@@ -487,7 +497,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     }
 
     console.log('>>> init graph data', opalData);
-    if (!opalData) {
+    if (!opalData || !opalData.nodes) {
       setNodes([]);
       setEdges([]);
       return;
@@ -512,6 +522,59 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         data: { out: edge.out, in: edge.in }
       };
     });
+
+    // 将静态资源转换为资源节点
+    const opalAssets = opalData.assets;
+    if (opalAssets) {
+      for (let assetId in opalAssets) {
+        const assetData = opalAssets[assetId];
+        const assetNode: FlowNode = {
+          id: assetId,
+          type: assetData.type,
+          position: {x: assetData.metadata.visual?.x || 0, y: assetData.metadata.visual?.y || 0},
+          data: assetData
+        };
+        flowNodes.push(assetNode);
+      }
+
+      // 从节点中寻找哪些节点内容中引用了静态资源，动态创建它们之间的边
+      opalData.nodes.forEach((pNode: OpalNode) => {
+        let content = "";
+        if (pNode.type === OpalNodeType.AgentGenerate) {
+          content = pNode.configuration.config$prompt?.content || '';
+        }
+        else if (pNode.type === OpalNodeType.RenderOutputs) {
+          content = pNode.configuration.text?.content || '';
+        }
+        else if (pNode.type === OpalNodeType.UserInputs) {
+          content = pNode.configuration.description?.content || '';
+        }
+
+        let foundAssets: string[] = [];
+        const regex = /\{\{(.*?)\}\}/g;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(content)) !== null) {
+          const varRefValue = match[0]; // {{type:asset, path:<asset_id>}}
+          try {
+            const refData = JSON.parse(varRefValue.substring(1, varRefValue.length-1));
+            if ('asset' === refData.type && opalAssets[refData.path||'']) {
+              foundAssets.push(refData.path);
+            }
+          } catch(e) {}
+        }
+
+        if (foundAssets.length > 0) {
+          foundAssets.forEach((assetId:string) => {
+            flowEdges.push({
+              id: `edge-${assetId}-${pNode.id}`,
+              source: assetId,
+              target: pNode.id,
+              data: { out: 'context', in: `p-z-${assetId}` }
+            });
+          });
+        }
+      });
+    }
 
     setNodes(flowNodes);
     setEdges(flowEdges);
@@ -626,21 +689,35 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       >
         <div className="graph-nodes-panel">
           <div className="graph-nodes">
-            <button data-nodetype={OpalNodeType.UserInputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)} onClick={() => addNode(OpalNodeType.UserInputs)}><span className="btn-icon"><MessageSquareText size={20} strokeWidth={1.5}/></span><span>{t('用户输入')}</span></button>
-            <button data-nodetype={OpalNodeType.AgentGenerate} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)} onClick={() => addNode(OpalNodeType.AgentGenerate)}><span className="btn-icon"><Sparkles size={20} strokeWidth={1.5}/></span><span>{t('AI生成')}</span></button>
-            <button data-nodetype={OpalNodeType.RenderOutputs} draggable onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)} onClick={() => addNode(OpalNodeType.RenderOutputs)}><span className="btn-icon"><Proportions size={20} strokeWidth={1.5}/></span><span>{t('输出')}</span></button>
-            {/*<div className="divider"></div>
-            <PopoverNext placement="bottom-start" arrow={false}
+            <button className="first" data-nodetype={OpalNodeType.UserInputs} draggable
+                    onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)}
+                    onDragEnd={() => setInDragDropMode(false)}
+                    onClick={() => addNode(OpalNodeType.UserInputs)}>
+              <span className="btn-icon"><MessageSquareText size={20} strokeWidth={1.5}/></span><span>{t('用户输入')}</span>
+            </button>
+            <button data-nodetype={OpalNodeType.AgentGenerate} draggable
+                    onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)}
+                    onDragEnd={() => setInDragDropMode(false)}
+                    onClick={() => addNode(OpalNodeType.AgentGenerate)}>
+              <span className="btn-icon"><Sparkles size={20} strokeWidth={1.5}/></span><span>{t('AI生成')}</span>
+            </button>
+            <button data-nodetype={OpalNodeType.RenderOutputs} draggable
+                    onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)}
+                    onDragEnd={() => setInDragDropMode(false)}
+                    onClick={() => addNode(OpalNodeType.RenderOutputs)}>
+              <span className="btn-icon"><Proportions size={20} strokeWidth={1.5}/></span><span>{t('输出')}</span>
+            </button>
+            <div className="divider"></div>
+            <PopoverNext placement="bottom-start"
               content={
                 <Menu>
                   <MenuItem icon="export" text={t('上传文件')} />
-                  <MenuItem icon="label" text={t('文本内容')} />
+                  <MenuItem icon="label" text={t('文本内容')} onClick={() => addNode(OpalNodeType.AssetsText)} />
                 </Menu>
               }
             >
-              <button><span className="btn-icon"><SquarePlus size={20} strokeWidth={1.5}/></span><span>{t('添加资产')}</span></button>
+              <button className="last"><span className="btn-icon"><SquarePlus size={20} strokeWidth={1.5}/></span><span>{t('添加资产')}</span></button>
             </PopoverNext>
-            */}
           </div>
         </div>
 
@@ -679,8 +756,8 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           </Controls>
         </ReactFlow>
 
-        { nodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center graph-empty-state">
+        { (nodes.length === 0 && !inDragDropMode) && (
+          <div ref={emptyStateDomRef} className="absolute inset-0 flex items-center justify-center graph-empty-state">
             <div className="empty-state-top">
               {t('添加一个步骤开始')}
             </div>
@@ -739,7 +816,6 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           </div>
 
         </div>
-
       </div>
   );
 }

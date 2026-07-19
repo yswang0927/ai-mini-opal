@@ -88,6 +88,21 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
               refType: "in",
               path: item.id
             }));
+            // 解析 assets 静态资源节点
+            const opalAssets = opalData?.assets || null;
+            if (opalAssets) {
+                for (const assetId in opalAssets) {
+                  const assetData = opalAssets[assetId];
+                  stepsList.push({
+                    id: assetId,
+                    value: assetData.metadata?.title || assetId,
+                    team: "Step",
+                    refType: "asset",
+                    path: assetId
+                  });
+                }
+            }
+
             const toolsList = [
               {id: 'search-web', value: '搜索网页', team: 'Tool', refType: 'tool', path: 'search-web'},
               {id: 'code-execution', value: '代码执行', team: 'Tool', refType: 'tool', path: 'code-execution'}

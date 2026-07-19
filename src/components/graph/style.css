@@ -58,7 +58,7 @@
 .react-flow__handle {
     width: 30px;
     height: 30px;
-    border: 8px solid transparent !important;
+    border: 10px solid transparent !important;
     background-clip: padding-box !important;
     border-radius: 50% !important;
     background-color: transparent !important;
@@ -150,12 +150,14 @@
 .graph-nodes button:hover {
     background-color: rgba(169, 88, 62, 0.2);
 }
-.graph-nodes > button:first-child {
+.graph-nodes > button:first-child,
+.graph-nodes button.first {
     border-top-left-radius: 18px;
     border-bottom-left-radius: 18px;
     padding-left: 16px;
 }
-.graph-nodes > button:last-child {
+.graph-nodes > button:last-child,
+.graph-nodes  button.last {
     border-top-right-radius: 18px;
     border-bottom-right-radius: 18px;
     padding-right: 16px;

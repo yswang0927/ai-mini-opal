@@ -1,4 +1,10 @@
+import { v4 as uuid4 } from 'uuid';
 import { OverlayToaster, Position } from "@blueprintjs/core";
+
+export const uuid = () => {
+  //return uuid4().replace(/-/g, '');
+  return uuid4();
+};
 
 /**
  * 防抖函数返回值接口，扩展了取消和立即执行的方法

@@ -1,15 +1,11 @@
-import { v4 as uuidv4 } from 'uuid';
 import { type AppData } from '@/types';
+import { uuid } from '@/utils';
 
 const SETTINGS_FILE = "settings.json";
 
 // Python 执行器服务基地址
 export const SERVER_BASE_URL = "http://127.0.0.1:18765";
 
-const getUUID = () => {
-  //return uuidv4().replace(/-/g, '');
-  return uuidv4();
-};
 
 class Api {
 
@@ -53,7 +49,7 @@ class Api {
    * 创建新应用
    */
   async createApp(): Promise<string> {
-    const id = getUUID();
+    const id = uuid();
     const initialData = {
       title: 'Untitled app',
       description: '',
@@ -106,7 +102,7 @@ class Api {
   async duplicateApp(appId: string): Promise<boolean> {
     try {
       const appData = await this.getAppData(appId);
-      const newId = getUUID();
+      const newId = uuid();
       appData.title = `${appData.title} (Copy)`;
       await this.saveAppData(newId, appData);
       return true;

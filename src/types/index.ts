@@ -109,7 +109,7 @@ export interface OpalJson {
   metadata?: any;
   title: string;
   description?: string;
-  assets?: any;
+  assets?: Record<string, any>;
   version?: string;
   nodes?: OpalNode[];
   edges?: OpalEdge[];
