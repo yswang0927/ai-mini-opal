@@ -1,20 +1,20 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  addEdge,
-  Background,
-  type Connection,
-  type ConnectionLineComponentProps,
-  ConnectionLineType,
-  ControlButton,
-  Controls,
-  type Edge,
-  getBezierPath,
-  MarkerType,
-  type Node,
-  type OnConnectStartParams,
   ReactFlow,
   useEdgesState,
   useNodesState,
+  addEdge,
+  Background,
+  ConnectionLineType,
+  ControlButton,
+  Controls,
+  getBezierPath,
+  MarkerType,
+  type Node,
+  type Edge,
+  type Connection,
+  type ConnectionLineComponentProps,
+  type OnConnectStartParams,
 } from '@xyflow/react';
 
 import {ArrowUp, MessageSquareText, Proportions, Sparkles, SquarePlus} from 'lucide-react';
@@ -117,6 +117,16 @@ const nodeRandomOffset = () => {
   return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
 };
 
+const isEdgeExists = (edge: Edge, eds: Edge[]) => {
+  if (edge === null) {
+    return true;
+  }
+  if (eds === null || eds.length === 0) {
+    return false;
+  }
+  return !!eds.find((e: Edge)=> (e.source === edge.source && e.target === edge.target));
+};
+
 interface ChatGraphProps {
   graphId?: string;
 }
@@ -148,14 +158,15 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     if (!opalData || !rf) return;
 
     // 如果传入了最新的节点/边，就用传入的；否则从实例里拉取
-    const currentNodes = nextNodes || rf.getNodes();
-    const currentEdges = nextEdges || rf.getEdges();
+    const currentNodes:Node[] = nextNodes || rf.getNodes();
+    const currentEdges:Edge[] = nextEdges || rf.getEdges();
 
     const normalNodeTypes = new Set<string>([OpalNodeType.UserInputs, OpalNodeType.AgentGenerate, OpalNodeType.RenderOutputs]);
     const assetsNodeTypes = new Set<string>([OpalNodeType.AssetsText, OpalNodeType.AssetsFile]);
 
-    const normalNodes = currentNodes.filter((item:Node) => normalNodeTypes.has(item.type || ""));
+    const normalNodes:Node[] = currentNodes.filter((item:Node) => normalNodeTypes.has(item.type || ""));
     const assetNodes = new Map(currentNodes.filter((item:Node) => assetsNodeTypes.has(item.type || "")).map((aNode: Node) => [aNode.id, aNode.data]));
+    const normalEdges:Edge[] = currentEdges.filter((edge: Edge) => !assetNodes.has(edge.source));
 
     const opalNodes: OpalNode[] = normalNodes.map((fNode: Node): OpalNode => {
       const position = fNode.position;
@@ -169,7 +180,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       return rawData;
     });
 
-    const opalEdges: OpalEdge[] = currentEdges.filter((edge: Edge) => !assetNodes.has(edge.source)).map((edge: Edge): OpalEdge => {
+    const opalEdges: OpalEdge[] = normalEdges.map((edge: Edge): OpalEdge => {
       const from = edge.source;
       const to = edge.target;
       const data = (edge.data || {}) as { out?: string; in?: string };
@@ -229,24 +240,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     );
 
     setChatListCollapsed(true);
-  }, [setSelectedNode, setEdges]);
-
-  const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
-    // 恢复所有边的默认样式
-    setEdges((prevEdges) =>
-      prevEdges.map((edge) => ({
-        ...edge,
-        zIndex: 0,
-        selected: false,
-        style: defaultEdgeOptions.style,
-        markerEnd: defaultEdgeOptions.markerEnd
-      }))
-    );
-
-    setChatListCollapsed(true);
-
-  }, [setSelectedNode, setEdges]);
+  }, [setSelectedNode]);
 
   const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.stopPropagation();
@@ -271,18 +265,43 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           };
         })
     );
-  }, [setEdges]);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+    // 恢复所有边的默认样式
+    setEdges((prevEdges) =>
+      prevEdges.map((edge) => ({
+        ...edge,
+        zIndex: 0,
+        selected: false,
+        style: defaultEdgeOptions.style,
+        markerEnd: defaultEdgeOptions.markerEnd
+      }))
+    );
+
+    setChatListCollapsed(true);
+  }, [setSelectedNode]);
 
   const onConnect = useCallback((conn: Connection) => {
+    const rf = reactFlowRef.current;
+    if (!rf) return;
+    // 不允许连接自己
+    if (conn.source === conn.target) {
+      return;
+    }
+
     setEdges((eds) => {
       const newEdges = addEdge(conn, eds);
-      // 拿到了绝对最新的连线数据 newEdges，以及当前的 nodes
-      onGraphChanged(nodes, newEdges);
+      onGraphChanged(rf.getNodes(), newEdges);
       return newEdges;
     });
-  }, [setEdges, nodes, onGraphChanged]);
+  }, [onGraphChanged]);
 
   const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }) => {
+    const rf = reactFlowRef.current;
+    if (!rf) return;
+
     const nodeId = `${type}-${uuid()}`;
     const newNode: Node = {
       id: nodeId,
@@ -360,14 +379,13 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     setNodes((nds) => {
       const newNodes = [...nds, newNode];
-      // 在这里，拿到了绝对最新的 newNodes，以及当前的 edges
-      onGraphChanged(newNodes, edges);
+      onGraphChanged(newNodes, rf.getEdges());
       return newNodes;
     });
 
-  }, [setNodes, edges, onGraphChanged]);
+  }, [onGraphChanged]);
 
-  const addNode = useCallback((type: OpalNodeType) => {
+  const addNewNode = useCallback((type: OpalNodeType) => {
     if (!reactFlowRef.current) return;
 
     // 计算画布中间位置
@@ -389,11 +407,11 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     appendNewNode(type, position);
   }, [appendNewNode]);
 
-  const onDragStart = (event: React.DragEvent, nodeType: OpalNodeType) => {
+  const onDragStart = useCallback((event: React.DragEvent, nodeType: OpalNodeType) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
     event.dataTransfer.effectAllowed = 'move';
     setInDragDropMode(true);
-  };
+  }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -404,12 +422,13 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     event.preventDefault();
     setInDragDropMode(false);
     const type = event.dataTransfer.getData('application/reactflow/type');
-    if (!type || !reactFlowRef.current) {
+    const rf = reactFlowRef.current;
+    if (!type || !rf) {
       return;
     }
 
     // 先转换为画布坐标，然后再调整偏移量
-    const flowPosition = reactFlowRef.current.screenToFlowPosition({
+    const flowPosition = rf.screenToFlowPosition({
       x: event.clientX,
       y: event.clientY,
     });
@@ -444,7 +463,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     onEdgesChange(changes);
   }, [onEdgesChange]);
 
-  // 1. 当用户刚从某个 Handle 按住鼠标往外拉线时触发
+  // 当用户刚从某个 Handle 按住鼠标往外拉线时触发
   const handleConnectStart = useCallback((event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
     const targetElement = event.target as HTMLElement;
     if (!targetElement) return;
@@ -459,26 +478,35 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     }
   }, []);
 
-  // 2. 精准接管 React Flow 连线生命周期终点事件
+  // 精准接管连线生命周期终点事件
   const handleConnectEnd = useCallback((_event: MouseEvent | TouchEvent) => {
+    const rf = reactFlowRef.current;
+    if (!rf) return;
     const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
     const source = connectingSourceRef.current;
 
     // 如果松手的一瞬间，小手处于相撞变橘黄状态，且我们记录到了源头
     if (snapTarget && source && source.nodeId) {
-      setEdges((eds) => {
-        return addEdge(
-          {
-            source: source.nodeId,
-            sourceHandle: null,
-            target: snapTarget.nodeId,
-            targetHandle: null
-          },
-          eds
-        );
-      });
+      // 不允许连接自己
+      if (source.nodeId === snapTarget.nodeId) {
+        return;
+      }
 
-      // 顺滑存盘，绕过 React Flow 的批处理延迟
+      const newEdge: Edge = {
+        id: `edge-${source.nodeId}-${snapTarget.nodeId}`,
+        source: source.nodeId,
+        target: snapTarget.nodeId,
+        sourceHandle: null,
+        targetHandle: null,
+        data: { out: 'context', in: `p-z-${source.nodeId}` }
+      };
+
+      if (isEdgeExists(newEdge, rf.getEdges())) {
+        return;
+      }
+
+      setEdges((eds) => addEdge(newEdge, eds));
+
       setTimeout(() => {
         onGraphChanged();
       }, 30);
@@ -486,7 +514,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     // 无论连线成功与否，落幕时彻底清空起点缓存，防止污染下次连线
     connectingSourceRef.current = null;
-  }, [setEdges, onGraphChanged]);
+  }, [onGraphChanged]);
 
   // 传入的 graphData 上图
   useEffect(() => {
@@ -504,22 +532,21 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     }
 
     const flowNodes = (opalData.nodes || []).map((gNode: OpalNode): FlowNode => {
-      const newNode: FlowNode = {
+      return {
         id: gNode.id,
         type: gNode.type,
         position: {x: gNode.metadata.visual?.x || 0, y: gNode.metadata.visual?.y || 0},
         data: gNode
       };
-      return newNode;
     });
 
-    const flowEdges = (opalData.edges || []).map((edge: any): Edge => {
+    const flowEdges = (opalData.edges || []).map((gEdge: OpalEdge): Edge => {
       return {
-        id: edge.id || `${edge.from}-${edge.to}`,
-        source: edge.from || edge.source,
-        target: edge.to || edge.target,
+        id: `edge-${gEdge.from}-${gEdge.to}`,
+        source: gEdge.from,
+        target: gEdge.to,
         // 保留 out/in 语义,供保存时(onGraphChanged)回写,避免往返丢失。
-        data: { out: edge.out, in: edge.in }
+        data: { out: gEdge.out, in: gEdge.in }
       };
     });
 
@@ -565,12 +592,15 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
         if (foundAssets.length > 0) {
           foundAssets.forEach((assetId:string) => {
-            flowEdges.push({
+            const newEdge: Edge = {
               id: `edge-${assetId}-${pNode.id}`,
               source: assetId,
               target: pNode.id,
               data: { out: 'context', in: `p-z-${assetId}` }
-            });
+            };
+            if (!isEdgeExists(newEdge, flowEdges)) {
+              flowEdges.push(newEdge);
+            }
           });
         }
       });
@@ -636,6 +666,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       .catch(error => {
         setChatting(false);
         setChatInput(userInput);
+        setChatHistory((prev) => [...prev, {role: 'error', content: error?.message || String(error)}]);
         console.error('Error during chat request:', error);
       });
   };
@@ -679,12 +710,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         };
       })
     );
-  }, [execState, setEdges]);
+  }, [execState]);
 
   return (
-      <div className="absolute inset-0"
-        style={{ overflow: 'hidden' }}
-        ref={graphDomRef}
+      <div ref={graphDomRef} className="absolute inset-0" style={{ overflow: 'hidden' }}
         onMouseDown={() => setChatListCollapsed(true)}
       >
         <div className="graph-nodes-panel">
@@ -692,19 +721,19 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             <button className="first" data-nodetype={OpalNodeType.UserInputs} draggable
                     onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)}
                     onDragEnd={() => setInDragDropMode(false)}
-                    onClick={() => addNode(OpalNodeType.UserInputs)}>
+                    onClick={() => addNewNode(OpalNodeType.UserInputs)}>
               <span className="btn-icon"><MessageSquareText size={20} strokeWidth={1.5}/></span><span>{t('用户输入')}</span>
             </button>
             <button data-nodetype={OpalNodeType.AgentGenerate} draggable
                     onDragStart={(e) => onDragStart(e, OpalNodeType.AgentGenerate)}
                     onDragEnd={() => setInDragDropMode(false)}
-                    onClick={() => addNode(OpalNodeType.AgentGenerate)}>
+                    onClick={() => addNewNode(OpalNodeType.AgentGenerate)}>
               <span className="btn-icon"><Sparkles size={20} strokeWidth={1.5}/></span><span>{t('AI生成')}</span>
             </button>
             <button data-nodetype={OpalNodeType.RenderOutputs} draggable
                     onDragStart={(e) => onDragStart(e, OpalNodeType.RenderOutputs)}
                     onDragEnd={() => setInDragDropMode(false)}
-                    onClick={() => addNode(OpalNodeType.RenderOutputs)}>
+                    onClick={() => addNewNode(OpalNodeType.RenderOutputs)}>
               <span className="btn-icon"><Proportions size={20} strokeWidth={1.5}/></span><span>{t('输出')}</span>
             </button>
             <div className="divider"></div>
@@ -712,7 +741,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
               content={
                 <Menu>
                   <MenuItem icon="export" text={t('上传文件')} />
-                  <MenuItem icon="label" text={t('文本内容')} onClick={() => addNode(OpalNodeType.AssetsText)} />
+                  <MenuItem icon="label" text={t('文本内容')} onClick={() => addNewNode(OpalNodeType.AssetsText)} />
                 </Menu>
               }
             >
@@ -741,7 +770,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           defaultEdgeOptions={defaultEdgeOptions}
           connectionLineComponent={NodezatorConnectionLine}
           nodeDragThreshold={5}
-          connectionRadius={40}
+          connectionRadius={20}
           snapToGrid={true}
           snapGrid={[10, 10]}
           autoPanOnNodeFocus={true}
