@@ -55,8 +55,8 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
         const handleId = el.getAttribute('data-id') || el.getAttribute('id') || '';
 
         const rect = el.getBoundingClientRect();
-        const clientX = rect.left + rect.width / 2;
-        const clientY = rect.top + rect.height / 2;
+        const clientX = Math.round(rect.left + rect.width / 2);
+        const clientY = Math.round(rect.top + rect.height / 2);
         const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
 
         const dx = toX - flowPos.x;
