@@ -24,24 +24,20 @@ opal_executor.py
 from __future__ import annotations
 
 import json
-import re
 import os
+import re
 from datetime import datetime
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Annotated
-from operator import add
-
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt, Command
-from langgraph.checkpoint.memory import MemorySaver
-
 from opal_runtime_tools import build_runtime_tools, build_skill_tools
 from opal_skills import load_skill_doc
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +78,7 @@ def resolve_placeholders(
     text: str,
     outputs: Dict[str, str],
     skipped_nodes: Optional[set] = None,
+    assets: Optional[Dict[str, Any]] = None
 ) -> str:
     """将 prompt 文本中的占位符解析处理。
 
@@ -91,7 +88,8 @@ def resolve_placeholders(
 
     处理规则:
         - type == "in": 替换为上游节点 path 对应的实际输出
-        - 其它 type (tool/asset 等): 移除,它们是给 Opal 平台用的
+        - type == "asset": 替换为 assets 中的资源
+        - 其它 type (tool 等): 移除,它们是给 Opal 平台用的
         - 无法解析为 JSON 的块: 原样保留
     """
     def _replace(match):
@@ -106,13 +104,30 @@ def resolve_placeholders(
             return match.group(0)
 
         ptype = spec.get("type")
+
+        # 处理输入节点
         if ptype == "in":
             step_id = spec.get("path", "")
             title = spec.get("title", step_id)
             if skipped_nodes and step_id in skipped_nodes:
                 return "[Skipped]"
             return str(outputs.get(step_id, f"[{title}: no output yet]"))
-        # tool / asset / 其它类型:执行器不需要,移除
+
+        # 处理资源节点
+        if ptype == "asset":
+            asset_id = spec.get("path", "")
+            if assets and asset_id in assets:
+                asset = assets.get(asset_id, {})
+                asset_type = asset.get("type")
+                # configuration={text:{content:''}}
+                if "assets-text" == asset_type:
+                    return asset.get("configuration", {}).get("text", {}).get("content", "")
+                # configuration={file:{url:'', mimeType:''}}
+                if "assets-file" == asset_type:
+                    file_url = asset.get("configuration", {}).get("file", {}).get("url", "")
+                    return f"File: {file_url}"
+
+        # tool /其它类型:执行器不需要,移除
         return ""
 
     result = _PLACEHOLDER_RE.sub(_replace, text)
@@ -354,6 +369,22 @@ class OpalExecutor:
         self.nodes_config = {n["id"]: n for n in graph_json.get("nodes", [])}
         self.edges = graph_json.get("edges", [])
         self.sorted_node_ids = _topological_sort(graph_json.get("nodes", []), self.edges)
+        """
+        graph中包含的静态资源,用于替换 {{type:asset, path:<asset-id>}}
+        静态资源分为2类: 一段文字和文件
+        assets = {
+          "<asset-id>": {
+            type:"assets-text|assets-file",
+            id: "",
+            metadata: {title,...},
+            configuration: {
+              text?: {content:"", role:"user"},         # when assets-text
+              file?: {url:"", mimeType:"", role:"user"} # when assets-file
+            }
+          }
+        };
+        """
+        self.assets = graph_json.get("assets", {})
 
         # 构建依赖关系映射: node_id -> [parent_node_ids]
         self.parents_map: Dict[str, List[str]] = {nid: [] for nid in self.nodes_config}
@@ -566,7 +597,7 @@ class OpalExecutor:
             # 获取 prompt 并解析占位符
             prompt_content = config.get("config$prompt", {}).get("content", "")
             skipped = set(state.get("skipped_nodes", []) or [])
-            resolved_prompt = resolve_placeholders(prompt_content, outputs, skipped)
+            resolved_prompt = resolve_placeholders(prompt_content, outputs, skipped, self.assets)
 
             # 构建消息
             messages = [current_date_system_message()]
@@ -726,7 +757,7 @@ class OpalExecutor:
             # 获取 design brief 并解析占位符
             brief_content = config.get("text", {}).get("content", "")
             skipped = set(state.get("skipped_nodes", []) or [])
-            resolved_brief = resolve_placeholders(brief_content, outputs, skipped)
+            resolved_brief = resolve_placeholders(brief_content, outputs, skipped, self.assets)
 
             # 构建消息: 使用 render 节点的 system instruction
             messages = [current_date_system_message()]
