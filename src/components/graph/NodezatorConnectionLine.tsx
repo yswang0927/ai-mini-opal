@@ -101,7 +101,7 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
         };
       } else {
         setClosestTarget(null);
-        if (__NODEZATOR_ACTIVE_SNAP_TARGET__?.handleId === nearestTarget?.id) {
+        if (__NODEZATOR_ACTIVE_SNAP_TARGET__?.handleId === (nearestTarget as ActiveTarget | null)?.id) {
           __NODEZATOR_ACTIVE_SNAP_TARGET__ = null;
         }
       }

@@ -292,11 +292,11 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       return;
     }
 
-    setEdges((eds) => {
-      const newEdges = addEdge(conn, eds);
-      onGraphChanged(rf.getNodes(), newEdges);
-      return newEdges;
-    });
+    setEdges((eds) => addEdge(conn, eds));
+
+    setTimeout(() => {
+      onGraphChanged();
+    }, 30);
   }, [onGraphChanged]);
 
   const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }, initData?: any) => {
@@ -385,11 +385,11 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       configuration: configuration
     };
 
-    setNodes((nds) => {
-      const newNodes = [...nds, newNode];
-      onGraphChanged(newNodes, rf.getEdges());
-      return newNodes;
-    });
+    setNodes((nds) => [...nds, newNode]);
+
+    setTimeout(() => {
+      onGraphChanged();
+    }, 30);
 
   }, [onGraphChanged]);
 
@@ -457,7 +457,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const onDelete = useCallback(() => {
     setTimeout(() => {
       onGraphChanged();
-    }, 10);
+    }, 30);
   }, [onGraphChanged]);
 
   // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
