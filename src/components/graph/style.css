@@ -133,6 +133,7 @@
 }
 
 .graph-nodes {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -141,7 +142,7 @@
     background-color: var(--color-bg-elevated);
     border-radius: 20px;
     padding: 2px;
-    box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
 .graph-nodes button {
     padding: 0 10px;
@@ -187,6 +188,31 @@
     font-size: 0;
     width: 1px;
     border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+.graph-nodes .help-tip {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 50%);
+    padding: 2px;
+    background-color: var(--color-bg-primary);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 6px 6px;
+    display: none;
+    transition: transform 0.2s;
+}
+.graph-nodes:hover .help-tip {
+    display: block;
+    transform: translate(-50%, 100%);
+}
+.graph-nodes .help-tip button {
+    padding: 0.25rem 0.5rem;
+    min-height: 1rem;
+    font-size: 85%;
+    border-radius: 4px;
+}
+.graph-nodes .help-tip button:hover {
+    background-color: var(--color-bg-tertiary);
 }
 
 .graph-chatbox {
@@ -381,10 +407,10 @@
     left: 50%;
     transform: translateX(-60%);
     font-size: 1rem;
-    padding: 20px 40px;
+    padding: 12px 40px;
     text-align: center;
     background-color: rgba(169, 88, 62, 0.2);
-    box-shadow: rgba(0, 0, 0, 0.08) 0px 12px 20px;
+    box-shadow: rgba(0, 0, 0, 0.08) 0 12px 20px;
 }
 .graph-empty-state .empty-state-top {
     top: 5rem;
@@ -432,4 +458,36 @@
     outline: 2px dashed #d1d5db;
     opacity: 0.6;
     filter: grayscale(0.6);
+}
+
+.opal-help-content {
+    min-width: 300px;
+    max-width: 900px;
+    left: 50%;
+    top: 50%;
+    padding: 1rem 1.25rem;
+    text-align: left;
+    background-color: var(--color-bg-primary) !important;
+    transform: translate(-50%, -50%);
+}
+.opal-help-content ul {
+    padding-left: 1rem;
+    margin-bottom: 0.5rem;
+}
+.opal-help-content ul li {
+    list-style: disc;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+.opal-help-content h3 {
+    margin: 1rem 0;
+}
+.opal-help-content h3:first-child {
+    margin-top: 0;
+}
+.opal-help-title {
+    margin-bottom: 0.25rem;
+}
+.opal-help-desc {
+    line-height: 1.5;
 }

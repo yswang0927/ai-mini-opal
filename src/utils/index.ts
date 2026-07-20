@@ -502,6 +502,5 @@ export async function downloadFile(
 
 export const AppToaster = OverlayToaster.create({
   className: "opal-toaster",
-  position: Position.TOP,
-  usePortal: true
+  position: Position.TOP
 });

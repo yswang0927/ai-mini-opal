@@ -1,28 +1,28 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  ReactFlow,
-  useEdgesState,
-  useNodesState,
   addEdge,
   Background,
+  type Connection,
+  type ConnectionLineComponentProps,
   ConnectionLineType,
   ControlButton,
   Controls,
+  type Edge,
   getBezierPath,
   MarkerType,
   type Node,
-  type Edge,
-  type Connection,
-  type ConnectionLineComponentProps,
   type OnConnectStartParams,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
 } from '@xyflow/react';
 
-import {ArrowUp, MessageSquareText, Proportions, Sparkles, SquarePlus} from 'lucide-react';
+import {ArrowUp, MessageSquareText, Proportions, Sparkles, SquarePlus, CircleQuestionMark} from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {Menu, MenuItem, PopoverNext,} from "@blueprintjs/core";
+import {Classes, Menu, MenuItem, PopoverNext, Tooltip, Overlay2, Card } from "@blueprintjs/core";
 
-import {type OpalEdge, type OpalNode, OpalNodeType} from '@/types';
+import {type OpalEdge, type OpalNode, OpalNodeType, OpalNodeRefType} from '@/types';
 import {SERVER_BASE_URL} from "@/utils/Api";
 import {uuid} from "@/utils";
 import {useL10n} from "@/l10n";
@@ -148,6 +148,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([]);
   const chatListDomRef = useRef(null);
   const [chatListCollapsed, setChatListCollapsed] = useState<boolean>(true);
+  const [showHelp, setShowHelp] = useState<boolean>(false);
 
   const { setSelectedNode, opalPayload, setOpalData, execState } = useEditorContext();
 
@@ -363,6 +364,16 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         }
       };
     }
+    else if (type === OpalNodeType.AssetsFile) {
+      rawType = OpalNodeType.AssetsFile;
+      rawTitle = t("静态文件");
+      configuration = {
+        file: {
+          url: "",
+          role: "user"
+        }
+      };
+    }
 
     newNode.data = {
       id: nodeId,
@@ -510,6 +521,35 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       console.log('>> 创建动态吸附连线');
       setEdges((eds) => addEdge(newEdge, eds));
 
+      // 在目标节点中动态插入对source节点的引用
+      const sNode = rf.getNode(source.nodeId);
+      const tNode = rf.getNode(snapTarget.nodeId);
+      if (sNode && tNode) {
+        const sRawData: OpalNode = sNode.data;
+        const tRawData: OpalNode = tNode.data;
+
+        let refType = OpalNodeRefType.In;
+        if (sRawData.type === OpalNodeType.AssetsText || sRawData.type === OpalNodeType.AssetsFile) {
+          refType = OpalNodeRefType.Asset;
+        }
+        const refData = `\n {${JSON.stringify({"type": refType, "path": sNode.id, "title": sRawData.metadata.title})}}`;
+
+        if (tNode.type === OpalNodeType.AgentGenerate) {
+          const newConfig = {...tRawData.configuration};
+          let content = newConfig['config$prompt']?.content || '';
+          content += refData;
+          newConfig['config$prompt'] = {content: content, role: 'user'};
+          rf.updateNodeData(snapTarget.nodeId, {...tRawData, configuration: newConfig});
+        }
+        else if (tNode.type === OpalNodeType.RenderOutputs) {
+          const newConfig = {...tRawData.configuration};
+          let content = newConfig['text']?.content || '';
+          content += refData;
+          newConfig['text'] = {content: content, role: 'user'};
+          rf.updateNodeData(snapTarget.nodeId, {...tRawData, configuration: newConfig});
+        }
+      }
+
       setTimeout(() => {
         onGraphChanged();
       }, 30);
@@ -528,6 +568,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     }
 
     console.log('>>> init graph data', opalData);
+    
     if (!opalData || !opalData.nodes) {
       setNodes([]);
       setEdges([]);
@@ -720,7 +761,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         onMouseDown={() => setChatListCollapsed(true)}
       >
         <div className="graph-nodes-panel">
-          <div className="graph-nodes">
+          <div className="relative graph-nodes">
             <button className="first" data-nodetype={OpalNodeType.UserInputs} draggable
                     onDragStart={(e) => onDragStart(e, OpalNodeType.UserInputs)}
                     onDragEnd={() => setInDragDropMode(false)}
@@ -750,6 +791,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             >
               <button className="last"><span className="btn-icon"><SquarePlus size={20} strokeWidth={1.5}/></span><span>{t('添加资产')}</span></button>
             </PopoverNext>
+
+            <div className="absolute help-tip">
+              <button onClick={()=>setShowHelp(true)}><span className="btn-icon"><CircleQuestionMark size={16} strokeWidth={1.5}/></span>{t('帮助')}</button>
+            </div>
           </div>
         </div>
 
@@ -848,6 +893,37 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
           </div>
 
         </div>
+
+        <Overlay2
+          isOpen={showHelp}
+          onClose={() => setShowHelp(false)}
+          className={Classes.OVERLAY_SCROLL_CONTAINER}
+          hasBackdrop={true}
+        >
+          <Card className="opal-help-content" elevation={3}>
+            <h3>{t('步骤节点帮助信息')}</h3>
+            <div>
+              <ul>
+                <li>
+                  <div className="flex items-center gap-md opal-help-title"><MessageSquareText size={20} strokeWidth={1.5}/><b>{t('用户输入')}</b></div>
+                  <div className="opal-help-desc">{t("此步骤用于收集用户输入。系统会向用户显示提示信息。您可以使用高级选项来指定用户应提供的输入类型，例如文本或图像。")}</div>
+                </li>
+                <li>
+                  <div className="flex items-center gap-md opal-help-title"><Sparkles size={20} strokeWidth={1.5}/><b>{t('AI生成')}</b></div>
+                  <div className="opal-help-desc">{t("您可以选择要使用的AI模型，然后指定要发送给该模型的提示。通过在之前的步骤中收集用户输入，您可以在向AI模型发送提示以生成新内容（例如文本回复、视频或图像）时参考用户的输入，具体取决于您选择的AI模型。")}</div>
+                </li>
+                <li>
+                  <div className="flex items-center gap-md opal-help-title"><Proportions size={20} strokeWidth={1.5}/><b>{t('输出')}</b></div>
+                  <div className="opal-help-desc">{t("输出步骤允许您控制在收集和生成所需数据后所显示的内容。您可以选择应用程序的输出方式，例如创建由 AI 模型决定布局的动态网页。一个应用中可以使用多个输出步骤。")}</div>
+                </li>
+                <li>
+                  <div className="flex items-center gap-md opal-help-title"><SquarePlus size={20} strokeWidth={1.5}/><b>{t('添加资产')}</b></div>
+                  <div className="opal-help-desc">{t("除了步骤之外，您可以使用静态资源作为参考，例如提供示例或AI需求的资源。例如，您可以上传一张参考图片，并要求AI仅生成与您上传的参考图片风格一致的图片。或者，您可以添加一份文档，并要求AI生成符合参考文档结构的内容。")}</div>
+                </li>
+              </ul>
+            </div>
+          </Card>
+        </Overlay2>
       </div>
   );
 }

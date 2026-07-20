@@ -75,11 +75,12 @@ export interface OpalNodeInstruction {
 }
 
 export interface OpalNodeConfig {
-  description?: OpalNodeInstruction;
-  text?: OpalNodeInstruction;
-  "config$prompt"?: OpalNodeInstruction;
+  description?: OpalNodeInstruction;      // OpalNodeType.UserInput
+  "config$prompt"?: OpalNodeInstruction;  // OpalNodeType.AgentGenerate
+  text?: OpalNodeInstruction;             // OpalNodeType.RenderOutputs
   "config$ask-user"?: boolean;
   "config$list"?: boolean;
+  file?: {url: string, mimeType?:string, role: string},
   "p-modality"?: string;
   "p-required"?: boolean;
   "p-render-mode"?: string;
@@ -113,6 +114,12 @@ export interface OpalJson {
   version?: string;
   nodes?: OpalNode[];
   edges?: OpalEdge[];
+}
+
+export enum OpalNodeRefType {
+  In = "in",
+  Asset = "asset",
+  Tool = "tool"
 }
 
 export enum SaveState {

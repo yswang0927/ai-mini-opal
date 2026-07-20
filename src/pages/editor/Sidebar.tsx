@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useReactFlow } from '@xyflow/react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useReactFlow} from '@xyflow/react';
 import Quill from 'quill';
-import { Mention, MentionBlot } from "quill-mention";
-import { ExecutorPanel } from '@/components/graph/executor';
-import type { NodeExecInfo } from '@/components/graph/executor';
-import { NodeTypesStyle } from '@/components/graph/types';
-import { type OpalNode, type OpalJson, OpalNodeType } from '@/types';
-import { useL10n } from "@/l10n";
-import { debounce } from '@/utils';
+import {Mention, MentionBlot} from "quill-mention";
+import type {NodeExecInfo} from '@/components/graph/executor';
+import {ExecutorPanel} from '@/components/graph/executor';
+import {NodeTypesStyle} from '@/components/graph/types';
+import {type OpalJson, type OpalNode, OpalNodeType} from '@/types';
+import {useL10n} from "@/l10n";
+import {debounce} from '@/utils';
 
-import { useEditorContext } from './EditorContext';
+import {useEditorContext} from './EditorContext';
 import {
-  OpalRefTagBlot,
-  OpalRefTagModule,
-  OpalRefTagMentionBlot,
-  quillContentToText,
   OPAL_TAG_ICONS,
+  OpalRefTagBlot,
+  OpalRefTagMentionBlot,
+  OpalRefTagModule,
   type OpalTagType,
+  quillContentToText,
 } from './QuillCustomBlots';
 
 import "quill/dist/quill.core.css";
@@ -29,48 +29,28 @@ Quill.register({ "blots/mention": MentionBlot, "modules/mention": Mention });
 Quill.register(OpalRefTagMentionBlot);
 
 
-/**
- * 步骤节点数据详情
- * {id, type, metadata, configuration}
- */
-const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
+const ASSET_TYPES = new Set<string>([OpalNodeType.AssetsText, OpalNodeType.AssetsFile]);
+
+// 内容编辑器组件
+const QuillEditor = ({stepData, opalData, onEditorChange}: {
   stepData: OpalNode;
   opalData: OpalJson | null;
-  setOpalData: (data: OpalJson | null, silent?: boolean) => void;
+  onEditorChange: (text:string) => void;
 }) => {
-  console.log('>> stepData: \n', JSON.stringify(stepData));
   const { t } = useL10n();
-  const { updateNode } = useReactFlow();
-
   const quillDomRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
-  const [title, setTitle] = useState('');
-
-  const updateStepData = (newData: OpalNode) => {
-    updateNode(newData.id, { data: newData });
-    if (opalData) {
-      const newNodes = (opalData.nodes || []).map(n => n.id === newData.id ? newData : n);
-      setOpalData({ ...opalData, nodes: newNodes }, true);
-    }
-  };
-
-  const handleTitleChange = () => {
-    if (title.trim()) {
-      const newData = { ...stepData, metadata: { ...stepData.metadata, title: title } };
-      updateStepData(newData);
-    }
-  };
 
   const typeName = stepData.type;
-  const nodeTypeStyle = NodeTypesStyle[typeName];
+  const isAssetType: boolean = ASSET_TYPES.has(typeName);
 
   useEffect(() => {
     if (!quillDomRef.current || quillRef.current) return;
 
     const quill = quillRef.current = new Quill(quillDomRef.current, {
-      placeholder: t('在此输入您的提示，使用 @ 来包含其他内容。'),
+      placeholder: isAssetType ? t('在此输入您的提示') : t('在此输入您的提示。使用 @ 来包含其他内容。'),
       theme: 'snow',
-      modules: {
+      modules: isAssetType ? {toolbar: false} : {
         toolbar: false,
         // 激活我们的自定义模块
         opalRefTag: true,
@@ -91,16 +71,16 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
             // 解析 assets 静态资源节点
             const opalAssets = opalData?.assets || null;
             if (opalAssets) {
-                for (const assetId in opalAssets) {
-                  const assetData = opalAssets[assetId];
-                  stepsList.push({
-                    id: assetId,
-                    value: assetData.metadata?.title || assetId,
-                    team: "Step",
-                    refType: "asset",
-                    path: assetId
-                  });
-                }
+              for (const assetId in opalAssets) {
+                const assetData = opalAssets[assetId];
+                stepsList.push({
+                  id: assetId,
+                  value: assetData.metadata?.title || assetId,
+                  team: "Step",
+                  refType: "asset",
+                  path: assetId
+                });
+              }
             }
 
             const toolsList = [
@@ -135,27 +115,9 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
       }
 
       const text = quillContentToText(quill);
+      onEditorChange(text);
       console.log('quill-text: ', text);
-
-      let targetKey = '';
-      if (OpalNodeType.UserInputs === typeName) {
-        targetKey = 'description';
-      }
-      else if (OpalNodeType.AgentGenerate === typeName) {
-        targetKey = 'config$prompt';
-      }
-      else if (OpalNodeType.RenderOutputs === typeName) {
-        targetKey = 'text';
-      }
-
-      // 如果匹配到了对应的类型，进行统一的安全赋值
-      if (targetKey) {
-        const newConfig = { ...stepData.configuration };
-        newConfig[targetKey] = { ...(newConfig[targetKey] || {content:"", role:"user"}), content: text };
-        updateStepData({ ...stepData, configuration: newConfig });
-      }
-
-    }, 300);
+    }, 200);
 
     quill.on(Quill.events.TEXT_CHANGE, handleTextChange);
 
@@ -166,29 +128,106 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
     };
   }, []);
 
-  // 切换到不同 step 时才重置内容，避免覆盖用户正在编辑的内容
   useEffect(() => {
     const quill = quillRef.current;
     if (!quill) {
       return;
     }
 
-    setTitle(stepData.metadata.title || '');
-
-    let desc = '';
+    let content = '';
     if (OpalNodeType.UserInputs === typeName) {
-      desc = stepData.configuration?.description?.content || '';
+      content = stepData.configuration?.description?.content || '';
     }
     else if (OpalNodeType.AgentGenerate === typeName) {
-      desc = stepData.configuration?.config$prompt?.content || '';
+      content = stepData.configuration?.config$prompt?.content || '';
     }
     else if (OpalNodeType.RenderOutputs === typeName) {
-      desc = stepData.configuration?.text?.content || '';
+      content = stepData.configuration?.text?.content || '';
+    }
+    else if (OpalNodeType.AssetsText === typeName) {
+      content = stepData.configuration?.text?.content || '';
     }
 
-    quill.setText(desc, Quill.sources.API);
+    quill.setText(content, Quill.sources.API);
     quill.history.clear(); // 避免 Ctrl+Z 撤回到上一个 step 的内容
   }, [stepData]);
+
+  return (
+      <div ref={quillDomRef}></div>
+  );
+};
+
+// 资源文件预览
+const AssetFilePreview = ({stepData}:{stepData: OpalNode}) => {
+  return (
+      <div>File: {stepData.configuration.file?.url}</div>
+  );
+};
+
+/**
+ * 步骤节点数据详情
+ * {id, type, metadata, configuration}
+ */
+const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
+  stepData: OpalNode;
+  opalData: OpalJson | null;
+  setOpalData: (data: OpalJson | null, silent?: boolean) => void;
+}) => {
+  console.log('>> stepData: \n', JSON.stringify(stepData));
+  const { updateNode } = useReactFlow();
+
+  const [title, setTitle] = useState(stepData.metadata.title);
+
+  const typeName = stepData.type;
+  const nodeTypeStyle = NodeTypesStyle[typeName];
+
+  const updateStepData = (newData: OpalNode) => {
+    updateNode(newData.id, { data: newData });
+
+    if (opalData) {
+      if (ASSET_TYPES.has(newData.type)) {
+        const assets = {...opalData.assets};
+        assets[newData.id] = newData;
+        setOpalData({ ...opalData, assets: assets }, true);
+      } else {
+        const newNodes = (opalData.nodes || []).map(n => n.id === newData.id ? newData : n);
+        setOpalData({ ...opalData, nodes: newNodes }, true);
+      }
+    }
+  };
+
+  const handleTitleChange = () => {
+    if (title.trim()) {
+      const newData = { ...stepData, metadata: { ...stepData.metadata, title: title } };
+      updateStepData(newData);
+    }
+  };
+
+  const onEditorChange = useCallback((text:string) => {
+    let targetKey = '';
+    if (OpalNodeType.UserInputs === typeName) {
+      targetKey = 'description';
+    }
+    else if (OpalNodeType.AgentGenerate === typeName) {
+      targetKey = 'config$prompt';
+    }
+    else if (OpalNodeType.RenderOutputs === typeName) {
+      targetKey = 'text';
+    }
+    else if (OpalNodeType.AssetsText === typeName) {
+      targetKey = 'text';
+    }
+    else if (OpalNodeType.AssetsFile === typeName) {
+      // 资源文件无法修改
+    }
+
+    // 如果匹配到了对应的类型，进行统一的安全赋值
+    if (targetKey) {
+      const newConfig = { ...stepData.configuration };
+      newConfig[targetKey] = { ...(newConfig[targetKey] || {content:"", role:"user"}), content: text };
+      updateStepData({ ...stepData, configuration: newConfig });
+    }
+  }, []);
 
   return (
     <div className="flex h-full flex-col opal-node-detail">
@@ -197,21 +236,24 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
         <span style={{lineHeight:"1"}}>{ nodeTypeStyle.icon }</span>
         <div className="flex-1">
           <input type="text" className="step-title-input" autoComplete="off" required
-                 value={title}
-                 onChange={(e) => setTitle(e.target.value)}
-                 onKeyDown={(e) => {
-                   if (e.key === 'Enter') {
-                     e.preventDefault();
-                     (e.target as HTMLInputElement).blur();
-                   }
-                 }}
-                 onBlur={handleTitleChange}
+             value={title}
+             onChange={(e) => setTitle(e.target.value)}
+             onKeyDown={(e) => {
+               if (e.key === 'Enter') {
+                 e.preventDefault();
+                 (e.target as HTMLInputElement).blur();
+               }
+             }}
+             onBlur={handleTitleChange}
           />
         </div>
       </div>
       <div className="relative flex-1 opal-node-detail-body">
         <div className="absolute inset-0">
-          <div ref={quillDomRef}></div>
+          { (OpalNodeType.AssetsFile === typeName)
+              ? <AssetFilePreview stepData={stepData} />
+              : <QuillEditor stepData={stepData} opalData={opalData} onEditorChange={onEditorChange} />
+          }
         </div>
       </div>
     </div>
@@ -224,7 +266,6 @@ const ConsoleView = ({ execLog, currentNodeId }: {
 }) => {
   const { t } = useL10n();
   const scrollRef = useRef<HTMLDivElement>(null);
-  console.log('>> node run console: ', execLog);
 
   useEffect(() => {
     if (scrollRef.current) {

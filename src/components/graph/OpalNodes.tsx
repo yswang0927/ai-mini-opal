@@ -33,7 +33,7 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
     desc = rawData.metadata.step_intent || rawData.configuration?.text?.content || '';
   }
   else if (nodeType === OpalNodeType.AssetsText) {
-
+    desc = rawData.configuration?.text?.content || '';
   }
   else if (nodeType === OpalNodeType.AssetsFile) {
     
