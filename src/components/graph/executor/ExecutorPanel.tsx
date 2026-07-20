@@ -253,7 +253,7 @@ function OutputsRenderer({ outputs }: {outputs: RenderedOutput[]}) {
     <div className="executor-html-render flex">
       {outputs.map(output => {
         return (
-          <div className="flex-1 flex flex-col">
+          <div key={output.title} className="flex-1 flex flex-col">
             <h3>{output.title}</h3>
             <div className="flex-1" style={{height:'100%'}}>
               <iframe
