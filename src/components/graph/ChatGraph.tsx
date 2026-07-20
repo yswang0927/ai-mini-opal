@@ -112,6 +112,7 @@ const CustomConnectionLine: React.FC<ConnectionLineComponentProps> = ({
 };
 
 const NODE_WIDTH = 300;
+const CHANGE_DELAY = 100;
 
 const nodeRandomOffset = () => {
   return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
@@ -201,7 +202,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     setOpalData({ ...opalData, nodes: opalNodes, edges: opalEdges, assets: Object.fromEntries(assetNodes) }, true);
   }, [opalData, setOpalData]);
 
-  const doLayout = useCallback(async () => {
+  const doLayout = async () => {
     if (!reactFlowRef.current) return;
     const rf = reactFlowRef.current;
     const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
@@ -209,8 +210,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     rf.setEdges(result.edges);
     rf.fitView();
 
-    //onGraphChanged(result.nodes, result.edges);
-  }, [onGraphChanged]);
+    setTimeout(() => {
+      onGraphChanged(result.nodes, result.edges);
+    }, CHANGE_DELAY);
+  };
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNode(node.data || null);
@@ -296,10 +299,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     setTimeout(() => {
       onGraphChanged();
-    }, 30);
+    }, CHANGE_DELAY);
   }, [onGraphChanged]);
 
-  const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }, initData?: any) => {
+  const appendNewNode = (type: OpalNodeType, position: { x: number, y: number }, initData?: any) => {
     const rf = reactFlowRef.current;
     if (!rf) return;
 
@@ -389,11 +392,11 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     setTimeout(() => {
       onGraphChanged();
-    }, 30);
+    }, CHANGE_DELAY);
 
-  }, [onGraphChanged]);
+  };
 
-  const addNewNode = useCallback((type: OpalNodeType, initData?: any) => {
+  const addNewNode = (type: OpalNodeType, initData?: any) => {
     if (!reactFlowRef.current) return;
 
     // 计算画布中间位置
@@ -413,7 +416,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     };
 
     appendNewNode(type, position, initData);
-  }, [appendNewNode]);
+  };
 
   const onDragStart = useCallback((event: React.DragEvent, nodeType: OpalNodeType) => {
     event.dataTransfer.setData('application/reactflow/type', nodeType);
@@ -457,7 +460,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const onDelete = useCallback(() => {
     setTimeout(() => {
       onGraphChanged();
-    }, 30);
+    }, CHANGE_DELAY);
   }, [onGraphChanged]);
 
   // 包装 onNodesChange 和 onEdgesChange，确保节点和边变化时保存历史记录
@@ -549,7 +552,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
       setTimeout(() => {
         onGraphChanged();
-      }, 30);
+      }, CHANGE_DELAY);
     }
 
     // 无论连线成功与否，落幕时彻底清空起点缓存，防止污染下次连线
