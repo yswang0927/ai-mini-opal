@@ -36,7 +36,7 @@ const BaseNode = ({nodeData, nodeType, hasInput=true, hasOutput=true}: {
     desc = rawData.configuration?.text?.content || '';
   }
   else if (nodeType === OpalNodeType.AssetsFile) {
-    
+    desc = `File: ${rawData.configuration?.file?.url || ''}`;
   }
 
   if (desc.length > 100) {

@@ -159,8 +159,19 @@ const QuillEditor = ({stepData, opalData, onEditorChange}: {
 
 // 资源文件预览
 const AssetFilePreview = ({stepData}:{stepData: OpalNode}) => {
+  const fileData = stepData.configuration.file;
+  if (!fileData) {
+    return null;
+  }
+
+  const url = fileData.url;
+  const imgRexp = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i;
+  const isImage = (fileData.mimeType || "").startsWith("image/") || imgRexp.test(url);
   return (
-      <div>File: {stepData.configuration.file?.url}</div>
+      <div className="w-full h-full flex items-center justify-center">
+        {isImage && (<img alt={url} src={`local-file://${url}`} style={{maxWidth:'90%', maxHeight:'90%'}} />)}
+        {!isImage && (<div>File: {url}</div>)}
+      </div>
   );
 };
 
@@ -187,8 +198,11 @@ const StepDetailView = React.memo(({stepData, opalData, setOpalData}: {
     if (opalData) {
       if (ASSET_TYPES.has(newData.type)) {
         const assets = {...opalData.assets};
-        assets[newData.id] = newData;
-        setOpalData({ ...opalData, assets: assets }, true);
+        // 防止画布上删除了node,这里编辑被删除node数据
+        if (assets[newData.id]) {
+          assets[newData.id] = newData;
+          setOpalData({...opalData, assets: assets}, true);
+        }
       } else {
         const newNodes = (opalData.nodes || []).map(n => n.id === newData.id ? newData : n);
         setOpalData({ ...opalData, nodes: newNodes }, true);

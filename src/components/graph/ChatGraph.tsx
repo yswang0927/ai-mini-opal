@@ -17,12 +17,12 @@ import {
   useNodesState,
 } from '@xyflow/react';
 
-import {ArrowUp, MessageSquareText, Proportions, Sparkles, SquarePlus, CircleQuestionMark} from 'lucide-react';
+import {ArrowUp, CircleQuestionMark, MessageSquareText, Proportions, Sparkles, SquarePlus} from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {Classes, Menu, MenuItem, PopoverNext, Tooltip, Overlay2, Card } from "@blueprintjs/core";
+import {Card, Classes, Menu, MenuItem, Overlay2, PopoverNext} from "@blueprintjs/core";
 
-import {type OpalEdge, type OpalNode, OpalNodeType, OpalNodeRefType} from '@/types';
+import {type OpalEdge, type OpalNode, OpalNodeRefType, OpalNodeType} from '@/types';
 import {SERVER_BASE_URL} from "@/utils/Api";
 import {uuid} from "@/utils";
 import {useL10n} from "@/l10n";
@@ -299,7 +299,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     });
   }, [onGraphChanged]);
 
-  const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }) => {
+  const appendNewNode = useCallback((type: OpalNodeType, position: { x: number, y: number }, initData?: any) => {
     const rf = reactFlowRef.current;
     if (!rf) return;
 
@@ -366,12 +366,9 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     }
     else if (type === OpalNodeType.AssetsFile) {
       rawType = OpalNodeType.AssetsFile;
-      rawTitle = t("静态文件");
+      rawTitle = initData.title;
       configuration = {
-        file: {
-          url: "",
-          role: "user"
-        }
+        file: initData.file
       };
     }
 
@@ -396,7 +393,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
   }, [onGraphChanged]);
 
-  const addNewNode = useCallback((type: OpalNodeType) => {
+  const addNewNode = useCallback((type: OpalNodeType, initData?: any) => {
     if (!reactFlowRef.current) return;
 
     // 计算画布中间位置
@@ -415,7 +412,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
       y: centerPosition.y + nodeRandomOffset()
     };
 
-    appendNewNode(type, position);
+    appendNewNode(type, position, initData);
   }, [appendNewNode]);
 
   const onDragStart = useCallback((event: React.DragEvent, nodeType: OpalNodeType) => {
@@ -558,6 +555,27 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     // 无论连线成功与否，落幕时彻底清空起点缓存，防止污染下次连线
     connectingSourceRef.current = null;
   }, [onGraphChanged]);
+
+  const addAssetFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = async () => {
+      const files = input.files;
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      const getPath = window.electronAPI?.getPathForFile;
+      const initData = {
+        title: file.name,
+        file: {
+          url: getPath ? getPath(file) : file.name,
+          mimeType: file.type,
+          role: "user"
+        }
+      };
+      addNewNode(OpalNodeType.AssetsFile, initData);
+    };
+    input.click();
+  };
 
   // 传入的 graphData 上图
   useEffect(() => {
@@ -784,7 +802,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
             <PopoverNext placement="bottom-start"
               content={
                 <Menu>
-                  <MenuItem icon="export" text={t('上传文件')} />
+                  <MenuItem icon="export" text={t('上传文件')} onClick={() => addAssetFile()} />
                   <MenuItem icon="label" text={t('文本内容')} onClick={() => addNewNode(OpalNodeType.AssetsText)} />
                 </Menu>
               }

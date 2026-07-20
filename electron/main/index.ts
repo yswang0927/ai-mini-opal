@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, screen, dialog } from 'electron';
+import { app, protocol, BrowserWindow, shell, ipcMain, screen, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -31,6 +31,11 @@ export const VITE_DEV_SERVER_URL = devUrl && devUrl.includes('localhost')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST;
+
+// 必须在 app ready 之前注册方案名称
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-file', privileges: { bypassCSP: true, stream: true } }
+]);
 
 // 集成embedded-python环境
 const isPackaged: boolean = app.isPackaged;
@@ -131,11 +136,23 @@ async function createWindow() {
     return { action: 'deny' }
   });
 
-  // Auto update
-  update(win);
+  // Auto update 临时不开启
+  //update(win);
 }
 
 app.whenReady().then(() => {
+  // 注册自定义的文件读取协议
+  protocol.registerFileProtocol('local-file', (request, callback) => {
+    // 转换为真实的磁盘绝对路径
+    // 例如输入: local-file://C:/Users/Pic.jpg -> C:/Users/Pic.jpg
+    const filePath = decodeURIComponent(request.url.replace('local-file://', ''));
+    try {
+      return callback({ path: path.normalize(filePath) });
+    } catch (error) {
+      console.error('Failed to register protocol', error);
+    }
+  });
+
   createWindow();
   runOpalPythonServer();
 });
