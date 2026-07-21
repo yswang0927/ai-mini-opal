@@ -61,8 +61,18 @@ class DocxStreamReader(BaseStreamingReader):
                 if p_style is not None:
                     style_name = p_style.get(f"{_W_NS}val")
 
-            texts = [t.text or "" for t in elem.findall(f".//{_W_NS}t")]
-            paragraph_text = "".join(texts).strip()
+            pieces: list[str] = []
+            for child in elem.iter():
+                tag = child.tag
+                if tag == f"{_W_NS}t":
+                    if child.text:
+                        pieces.append(child.text)
+                elif tag == f"{_W_NS}br":
+                    pieces.append("\n")
+                elif tag == f"{_W_NS}tab":
+                    pieces.append("\t")
+
+            paragraph_text = "".join(pieces).strip()
             _iterparse_clear(elem)
 
             if not paragraph_text:

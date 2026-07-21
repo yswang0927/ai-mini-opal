@@ -25,33 +25,25 @@ logger = get_logger(__name__)
 
 
 class _BufferedParagraphReader(BaseStreamingReader):
-    """txt/markdown 共用的实现：按缓冲区读取字节流，按空行切段落产出。"""
+    """txt/markdown 共用的实现：按行流式读取，按空行切段落产出。"""
 
     unit_type_name = "block"
 
     def iter_units(self) -> Iterator[TextUnit]:
-        buffer_size = settings.stream_buffer_size_bytes
         try:
-            with open(self.file_path, "r", encoding="utf-8", errors="replace", newline="") as fh:
+            with open(self.file_path, "r", encoding="utf-8", errors="replace") as fh:
                 pending_lines: list[str] = []
-                while True:
-                    chunk = fh.read(buffer_size)
-                    if not chunk:
-                        break
-                    # 按行切分当前缓冲块；最后一个片段可能是不完整的行，
-                    # 但由于我们逐段判断"空行=段落结束"，不完整行不影响正确性，
-                    # 会在下一次 read() 时被补全。
-                    lines = chunk.splitlines(keepends=False)
-                    for line in lines:
-                        if line.strip() == "":
-                            if pending_lines:
-                                yield TextUnit(
-                                    text="\n".join(pending_lines).strip(),
-                                    unit_type=self.unit_type_name,
-                                )
-                                pending_lines = []
-                        else:
-                            pending_lines.append(line)
+                for line in fh:
+                    line_clean = line.rstrip("\r\n")
+                    if not line_clean.strip():
+                        if pending_lines:
+                            yield TextUnit(
+                                text="\n".join(pending_lines).strip(),
+                                unit_type=self.unit_type_name,
+                            )
+                            pending_lines = []
+                    else:
+                        pending_lines.append(line_clean)
                 if pending_lines:
                     yield TextUnit(
                         text="\n".join(pending_lines).strip(),
