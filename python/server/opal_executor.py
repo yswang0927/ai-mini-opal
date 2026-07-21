@@ -116,14 +116,14 @@ def resolve_placeholders(
         # 处理资源节点
         if ptype == "asset":
             asset_id = spec.get("path", "")
-            if assets and asset_id in assets:
+            if assets is not None and asset_id in assets:
                 asset = assets.get(asset_id, {})
-                asset_type = asset.get("type")
-                # configuration={text:{content:''}}
+                asset_type = asset.get("type", "")
                 if "assets-text" == asset_type:
+                    # configuration={text:{content:''}}
                     return asset.get("configuration", {}).get("text", {}).get("content", "")
-                # configuration={file:{url:'', mimeType:''}}
                 if "assets-file" == asset_type:
+                    # configuration={file:{url:'', mimeType:''}}
                     file_url = asset.get("configuration", {}).get("file", {}).get("url", "")
                     return f"File: {file_url}"
 
@@ -189,12 +189,13 @@ def current_date_system_message() -> SystemMessage:
     "最近"判断)时容易用到训练截止日期。执行期注入实时日期可修正这一点。
     """
     now = datetime.now()
-    weekday_cn = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+    weekday_str = ["Monday(星期一)", "Tuesday(星期二 )", "Wednesday(星期三)", "Thursday(星期四)",
+                  "Friday(星期五)", "Saturday(星期六)", "Sunday(星期日)"][now.weekday()]
     return SystemMessage(
         content=(
-            f"Today's date is {now.strftime('%Y-%m-%d')} ({weekday_cn})。"
-            f"当前时间为 {now.strftime('%H:%M')}。"
-            "涉及日期/时间的内容请以此为准。"
+            f"Today's date is {now.strftime('%Y-%m-%d')} ({weekday_str}). "
+            f"The current time is {now.strftime('%H:%M')}. "
+            "Please use this as the reference point for any date- or time-sensitive content."
         )
     )
 
