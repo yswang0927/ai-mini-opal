@@ -71,16 +71,16 @@ export interface OpalNodeMetadata {
 
 export interface OpalNodeInstruction {
   content: string;
-  role: string;
+  role?: string;
 }
 
 export interface OpalNodeConfig {
   description?: OpalNodeInstruction;      // OpalNodeType.UserInput
   "config$prompt"?: OpalNodeInstruction;  // OpalNodeType.AgentGenerate
-  text?: OpalNodeInstruction;             // OpalNodeType.RenderOutputs
+  text?: OpalNodeInstruction;             // OpalNodeType.RenderOutputs | OpalNodeType.AssetsText
   "config$ask-user"?: boolean;
   "config$list"?: boolean;
-  file?: {url: string, mimeType?:string, role: string},
+  file?: {url: string, mimeType?:string, role?: string},  // OpalNodeType.AssetsFile
   "p-modality"?: string;
   "p-required"?: boolean;
   "p-render-mode"?: string;
@@ -89,7 +89,7 @@ export interface OpalNodeConfig {
 
   // 索引签名：允许 string 类型变量作为下标访问
   [key: string]: any;
-};
+}
 
 export interface OpalNode {
   id: string;

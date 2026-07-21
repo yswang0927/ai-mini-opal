@@ -57,8 +57,7 @@ PROMPT_PATH = Path(__file__).parent / "mini_opal_prompt_v2.md"
 def _load_system_prompt() -> str:
     if not PROMPT_PATH.exists():
         raise FileNotFoundError(
-            f"未找到系统提示词文件 {PROMPT_PATH}。请确认 mini_opal_prompt_v2.md "
-            f"与本脚本放在同一目录下。"
+            f"未找到系统提示词文件 {PROMPT_PATH}。请确认 mini_opal_prompt_v2.md 与本脚本放在同一目录下。"
         )
     return PROMPT_PATH.read_text(encoding="utf-8")
 
@@ -66,9 +65,8 @@ def _load_system_prompt() -> str:
 def _build_llm() -> ChatOpenAI:
     if not (LLM_BASE_URL and LLM_API_KEY and LLM_MODEL):
         print(
-            "⚠️  尚未配置 LLM 连接参数。请设置环境变量 "
-            "OPIE_LLM_BASE_URL / OPIE_LLM_API_KEY / OPIE_LLM_MODEL,"
-            "或在 .env 文件中配置。",
+            "⚠️ 尚未配置 LLM 连接参数。请设置环境变量 "
+            "OPIE_LLM_BASE_URL / OPIE_LLM_API_KEY / OPIE_LLM_MODEL, 或在 .env 文件中配置。",
             file=sys.stderr,
         )
         sys.exit(1)

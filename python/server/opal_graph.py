@@ -172,8 +172,8 @@ _MEDIA_CAPABILITIES = {"image", "video", "speech", "music"}
 # ---------------------------------------------------------------------------
 # Assets(资产)体系
 #
-# 独立于 nodes/edges 的 graph级资源池。节点通过 {{"type":"asset","path":"<asset_id>",
-# "mimeType":"...","title":"..."}} 占位符引用某个资产。
+# 独立于 nodes/edges 的 graph级资源池。
+# 节点通过 {{"type":"asset","path":"<asset_id>", "mimeType":"...","title":"..."}} 占位符引用某个资产。
 # 有5种资产形态,对应下面的 AssetKind 枚举:
 #
 #   - uploaded_file  : type=file, managed=true,  parts=[{storedData:{handle,mimeType,contentLength}}]
@@ -192,11 +192,11 @@ _MEDIA_CAPABILITIES = {"image", "video", "speech", "music"}
 # ---------------------------------------------------------------------------
 
 class AssetKind(str, Enum):
-    UPLOADED_FILE = "uploaded_file"
-    GOOGLE_DRIVE_DOC = "google_drive_doc"
-    YOUTUBE_VIDEO = "youtube_video"
-    INLINE_TEXT = "inline_text"
-    DRAWING = "drawing"
+    ASSETS_FILE = "assets-file"
+    ASSETS_TEXT = "assets-text"
+    #GOOGLE_DRIVE_DOC = "google_drive_doc"
+    #YOUTUBE_VIDEO = "youtube_video"
+    #DRAWING = "drawing"
 
 
 # 图片/视频/音频类 mimeType 前缀,用于媒体校验时把"资产提供的媒体"
@@ -210,7 +210,7 @@ class Asset:
     title: str
     kind: AssetKind
     mime_type: Optional[str] = None
-    drive_handle: Optional[str] = None
+    #drive_handle: Optional[str] = None
     file_uri: Optional[str] = None
     text_content: Optional[str] = None
 
@@ -327,7 +327,7 @@ class OpalGraphState:
                 "title": a.title,
                 "kind": a.kind.value,
                 "mime_type": a.mime_type,
-                "drive_handle": a.drive_handle,
+                #"drive_handle": a.drive_handle,
                 "file_uri": a.file_uri,
                 "text_content": a.text_content,
             })
@@ -354,7 +354,7 @@ class OpalGraphState:
                 title=a["title"],
                 kind=AssetKind(a["kind"]),
                 mime_type=a.get("mime_type"),
-                drive_handle=a.get("drive_handle"),
+                #drive_handle=a.get("drive_handle"),
                 file_uri=a.get("file_uri"),
                 text_content=a.get("text_content"),
             )
@@ -468,7 +468,7 @@ class OpalGraphState:
         title: str,
         kind: str,
         mime_type: Optional[str] = None,
-        drive_handle: Optional[str] = None,
+        #drive_handle: Optional[str] = None,
         file_uri: Optional[str] = None,
         text_content: Optional[str] = None,
     ) -> Asset:
@@ -483,17 +483,17 @@ class OpalGraphState:
                 f"未知的 asset kind='{kind}'。可用取值: {[k.value for k in AssetKind]}"
             )
 
-        if kind_enum == AssetKind.UPLOADED_FILE and not drive_handle:
-            # raise GraphValidationError("kind='uploaded_file' 时必须提供 drive_handle。")
-            raise GraphValidationError("`drive_handle` must be provided when kind='uploaded_file'.")
-        if kind_enum == AssetKind.GOOGLE_DRIVE_DOC and not drive_handle:
-            raise GraphValidationError("`drive_handle` must be provided when kind='google_drive_doc'.")
-        if kind_enum == AssetKind.YOUTUBE_VIDEO and not file_uri:
-            raise GraphValidationError("`file_uri` must be provided when kind='youtube_video'.")
-        if kind_enum == AssetKind.INLINE_TEXT and not text_content:
-            raise GraphValidationError("`text_content` must be provided when kind='inline_text'.")
-        if kind_enum == AssetKind.DRAWING and not drive_handle:
-            raise GraphValidationError("`drive_handle` must be provided when kind='drawing'.")
+        if kind_enum == AssetKind.ASSETS_FILE and not file_uri:
+            # raise GraphValidationError("kind='assets_file' 时必须提供 file_uri。")
+            raise GraphValidationError("`file_uri` must be provided when kind='assets_file'.")
+        if kind_enum == AssetKind.ASSETS_TEXT and not text_content:
+            raise GraphValidationError("`text_content` must be provided when kind='assets_text'.")
+        #if kind_enum == AssetKind.GOOGLE_DRIVE_DOC and not drive_handle:
+        #    raise GraphValidationError("`drive_handle` must be provided when kind='google_drive_doc'.")
+        #if kind_enum == AssetKind.YOUTUBE_VIDEO and not file_uri:
+        #    raise GraphValidationError("`file_uri` must be provided when kind='youtube_video'.")
+        #if kind_enum == AssetKind.DRAWING and not drive_handle:
+        #    raise GraphValidationError("`drive_handle` must be provided when kind='drawing'.")
 
         asset_id = str(uuid.uuid4())
         asset = Asset(
@@ -501,7 +501,7 @@ class OpalGraphState:
             title=title,
             kind=kind_enum,
             mime_type=mime_type,
-            drive_handle=drive_handle,
+            #drive_handle=drive_handle,
             file_uri=file_uri,
             text_content=text_content,
         )
@@ -1221,22 +1221,29 @@ class OpalGraphState:
     def _compile_assets(self) -> Dict[str, Any]:
         """
         把 self.assets 编译成顶层 assets 字典。
+        assets: {
+          "<asset_id>": {
+              id: "<asset_id>",
+              type: "assets-text|assets-file",
+              metadata: {title, visual:{x, y}},
+              configuration: {
+                file?: {url:" ", mimeType:"", role:"user"}
+                text?: {content:"", role:"user"}
+              }
+          }
+        }
         """
         compiled: Dict[str, Any] = {}
         for asset in self.assets.values():
-            if asset.kind == AssetKind.INLINE_TEXT:
-                part: Dict[str, Any] = {"text": asset.text_content}
-                asset_type = "content"
-                extra_meta: Dict[str, Any] = {}
-            elif asset.kind == AssetKind.UPLOADED_FILE:
-                part = {
-                    "storedData": {
-                        "handle": asset.drive_handle,
-                        "mimeType": asset.mime_type,
-                    }
-                }
-                asset_type = "file"
-                extra_meta = {"managed": True}
+            if asset.kind == AssetKind.ASSETS_TEXT:
+                asset_type = AssetKind.ASSETS_TEXT
+                part = {"text": {"content": asset.text_content, "role": "user"}}
+            elif asset.kind == AssetKind.ASSETS_FILE:
+                asset_type = AssetKind.ASSETS_FILE
+                part = {"file": {"url": asset.file_uri, "mimeType": asset.mime_type, "role": "user"}}
+            else:
+                raise AssertionError(f"Unknown AssetKind: {asset.kind}")
+            """
             elif asset.kind == AssetKind.GOOGLE_DRIVE_DOC:
                 part = {"storedData": {"handle": asset.drive_handle, "mimeType": asset.mime_type}}
                 asset_type = "content"
@@ -1251,14 +1258,15 @@ class OpalGraphState:
                 extra_meta = {"subType": "drawable"}
             else:
                 raise AssertionError(f"Unknown AssetKind: {asset.kind}")
+            """
 
             compiled[asset.asset_id] = {
-                #"data": [{"parts": [part], "role": "user"}],
-                "data": [{"role": "user", **part}],
+                "id": asset.asset_id,
+                "configuration": part,
+                "type": asset_type,
                 "metadata": {
                     "title": asset.title,
-                    "type": asset_type,
-                    **extra_meta,
+                    "visual": {"x":0, "y": 0}
                 },
             }
         return compiled

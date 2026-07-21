@@ -292,6 +292,11 @@
 .opal-node-detail-body .ql-editor>p {
     margin-bottom: 0.5rem;
 }
+.opal-node-detail-body .ql-editor > ul,
+.opal-node-detail-body .ql-editor > ol {
+    margin-left: 0;
+    padding-left: 0;
+}
 
 .opal-node-detail-body .ql-editor .opal-ref-tag {
     display: inline-block;

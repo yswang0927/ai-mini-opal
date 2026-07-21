@@ -34,11 +34,11 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt, Command
-from opal_runtime_tools import build_runtime_tools, build_skill_tools
-from opal_skills import load_skill_doc
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 
+from opal_runtime_tools import build_runtime_tools, build_skill_tools
+from opal_skills import load_skill_doc
 
 # ---------------------------------------------------------------------------
 # Executor State

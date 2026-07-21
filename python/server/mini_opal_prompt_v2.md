@@ -162,8 +162,8 @@ Deletes a step and automatically cleans up any connections referencing it.
 **`manage_connection(action, connection_type, source_step_id, target_step_id, route_label=None)`**
 Add or remove a `parent` or `route` connection between two *existing* steps, without recreating either one. Use this when the user asks to rewire the graph (e.g. "connect step A's output into step C too") rather than change what a step does.
 
-**`register_asset(title, kind, text_content=None, mime_type=None, drive_handle=None, file_uri=None)`**
-Registers a file/document/video/text resource that can then be referenced (via its returned `asset_id`) in `create_agent_step` or `create_render_step`'s `asset_ids` parameter. Important boundary: you can only genuinely *originate* content for `kind="inline_text"` (a snippet of reference text you write yourself — background info, example data, a style guide, etc.). The other kinds (`uploaded_file`, `google_drive_doc`, `youtube_video`, `drawing`) represent resources that already exist somewhere (typically the user uploaded a file or pasted a link through the actual app UI) — always check `graph_get_overview` first to see whether the asset the user is referring to is already registered before creating a new entry.
+**`register_asset(title, kind, text_content=None, mime_type=None, file_uri=None)`**
+Registers a file/document/video/text resource that can then be referenced (via its returned `asset_id`) in `create_agent_step` or `create_render_step`'s `asset_ids` parameter. Important boundary: you can only genuinely *originate* content for `kind="assets_text"` (a snippet of reference text you write yourself — background info, example data, a style guide, etc.). The other kinds (`assets_file`) represent resources that already exist somewhere (typically the user uploaded a file or pasted a link through the actual app UI) — always check `graph_get_overview` first to see whether the asset the user is referring to is already registered before creating a new entry.
 
 
 ### Argument formatting

@@ -603,19 +603,17 @@ class _RegisterAssetArgs(_CoercingArgs):
         ...,
         description=(
             "The type of the asset. Allowed values:\n"
-            "- 'inline_text': A plain text reference material. (This is the only type where Opie can directly create content from scratch; ideal for injecting background knowledge, reference copy, sample data, etc.)\n"
-            "- 'uploaded_file': A reference to an uploaded file that already exists in the host application. (Requires 'drive_handle'; these assets are typically registered by the host application after a user uploads them in the UI, rather than being created from scratch by Opie)\n"
-            "- 'google_drive_doc': A reference to an existing Google Drive document. (Requires 'drive_handle')\n"
-            "- 'youtube_video': A reference to a YouTube video link. (Requires 'file_uri')\n"
-            "- 'drawing': A reference to a hand-drawn sketch or diagram. (Requires 'drive_handle')"
+            "- 'assets_text': A plain text reference material. (This is the only type where Opie can directly create content from scratch; ideal for injecting background knowledge, reference copy, sample data, etc.)\n"
+            "- 'assets_file': A reference to an uploaded file that already exists in the host application. (Requires 'file_uri'; these assets are typically registered by the host application after a user uploads them in the UI, rather than being created from scratch by Opie)\n"
+            #"- 'google_drive_doc': A reference to an existing Google Drive document. (Requires 'file_uri')\n"
+            #"- 'youtube_video': A reference to a YouTube video link. (Requires 'file_uri')\n"
+            #"- 'drawing': A reference to a hand-drawn sketch or diagram. (Requires 'file_uri')"
         ),
     )
-    text_content: Optional[str] = Field(None, description="Required ONLY when kind='inline_text'. The actual text content of the asset.")
+    text_content: Optional[str] = Field(None, description="Required ONLY when kind='assets_text'. The actual text content of the asset.")
     mime_type: Optional[str] = Field(None, description="The MIME type, such as 'image/png' or 'video/mp4'. Can be omitted for text assets.")
-    drive_handle: Optional[str] = Field(
-        None, description="Required ONLY when kind is 'uploaded_file', 'google_drive_doc', or 'drawing'. The format should be similar to 'drive:/{file_id}'."
-    )
-    file_uri: Optional[str] = Field(None, description="Required ONLY when kind='youtube_video'. The full URL of the video.")
+    #drive_handle: Optional[str] = Field(None, description="Required ONLY when kind is 'assets_file', 'google_drive_doc', or 'drawing'. The format should be similar to 'drive:/{file_id}'.")
+    file_uri: Optional[str] = Field(None, description="Required ONLY when kind='assets_file'. The full URL of the file.")
 
 
 def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
@@ -624,7 +622,7 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
         kind: str,
         text_content: Optional[str] = None,
         mime_type: Optional[str] = None,
-        drive_handle: Optional[str] = None,
+        #drive_handle: Optional[str] = None,
         file_uri: Optional[str] = None,
     ) -> str:
         try:
@@ -632,7 +630,7 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
                 title=title,
                 kind=kind,
                 mime_type=mime_type,
-                drive_handle=drive_handle,
+                #drive_handle=drive_handle,
                 file_uri=file_uri,
                 text_content=text_content,
             )
@@ -643,9 +641,9 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
     """
     description=(
         "Register an asset (file/doc/video/text) for use in agent/render steps. "
-        "Only 'inline_text' creates new content; other types reference existing resources. "
-        "Examples: register_asset(title='FAQ.txt', kind='inline_text', text_content='...') "
-        "or register_asset(title='Logo', kind='uploaded_file', drive_handle='drive:/abc123', mime_type='image/png')"
+        "Only 'assets_text' creates new content; other types reference existing resources. "
+        "Examples: register_asset(title='FAQ.txt', kind='assets_text', text_content='...') "
+        "or register_asset(title='Logo', kind='assets_file', file_uri='drive:/abc123', mime_type='image/png')"
     )
     """
     return StructuredTool.from_function(
@@ -653,11 +651,11 @@ def _make_register_asset_tool(graph: OpalGraphState) -> StructuredTool:
         name="register_asset",
         description=(
             "Register an asset (file, document, video, or text) to be referenced by the 'asset_ids' field in 'create_agent_step' or 'create_render_step'. "
-            "Only 'inline_text' can create content from scratch; all other types register references to already existing resources. "
+            "Only 'assets_text' can create content from scratch; all other types register references to already existing resources. "
             "Before calling this tool, always use 'graph_get_overview' to check if the asset has already been registered to avoid duplication.\n"
             "Examples:\n"
-            "register_asset(title='FAQ', kind='inline_text', text_content='...')\n"
-            "or register_asset(title='Logo', kind='uploaded_file', drive_handle='drive:/abc123', mime_type='image/png')"
+            "register_asset(title='FAQ', kind='assets_text', text_content='...')\n"
+            "or register_asset(title='Logo', kind='assets_file', file_uri='drive:/abc123', mime_type='image/png')"
         ),
         args_schema=_RegisterAssetArgs,
     )
