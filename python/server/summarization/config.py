@@ -1,0 +1,119 @@
+"""
+全局配置模块。
+
+集中管理：
+- 支持的文档格式
+- 分块策略 / 任务类型枚举
+- 各 LLM 的上下文窗口大小（可通过环境变量覆盖，便于随模型升级而调整）
+- 流式读取的缓冲区大小等运行期参数
+
+生产环境建议：将 MODEL_CONTEXT_WINDOWS 这类会随供应商更新而变化的数据
+外置为配置中心（Consul/Nacos/数据库）而非硬编码，这里给出可被覆盖的默认实现。
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Dict
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DocumentFormat(str, Enum):
+    TXT = "txt"
+    MARKDOWN = "markdown"
+    DOCX = "docx"
+    PPTX = "pptx"
+    PDF = "pdf"
+
+    @classmethod
+    def from_suffix(cls, suffix: str) -> "DocumentFormat":
+        suffix = suffix.lower().lstrip(".")
+        mapping = {
+            "txt": cls.TXT,
+            "md": cls.MARKDOWN,
+            "markdown": cls.MARKDOWN,
+            "docx": cls.DOCX,
+            "pptx": cls.PPTX,
+            "pdf": cls.PDF,
+        }
+        if suffix not in mapping:
+            raise ValueError(f"不支持的文档格式后缀: .{suffix}")
+        return mapping[suffix]
+
+
+class ChunkingStrategy(str, Enum):
+    SEMANTIC = "semantic"          # 语义分块
+    LOGICAL = "logical"            # 按逻辑单元分块（段落/标题/幻灯片/页面）
+    TASK_DEPENDENT = "task_dependent"  # 基于任务目标调整块大小（叠加在前两者之上）
+
+
+class TaskType(str, Enum):
+    SUMMARIZATION = "summarization"
+    QA = "qa"
+    EXTRACTION = "extraction"
+    TRANSLATION = "translation"
+
+
+# 各任务类型对"分块大小/重叠比例"的偏好系数。
+# ratio: 单块目标占用「可用上下文」的比例（越依赖全局语境的任务，块越大）
+# overlap_ratio: 重叠 token 占块大小的比例（越依赖精确边界召回的任务，重叠越大）
+TASK_SIZING_PROFILE: Dict[TaskType, Dict[str, float]] = {
+    TaskType.SUMMARIZATION: {"ratio": 0.70, "overlap_ratio": 0.08},
+    TaskType.QA: {"ratio": 0.35, "overlap_ratio": 0.20},
+    TaskType.EXTRACTION: {"ratio": 0.30, "overlap_ratio": 0.20},
+    TaskType.TRANSLATION: {"ratio": 0.45, "overlap_ratio": 0.12},
+}
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="SUMM_", env_file=".env", extra="ignore")
+
+    # 默认 LLM 与其上下文窗口（token）。可通过环境变量 SUMM_MODEL_CONTEXT_WINDOWS_JSON 覆盖。
+    default_model_name: str = "gpt-4o"
+    model_context_windows: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "gpt-4o": 128_000,
+            "gpt-4o-mini": 128_000,
+            "gpt-4-turbo": 128_000,
+            "gpt-3.5-turbo": 16_385,
+            "claude-sonnet-5": 200_000,
+            "claude-haiku-4-5": 200_000,
+            "claude-opus-4-8": 200_000,
+        }
+    )
+
+    # 预留给「输出」与「系统/指令 Prompt」的 token 数，防止总量超限
+    reserved_output_tokens: int = 2_000
+    reserved_system_prompt_tokens: int = 1_000
+
+    # 判断是否需要分块时的安全余量（越保守，越提前触发分块）
+    context_safety_margin: float = 0.90
+
+    # 流式读取缓冲区（字节）：txt/markdown 按此块大小读取
+    stream_buffer_size_bytes: int = 64 * 1024  # 64KB
+
+    # token 估算时，为避免分片边界切断单词/token 造成的误差，使用的字符级"结转窗口"
+    token_estimation_carry_chars: int = 64
+
+    # 语义分块相似度断点类型：percentile / standard_deviation / interquartile
+    semantic_breakpoint_threshold_type: str = "percentile"
+    semantic_breakpoint_threshold_amount: float = 90.0
+
+    def get_context_window(self, model_name: str) -> int:
+        if model_name not in self.model_context_windows:
+            raise KeyError(
+                f"未知模型 '{model_name}' 的上下文窗口配置，"
+                f"请在 Settings.model_context_windows 中补充。"
+            )
+        return self.model_context_windows[model_name]
+
+    def usable_context_tokens(self, model_name: str) -> int:
+        """扣除输出预留与系统提示预留、并乘以安全余量后，真正可用于文档内容的 token 数。"""
+        window = self.get_context_window(model_name)
+        raw_usable = window - self.reserved_output_tokens - self.reserved_system_prompt_tokens
+        return max(int(raw_usable * self.context_safety_margin), 256)
+
+
+settings = Settings()
