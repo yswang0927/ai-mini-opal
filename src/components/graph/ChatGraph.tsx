@@ -32,7 +32,7 @@ import {LayoutDagIcon, Spinner} from '@/utils/icons';
 import {useEditorContext} from '@/pages/editor/EditorContext';
 
 import {AssetsFileNode, AssetsTextNode, GenerateNode, OutputNode, UserInputNode} from './OpalNodes';
-import {type FlowNode} from './types';
+import {type FlowNode, type NodeHandleType} from './types';
 import autoLayout from './AutoLayout';
 import {__NODEZATOR_ACTIVE_SNAP_TARGET__, NodezatorConnectionLine} from "./NodezatorConnectionLine";
 
@@ -141,7 +141,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   // 用 Ref 缓存当前的连线起点数据
-  const connectingSourceRef = useRef<{ nodeId: string; handleId: string | null } | null>(null);
+  const connectingSourceRef = useRef<NodeHandleType | null>(null);
   const isGraphInitializedRef = useRef<boolean>(false);
 
   const [chatInput, setChatInput] = useState<string>('');
@@ -481,10 +481,13 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
     const nodeId = targetElement.getAttribute('data-nodeid') || '';
     const handleId = targetElement.getAttribute('data-id') || targetElement.getAttribute('id') || '';
+    const handleType = targetElement.classList.contains('source') ? 'source'
+            : (targetElement.classList.contains('target') ? 'target' : '');
     if (nodeId) {
       connectingSourceRef.current = {
         nodeId: nodeId,
-        handleId: handleId
+        handleId: handleId,
+        handleType: handleType
       };
     }
   }, []);
@@ -493,10 +496,10 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const handleConnectEnd = useCallback((_event: MouseEvent | TouchEvent) => {
     const rf = reactFlowRef.current;
     if (!rf) return;
-    const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
     const source = connectingSourceRef.current;
+    const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
 
-    console.log('>> 动态吸附连线：', source, snapTarget);
+    console.log('>> 动态吸附连线：target: ', snapTarget);
     // 如果松手的一瞬间，小手处于相撞变橘黄状态，且我们记录到了源头
     if (snapTarget && source && source.nodeId) {
       // 不允许连接自己
@@ -504,13 +507,27 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         return;
       }
 
+      let eSource: NodeHandleType | null = null;
+      let eTarget: NodeHandleType | null = null;
+      [source, snapTarget].forEach((item: NodeHandleType) => {
+        if (item.handleType === 'source') {
+          eSource = item;
+        } else if (item.handleType === 'target') {
+          eTarget = item;
+        }
+      });
+
+      if (eSource === null || eTarget === null) {
+        return;
+      }
+
       const newEdge: Edge = {
-        id: `edge-${source.nodeId}-${snapTarget.nodeId}`,
-        source: source.nodeId,
-        target: snapTarget.nodeId,
+        id: `edge-${eSource.nodeId}-${eTarget.nodeId}`,
+        source: eSource.nodeId,
+        target: eTarget.nodeId,
         sourceHandle: null,
         targetHandle: null,
-        data: { out: 'context', in: `p-z-${source.nodeId}` }
+        data: { out: 'context', in: `p-z-${eSource.nodeId}` }
       };
 
       if (isEdgeExists(newEdge, rf.getEdges())) {

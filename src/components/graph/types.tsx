@@ -36,3 +36,9 @@ export interface FlowNode extends Node {
   data: OpalNode;
 }
 
+export interface NodeHandleType {
+  nodeId: string;
+  handleId?: string;
+  handleType?: string
+}
+

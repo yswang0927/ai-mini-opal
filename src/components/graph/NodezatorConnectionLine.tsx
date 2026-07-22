@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getBezierPath, useReactFlow, type ConnectionLineComponentProps } from '@xyflow/react';
+import type { NodeHandleType } from './types';
 
 interface ActiveTarget {
   id: string;
   nodeId: string;
+  handleType: string;
   x: number;
   y: number;
   stretchX: number;
@@ -13,7 +15,7 @@ interface ActiveTarget {
 }
 
 // 【引力通信简易通道】：让外层画布在松手瞬间能百分百拿到当前对齐的小手目标
-export let __NODEZATOR_ACTIVE_SNAP_TARGET__: { nodeId: string; handleId: string | null } | null = null;
+export let __NODEZATOR_ACTIVE_SNAP_TARGET__: NodeHandleType | null = null;
 
 const PROXIMITY_THRESHOLD = 150; // 感应半径
 const BASE_STRETCH = 20;         // 基础弹射长度
@@ -53,6 +55,8 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
         if (nodeId === fromNode.id) return;
 
         const handleId = el.getAttribute('data-id') || el.getAttribute('id') || '';
+        const handleType = el.classList.contains('source') ? 'source'
+            : (el.classList.contains('target') ? 'target' : '');
 
         const rect = el.getBoundingClientRect();
         const clientX = Math.round(rect.left + rect.width / 2);
@@ -65,12 +69,13 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
 
         if (distance < PROXIMITY_THRESHOLD) {
           const angle = Math.atan2(dy, dx);
-          const dynamicStretch = (PROXIMITY_THRESHOLD - distance) * 0.35;
+          const dynamicStretch = Math.round((PROXIMITY_THRESHOLD - distance) * 0.35);
           const armLength = BASE_STRETCH + dynamicStretch;
 
           const targetObj: ActiveTarget = {
             id: handleId,
             nodeId: nodeId,
+            handleType: handleType,
             x: Math.round(flowPos.x),
             y: Math.round(flowPos.y),
             stretchX: Math.round(Math.cos(angle) * armLength),
@@ -97,7 +102,8 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
         // 实时塞入单例通道
         __NODEZATOR_ACTIVE_SNAP_TARGET__ = {
           nodeId: (nearestTarget as ActiveTarget).nodeId,
-          handleId: (nearestTarget as ActiveTarget).id
+          handleId: (nearestTarget as ActiveTarget).id,
+          handleType: (nearestTarget as ActiveTarget).handleType
         };
       } else {
         setClosestTarget(null);
@@ -118,18 +124,19 @@ export const NodezatorConnectionLine: React.FC<ConnectionLineComponentProps> = (
   const finalTargetX = closestTarget ? (closestTarget.x + closestTarget.stretchX) : toX;
   const finalTargetY = closestTarget ? (closestTarget.y + closestTarget.stretchY) : toY;
 
-  const [smoothEdgePath] = getBezierPath({
+  /*const [smoothEdgePath] = getBezierPath({
     sourceX: fromX,
     sourceY: fromY,
     sourcePosition: fromPosition,
     targetX: finalTargetX,
     targetY: finalTargetY,
     targetPosition: toPosition,
-  });
+  });*/
 
   return (
     <g className="nodezator-magnetic-field" style={{ pointerEvents: 'none' }}>
-      <path d={smoothEdgePath} fill="none" stroke={closestTarget ? ACTIVE_COLOR : '#FFB946'} strokeWidth={2.5} />
+      {/*<path d={smoothEdgePath} fill="none" stroke={closestTarget ? ACTIVE_COLOR : '#FFB946'} strokeWidth={2.5} />*/}
+      <line x1={fromX} y1={fromY} x2={finalTargetX} y2={finalTargetY} stroke={closestTarget ? ACTIVE_COLOR : '#FFB946'} strokeWidth={2.5} strokeLinecap="round" />
       <circle cx={fromX} cy={fromY} fill={ACTIVE_COLOR} r={5} />
       <circle cx={toX} cy={toY} fill={ACTIVE_COLOR} r={6} />
 
