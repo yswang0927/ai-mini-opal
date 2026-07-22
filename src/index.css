@@ -15,6 +15,15 @@
   font-display: swap;
 }
 
+/* Bold */
+@font-face {
+  font-family: "zhanku_kl";
+  src: url("./fonts/zhanku-kl.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root,
 [data-theme="light"] {
   /* ---------- 1. 背景色 Background ---------- */
@@ -146,6 +155,7 @@
   --bg-color: var(--color-bg-primary);
   --font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-family-en-title: 'GoogleSansFlex', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  --font-family-art: 'zhanku_kl', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', Arial, Helvetica, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-size: 0.875rem;
   --font-size-sm: 0.75rem;
   --font-size-md: 1rem;

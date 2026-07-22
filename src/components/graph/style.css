@@ -396,40 +396,57 @@
 }
 
 .graph-empty-state {
-    color: rgba(0, 0, 0, 0.8);
-}
-.graph-empty-state .empty-icon {
-    position: absolute;
+    color: var(--color-text-secondary);
 }
 .graph-empty-state .empty-state-top,
 .graph-empty-state .empty-state-bottom {
     position: absolute;
     left: 50%;
-    transform: translateX(-60%);
-    font-size: 1rem;
+    transform: translateX(-50%);
+    font-size: 1.25rem;
+    font-family: var(--font-family-art);
     padding: 12px 40px;
     text-align: center;
+    pointer-events: none;
     background-color: rgba(169, 88, 62, 0.2);
     box-shadow: rgba(0, 0, 0, 0.08) 0 12px 20px;
 }
 .graph-empty-state .empty-state-top {
-    top: 5rem;
+    left: 40%;
+    top: 6rem;
     rotate: -5deg;
 }
 .graph-empty-state .empty-state-bottom {
-    bottom: 6rem;
+    bottom: 7rem;
     rotate: 8deg;
 }
+.graph-empty-state .empty-icon {
+    position: absolute;
+}
+.graph-empty-state .empty-icon > svg {
+    width: 40px;
+    height: 50px;
+}
 .graph-empty-state .empty-state-top .empty-icon {
-    top: -10rem;
-    right: -10rem;
+    top: 15px;
+    left: 40%;
+    transform: translateY(-100%);
+}
+.graph-empty-state .empty-state-bottom .empty-icon {
+    bottom: 10px;
+    right: 50%;
+    transform: translateY(100%);
+}
+.graph-empty-state .empty-state-bottom .empty-icon svg {
+    transform: scaleY(-1) scaleX(-1);
 }
 
 .graph-empty-state h3 {
-    font-size: 32px;
+    font-size: 2rem;
     font-weight: 600;
     margin: 1rem 0;
     text-align: center;
+    pointer-events: none;
 }
 .graph-empty-state h4 {
     font-size: 20px;
