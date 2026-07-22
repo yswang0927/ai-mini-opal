@@ -37,7 +37,7 @@ def main() -> None:
     parser.add_argument("--model", type=str, default="gpt-4o")
     args = parser.parse_args()
 
-    preprocessor = SummarizationPreprocessor(model_name=args.model)
+    preprocessor = SummarizationPreprocessor()
     result = preprocessor.process(
         args.file_path,
         strategy=ChunkingStrategy(args.strategy),

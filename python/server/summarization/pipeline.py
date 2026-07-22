@@ -29,22 +29,17 @@ logger = get_logger(__name__)
 class SummarizationPreprocessor:
     def __init__(
         self,
-        model_name: Optional[str] = None,
         max_context_tokens: Optional[int] = None,
         default_strategy: ChunkingStrategy = ChunkingStrategy.LOGICAL,
         default_task_type: TaskType = TaskType.SUMMARIZATION,
         embeddings: Optional[Embeddings] = None,
     ):
-        self.model_name = model_name or settings.default_model_name
         # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
         self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
         self.default_strategy = default_strategy
         self.default_task_type = default_task_type
         self.embeddings = embeddings
-        self.token_estimator = StreamingTokenEstimator(
-            model_name=self.model_name,
-            max_context_tokens=self.max_context_tokens,
-        )
+        self.token_estimator = StreamingTokenEstimator(max_context_tokens=self.max_context_tokens)
 
     def process(
         self,

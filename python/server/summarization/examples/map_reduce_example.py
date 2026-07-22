@@ -45,7 +45,7 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    preprocessor = SummarizationPreprocessor(model_name=args.model)
+    preprocessor = SummarizationPreprocessor()
 
     if args.real:
         map_client = build_default_llm_client(args.model)

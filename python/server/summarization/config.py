@@ -79,8 +79,6 @@ TASK_SIZING_PROFILE: Dict[TaskType, Dict[str, float]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SUMM_", env_file=".env", extra="ignore")
 
-    # 默认 LLM 模型名（仅用于 tiktoken 编码器选择，不再决定上下文窗口）。
-    default_model_name: str = "gpt-4o"
     # 最大上下文窗口（token）。现场环境的窗口大小由部署方定制，因此不再按模型名
     # 硬编码映射表，而是作为参数显式传入各组件；此处仅提供一个兜底默认值，
     # 生产环境通过 .env 的 OPIE_LLM_MAX_CONTEXT_TOKENS 配置并经 summarize_document 注入。

@@ -31,29 +31,20 @@ from logger import get_logger
 
 logger = get_logger(__name__)
 
-# 并非所有模型名都能被 tiktoken.encoding_for_model 识别（例如 Claude 系列），
-# 这里维护一个显式映射，未命中时统一回退到 cl100k_base，
-# 该编码对绝大多数现代 LLM 的 token 数量级估算已足够接近。
-_MODEL_TO_ENCODING: dict[str, str] = {
-    "gpt-4o": "o200k_base",
-    "gpt-4o-mini": "o200k_base",
-    "gpt-4-turbo": "cl100k_base",
-    "gpt-3.5-turbo": "cl100k_base",
-}
+# token 估算统一使用 cl100k_base 编码。它对绝大多数现代 LLM 的 token 数量级估算
+# 已足够接近，而"是否超过上下文窗口"这类阈值判断本就只需要量级正确即可，
+# 因此无需按模型名切换编码器（也就不必再向本模块传递 model_name）。
 _DEFAULT_ENCODING = "cl100k_base"
 
 
 class StreamingTokenEstimator:
     def __init__(
         self,
-        model_name: Optional[str] = None,
         max_context_tokens: Optional[int] = None,
     ):
-        self.model_name = model_name or settings.default_model_name
         # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
         self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
-        encoding_name = _MODEL_TO_ENCODING.get(self.model_name, _DEFAULT_ENCODING)
-        self._encoding = self._load_encoding_with_fallback(encoding_name)
+        self._encoding = self._load_encoding_with_fallback(_DEFAULT_ENCODING)
 
     @staticmethod
     def _load_encoding_with_fallback(encoding_name: str):
@@ -142,7 +133,6 @@ class StreamingTokenEstimator:
         exceeds_limit = total_tokens > usable_tokens
         return TokenEstimateResult(
             total_tokens=total_tokens,
-            model_name=self.model_name,
             context_window=context_window,
             usable_context_tokens=usable_tokens,
             exceeds_limit=exceeds_limit or truncated,

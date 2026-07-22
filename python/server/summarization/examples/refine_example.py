@@ -43,7 +43,7 @@ async def main() -> None:
     parser.add_argument("--real", action="store_true", help="使用真实 LLM（需提前配置对应供应商的 API Key）")
     args = parser.parse_args()
 
-    preprocessor = SummarizationPreprocessor(model_name=args.model)
+    preprocessor = SummarizationPreprocessor()
 
     if args.real:
         client = build_default_llm_client(args.model)

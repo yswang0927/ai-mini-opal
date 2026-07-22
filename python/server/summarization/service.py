@@ -131,7 +131,6 @@ async def summarize_document(
     client = build_opie_llm_client(model_name=resolved_model)
 
     preprocessor = SummarizationPreprocessor(
-        model_name=resolved_model,
         max_context_tokens=resolved_max_context,
         default_strategy=strategy,
         default_task_type=task_type,

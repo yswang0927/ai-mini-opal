@@ -63,8 +63,7 @@ class MapReduceSummarizer:
         # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
         self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
         self.token_estimator = token_estimator or StreamingTokenEstimator(
-            model_name=self.map_model_name,
-            max_context_tokens=self.max_context_tokens,
+            max_context_tokens=self.max_context_tokens
         )
         self.max_concurrency = max_concurrency or settings.map_max_concurrency
         self.fail_fast = fail_fast if fail_fast is not None else settings.fail_fast

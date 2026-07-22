@@ -11,7 +11,6 @@ from .config import ChunkingStrategy, DocumentFormat, SummarizationStrategy, Tas
 
 class TokenEstimateResult(BaseModel):
     total_tokens: int = Field(..., description="流式估算得到的文档总 token 数（近似值，见下方说明）")
-    model_name: str
     context_window: int
     usable_context_tokens: int = Field(..., description="扣除输出/系统提示预留后的可用 token 数")
     exceeds_limit: bool = Field(..., description="是否超过可用上下文窗口，需要分块")
@@ -20,8 +19,6 @@ class TokenEstimateResult(BaseModel):
         description="当文档极大且早期已确认超限时，为节省资源提前终止扫描，"
         "此时 total_tokens 为下界估计（实际值 >= 该值）",
     )
-
-    model_config = {"protected_namespaces": ()}
 
 
 class ChunkMetadata(BaseModel):
