@@ -5,8 +5,6 @@
     第一步：流式估算文档 token 长度，判断是否超过 LLM 上下文窗口；
     第二步：若超限，按选定策略（语义/逻辑/任务驱动）分块，并叠加重叠。
 
-FastAPI 路由层应只依赖本模块，不直接接触 Reader/Chunker 内部实现，
-以保持"分块算法可插拔替换"而不影响 API 契约。
 """
 
 from __future__ import annotations
@@ -19,7 +17,7 @@ from langchain_core.embeddings import Embeddings
 from summarization.chunking.factory import ChunkerFactory
 from .config import ChunkingStrategy, TaskType, settings
 from .exceptions import PreprocessorError
-from .readers.factory import ReaderFactory
+from summarization.readers.factory import ReaderFactory
 from .schemas import Chunk, ChunkingResult, ChunkMetadata, TokenEstimateResult
 from .tokenization import StreamingTokenEstimator
 

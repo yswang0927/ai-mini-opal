@@ -1,5 +1,6 @@
 """统一异常体系，便于 FastAPI 异常处理器按类型返回标准化错误响应。"""
 
+
 class PreprocessorError(Exception):
     """所有本模块自定义异常的基类。"""
 
@@ -18,6 +19,18 @@ class TokenEstimationError(PreprocessorError):
 
 class ChunkingError(PreprocessorError):
     """分块过程失败。"""
+
+
+class SummarizationError(PreprocessorError):
+    """LLM 摘要调用失败（含重试耗尽后的最终失败）。"""
+
+
+class MapReduceError(PreprocessorError):
+    """Map-Reduce 归约链路失败。携带已成功/失败的分块索引，便于上层决定重试范围。"""
+
+    def __init__(self, message: str, failed_indices: list[int] | None = None):
+        super().__init__(message)
+        self.failed_indices = failed_indices or []
 
 
 class ConfigurationError(PreprocessorError):

@@ -56,6 +56,15 @@ class TaskType(str, Enum):
     TRANSLATION = "translation"
 
 
+class SummarizationStrategy(str, Enum):
+    """第三步"摘要归约"的执行方式，与第二步的 ChunkingStrategy 是正交的两个维度：
+    ChunkingStrategy 决定"怎么切"，SummarizationStrategy 决定"切完之后怎么总结"。
+    """
+
+    MAP_REDUCE = "map_reduce"  # 并行 Map 每个分块 -> 分层 Reduce 归约
+    REFINE = "refine"          # 串行滚动：首块生成初始摘要 -> 逐块并入前序摘要迭代精炼
+
+
 # 各任务类型对"分块大小/重叠比例"的偏好系数。
 # ratio: 单块目标占用「可用上下文」的比例（越依赖全局语境的任务，块越大）
 # overlap_ratio: 重叠 token 占块大小的比例（越依赖精确边界召回的任务，重叠越大）
@@ -100,6 +109,40 @@ class Settings(BaseSettings):
     # 语义分块相似度断点类型：percentile / standard_deviation / interquartile
     semantic_breakpoint_threshold_type: str = "percentile"
     semantic_breakpoint_threshold_amount: float = 90.0
+
+    # ---------------- Map-Reduce 归约链路配置 ----------------
+    # Map 阶段并发调用 LLM 的最大并发数（避免打满下游 LLM 服务的速率限制）
+    map_max_concurrency: int = 5
+    # LLM 调用失败时的最大重试次数（指数退避）
+    llm_max_retries: int = 3
+    llm_retry_base_delay_seconds: float = 1.0
+    # Reduce 阶段：每一轮归约时，多个"待合并摘要"打包进一次 LLM 调用的 token 预算
+    # 占该轮可用上下文的比例（留出空间给 reduce 提示词本身与输出）
+    reduce_batch_context_ratio: float = 0.6
+    # 单次 reduce 调用即便只有 1 个输入摘要，也允许直接透传（避免无意义的空转合并）
+    reduce_min_fan_in: int = 2
+    # Map/Reduce 阶段任一步失败时，是否整体快速失败（True）还是跳过失败分块继续（False）
+    fail_fast: bool = True
+    # 归约层数安全上限：防御性配置，防止异常数据导致归约无法收敛而无限循环
+    max_reduce_levels: int = 20
+
+    # ---------------- Refine 链路配置 ----------------
+    # Refine 每一步的 prompt = 运行中摘要 + 当前分块 + 模板开销，三者必须共同落在
+    # usable_context_tokens 之内。这里将可用上下文按比例三方切分：
+    #   refine_chunk_budget_ratio   —— 单个分块允许占用的比例
+    #   refine_summary_budget_ratio —— "运行中摘要"允许占用的比例（超出则触发压缩）
+    #   剩余部分留给 Prompt 模板文字本身的开销
+    # 注意：这两个比例是 Refine 专属的，独立于 chunking/task_sizer.py 中面向
+    # Map-Reduce 的 TASK_SIZING_PROFILE —— 因为 Refine 的单步 prompt 需要同时容纳
+    # "分块"与"运行中摘要"两部分内容，可分配给分块本身的空间天然更小。
+    refine_chunk_budget_ratio: float = 0.55
+    refine_summary_budget_ratio: float = 0.30
+    # 运行中摘要超过预算时触发一次独立的"压缩"调用（合并同类信息、去冗余，
+    # 而非删减事实），将其压回预算之内再继续下一步，防止摘要随链条无限增长
+    refine_compression_trigger_ratio: float = 1.0  # 超过 summary 预算的多少倍才触发压缩
+    # Refine 是严格串行链路，某一步失败即会阻断后续依赖它的所有步骤：
+    # fail_fast=True 时任一步失败直接终止；False 时跳过该分块、运行中摘要保持不变继续链条
+    refine_fail_fast: bool = True
 
     def get_context_window(self, model_name: str) -> int:
         if model_name not in self.model_context_windows:
