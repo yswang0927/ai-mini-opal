@@ -10,21 +10,34 @@ Reduce 调用），生产环境必须处理：
 这个接口，不关心底层是 langchain 的哪个 ChatModel。生产环境通过
 `LangChainChatModelClient` 包装任意 `langchain_core.language_models.BaseChatModel`
 实例接入（ChatAnthropic / ChatOpenAI / 自建兼容模型均可）。
+
+本项目默认接入方式：读取 .env 中的 OpenAI 兼容网关配置
+（OPIE_LLM_BASE_URL / OPIE_LLM_API_KEY / OPIE_LLM_MODEL），通过 `ChatOpenAI`
+指向该网关（与 server.py 的接入方式一致），适用于 deepseek / qwen 等自建或
+第三方 OpenAI 兼容服务。调用 `build_opie_llm_client()` 即可获得可直接用于
+Map-Reduce / Refine 归约链路的、带重试的 LLMClient 实例。
 """
 
 from __future__ import annotations
 
 import abc
 import asyncio
+import os
 import random
+from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
 
 from summarization.config import settings
 from summarization.exceptions import ConfigurationError, SummarizationError
-
 from logger import get_logger
 
 logger = get_logger(__name__)
+
+# 与 server.py 保持一致：从与本文件同目录的 .env 加载 OPIE_LLM_* 等配置。
+# load_dotenv 默认不会覆盖已存在的环境变量，因此进程中已显式导出的值优先级更高。
+load_dotenv(Path(__file__).parent / ".env")
 
 
 class LLMClient(abc.ABC):
@@ -120,6 +133,67 @@ class FakeLLMClient(LLMClient):
         body = prompt.strip()
         target_len = max(int(len(body) * self.summary_ratio), 20)
         return f"{self.prefix}{body[:target_len]}"
+
+
+def build_opie_llm_client(
+    model_name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    temperature: float = 0.3,
+    max_retries: Optional[int] = None,
+    **chat_model_kwargs,
+) -> LLMClient:
+    """按本项目 .env 中的 OpenAI 兼容网关配置构建带重试的 LLMClient。
+
+    读取顺序（均可被显式入参覆盖）：
+        base_url  <- OPIE_LLM_BASE_URL
+        api_key   <- OPIE_LLM_API_KEY
+        model     <- OPIE_LLM_MODEL
+
+    这与 server.py._build_llm() 的接入方式一致，适用于 deepseek / qwen 等
+    自建或第三方 OpenAI 兼容服务。摘要归约任务偏向"忠实、低发散"，因此默认
+    temperature 取较低值 0.3（可通过入参调整）。
+
+    Returns:
+        已包装 RetryingLLMClient 的实例，可直接传给 MapReduceSummarizer /
+        RefineSummarizer。
+    """
+    resolved_base_url = base_url or os.environ.get("OPIE_LLM_BASE_URL", "")
+    resolved_api_key = api_key or os.environ.get("OPIE_LLM_API_KEY", "")
+    resolved_model = model_name or os.environ.get("OPIE_LLM_MODEL", "")
+
+    missing = [
+        name
+        for name, value in (
+            ("OPIE_LLM_BASE_URL", resolved_base_url),
+            ("OPIE_LLM_API_KEY", resolved_api_key),
+            ("OPIE_LLM_MODEL", resolved_model),
+        )
+        if not value
+    ]
+    if missing:
+        raise ConfigurationError(
+            f"缺少 LLM 连接配置: {', '.join(missing)}。"
+            f"请在 {Path(__file__).parent / '.env'} 中设置，或作为参数显式传入。"
+        )
+
+    try:
+        from langchain_openai import ChatOpenAI
+    except ImportError as exc:
+        raise ConfigurationError(
+            "缺少 langchain_openai 依赖，无法构建 OpenAI 兼容客户端，请先安装 langchain-openai。"
+        ) from exc
+
+    chat_model = ChatOpenAI(
+        base_url=resolved_base_url,
+        api_key=resolved_api_key,
+        model=resolved_model,
+        temperature=temperature,
+        use_responses_api=False,
+        **chat_model_kwargs,
+    )
+    logger.info("已构建 OPIE LLM 客户端: base_url=%s model=%s", resolved_base_url, resolved_model)
+    return RetryingLLMClient(LangChainChatModelClient(chat_model), max_retries=max_retries)
 
 
 def build_default_llm_client(model_name: str) -> LLMClient:

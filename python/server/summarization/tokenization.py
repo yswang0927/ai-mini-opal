@@ -44,8 +44,14 @@ _DEFAULT_ENCODING = "cl100k_base"
 
 
 class StreamingTokenEstimator:
-    def __init__(self, model_name: Optional[str] = None):
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        max_context_tokens: Optional[int] = None,
+    ):
         self.model_name = model_name or settings.default_model_name
+        # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
+        self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
         encoding_name = _MODEL_TO_ENCODING.get(self.model_name, _DEFAULT_ENCODING)
         self._encoding = self._load_encoding_with_fallback(encoding_name)
 
@@ -103,8 +109,8 @@ class StreamingTokenEstimator:
             early_exit_multiplier: 当累计 token 数超过「可用上下文窗口 * 该倍数」时提前终止，
                 避免对已确定需要分块的超大文档做无意义的全量扫描。
         """
-        usable_tokens = settings.usable_context_tokens(self.model_name)
-        context_window = settings.get_context_window(self.model_name)
+        usable_tokens = settings.usable_context_tokens(self.max_context_tokens)
+        context_window = self.max_context_tokens
         early_exit_threshold = int(usable_tokens * early_exit_multiplier)
 
         total_tokens = 0

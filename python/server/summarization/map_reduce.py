@@ -50,6 +50,7 @@ class MapReduceSummarizer:
         token_estimator: Optional[StreamingTokenEstimator] = None,
         map_model_name: str = "gpt-4o",
         reduce_model_name: Optional[str] = None,
+        max_context_tokens: Optional[int] = None,
         max_concurrency: Optional[int] = None,
         fail_fast: Optional[bool] = None,
         use_topic_understanding_phase: bool = True,
@@ -59,7 +60,12 @@ class MapReduceSummarizer:
         self.reduce_client = _ensure_retrying(reduce_client) if reduce_client else self.map_client
         self.map_model_name = map_model_name
         self.reduce_model_name = reduce_model_name or map_model_name
-        self.token_estimator = token_estimator or StreamingTokenEstimator(model_name=self.map_model_name)
+        # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
+        self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
+        self.token_estimator = token_estimator or StreamingTokenEstimator(
+            model_name=self.map_model_name,
+            max_context_tokens=self.max_context_tokens,
+        )
         self.max_concurrency = max_concurrency or settings.map_max_concurrency
         self.fail_fast = fail_fast if fail_fast is not None else settings.fail_fast
         self.use_topic_understanding_phase = use_topic_understanding_phase
@@ -172,7 +178,7 @@ class MapReduceSummarizer:
 
     def _batch_nodes(self, nodes: List[ReduceNode]) -> List[List[ReduceNode]]:
         """按 token 预算贪心装箱，将待归约节点分组为批次。"""
-        usable = settings.usable_context_tokens(self.reduce_model_name)
+        usable = settings.usable_context_tokens(self.max_context_tokens)
         budget = max(int(usable * settings.reduce_batch_context_ratio), 256)
 
         batches: List[List[ReduceNode]] = []

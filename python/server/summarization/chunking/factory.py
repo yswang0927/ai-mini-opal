@@ -44,11 +44,11 @@ class ChunkerFactory:
     def build_chunker(
         strategy: ChunkingStrategy,
         task_type: TaskType,
-        model_name: str,
+        max_context_tokens: int,
         token_estimator: StreamingTokenEstimator,
         embeddings: Optional[Embeddings] = None,
     ) -> tuple[BaseChunker, OverlapManager]:
-        sizing = TaskDependentSizer.compute(task_type=task_type, model_name=model_name)
+        sizing = TaskDependentSizer.compute(task_type=task_type, max_context_tokens=max_context_tokens)
 
         if strategy == ChunkingStrategy.SEMANTIC:
             chunker: BaseChunker = SemanticUnitChunker(
@@ -83,14 +83,14 @@ class ChunkerFactory:
         source_format: DocumentFormat,
         strategy: ChunkingStrategy,
         task_type: TaskType,
-        model_name: str,
+        max_context_tokens: int,
         token_estimator: StreamingTokenEstimator,
         embeddings: Optional[Embeddings] = None,
     ) -> List[Chunk]:
         chunker, overlap_manager = ChunkerFactory.build_chunker(
             strategy=strategy,
             task_type=task_type,
-            model_name=model_name,
+            max_context_tokens=max_context_tokens,
             token_estimator=token_estimator,
             embeddings=embeddings,
         )

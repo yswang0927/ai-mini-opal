@@ -68,12 +68,18 @@ class RefineSummarizer:
         refine_client: LLMClient,
         token_estimator: Optional[StreamingTokenEstimator] = None,
         model_name: str = "gpt-4o",
+        max_context_tokens: Optional[int] = None,
         fail_fast: Optional[bool] = None,
         use_topic_understanding_phase: bool = True,
     ):
         self.refine_client = _ensure_retrying(refine_client)
         self.model_name = model_name
-        self.token_estimator = token_estimator or StreamingTokenEstimator(model_name=model_name)
+        # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
+        self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
+        self.token_estimator = token_estimator or StreamingTokenEstimator(
+            model_name=model_name,
+            max_context_tokens=self.max_context_tokens,
+        )
         self.fail_fast = fail_fast if fail_fast is not None else settings.refine_fail_fast
         self.use_topic_understanding_phase = use_topic_understanding_phase
 
@@ -82,7 +88,7 @@ class RefineSummarizer:
             raise MapReduceError("分块列表为空，无法执行 Refine")
 
         units = self._prepare_units(chunks)
-        usable = settings.usable_context_tokens(self.model_name)
+        usable = settings.usable_context_tokens(self.max_context_tokens)
         summary_budget = max(int(usable * settings.refine_summary_budget_ratio), 128)
         compression_trigger = int(summary_budget * settings.refine_compression_trigger_ratio)
 
@@ -214,7 +220,7 @@ class RefineSummarizer:
         """将上游 Chunk 列表转换为 Refine 实际消费的单位列表，
         对超过 refine_chunk_budget_ratio 预算的 Chunk 做二次切分。
         """
-        usable = settings.usable_context_tokens(self.model_name)
+        usable = settings.usable_context_tokens(self.max_context_tokens)
         chunk_budget = max(int(usable * settings.refine_chunk_budget_ratio), 256)
 
         units: List[_RefineUnit] = []

@@ -30,12 +30,12 @@ class SizingResult:
 
 class TaskDependentSizer:
     @staticmethod
-    def compute(task_type: TaskType, model_name: str) -> SizingResult:
+    def compute(task_type: TaskType, max_context_tokens: int) -> SizingResult:
         profile = TASK_SIZING_PROFILE.get(task_type)
         if profile is None:
             raise ConfigurationError(f"未知任务类型: {task_type}")
 
-        usable_tokens = settings.usable_context_tokens(model_name)
+        usable_tokens = settings.usable_context_tokens(max_context_tokens)
         chunk_size = max(int(usable_tokens * profile["ratio"]), 256)
         overlap = max(int(chunk_size * profile["overlap_ratio"]), 0)
 

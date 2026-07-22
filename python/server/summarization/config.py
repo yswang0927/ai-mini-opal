@@ -79,19 +79,12 @@ TASK_SIZING_PROFILE: Dict[TaskType, Dict[str, float]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SUMM_", env_file=".env", extra="ignore")
 
-    # 默认 LLM 与其上下文窗口（token）。可通过环境变量 SUMM_MODEL_CONTEXT_WINDOWS_JSON 覆盖。
+    # 默认 LLM 模型名（仅用于 tiktoken 编码器选择，不再决定上下文窗口）。
     default_model_name: str = "gpt-4o"
-    model_context_windows: Dict[str, int] = Field(
-        default_factory=lambda: {
-            "gpt-4o": 128_000,
-            "gpt-4o-mini": 128_000,
-            "gpt-4-turbo": 128_000,
-            "gpt-3.5-turbo": 16_385,
-            "claude-sonnet-5": 200_000,
-            "claude-haiku-4-5": 200_000,
-            "claude-opus-4-8": 200_000,
-        }
-    )
+    # 最大上下文窗口（token）。现场环境的窗口大小由部署方定制，因此不再按模型名
+    # 硬编码映射表，而是作为参数显式传入各组件；此处仅提供一个兜底默认值，
+    # 生产环境通过 .env 的 OPIE_LLM_MAX_CONTEXT_TOKENS 配置并经 summarize_document 注入。
+    default_max_context_tokens: int = 128_000
 
     # 预留给「输出」与「系统/指令 Prompt」的 token 数，防止总量超限
     reserved_output_tokens: int = 2_000
@@ -144,18 +137,13 @@ class Settings(BaseSettings):
     # fail_fast=True 时任一步失败直接终止；False 时跳过该分块、运行中摘要保持不变继续链条
     refine_fail_fast: bool = True
 
-    def get_context_window(self, model_name: str) -> int:
-        if model_name not in self.model_context_windows:
-            raise KeyError(
-                f"未知模型 '{model_name}' 的上下文窗口配置，"
-                f"请在 Settings.model_context_windows 中补充。"
-            )
-        return self.model_context_windows[model_name]
+    def usable_context_tokens(self, max_context_tokens: int) -> int:
+        """扣除输出预留与系统提示预留、并乘以安全余量后，真正可用于文档内容的 token 数。
 
-    def usable_context_tokens(self, model_name: str) -> int:
-        """扣除输出预留与系统提示预留、并乘以安全余量后，真正可用于文档内容的 token 数。"""
-        window = self.get_context_window(model_name)
-        raw_usable = window - self.reserved_output_tokens - self.reserved_system_prompt_tokens
+        max_context_tokens 为该模型/部署的最大上下文窗口（token），由调用方显式传入
+        （现场环境通过 OPIE_LLM_MAX_CONTEXT_TOKENS 配置），不再按模型名查表。
+        """
+        raw_usable = max_context_tokens - self.reserved_output_tokens - self.reserved_system_prompt_tokens
         return max(int(raw_usable * self.context_safety_margin), 256)
 
 
