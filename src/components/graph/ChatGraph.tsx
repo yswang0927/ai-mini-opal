@@ -496,6 +496,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const handleConnectEnd = useCallback((_event: MouseEvent | TouchEvent) => {
     const rf = reactFlowRef.current;
     if (!rf) return;
+
     const source = connectingSourceRef.current;
     const snapTarget = __NODEZATOR_ACTIVE_SNAP_TARGET__;
 
@@ -509,13 +510,13 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
 
       let eSource: NodeHandleType | null = null;
       let eTarget: NodeHandleType | null = null;
-      [source, snapTarget].forEach((item: NodeHandleType) => {
+      for (const item of [source, snapTarget]) {
         if (item.handleType === 'source') {
           eSource = item;
         } else if (item.handleType === 'target') {
           eTarget = item;
         }
-      });
+      }
 
       if (eSource === null || eTarget === null) {
         return;
@@ -535,7 +536,6 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         return;
       }
 
-      console.log('>> 创建动态吸附连线');
       setEdges((eds) => addEdge(newEdge, eds));
 
       // 在目标节点中动态插入对source节点的引用
