@@ -40,6 +40,7 @@ from pydantic import BaseModel
 from opal_graph import OpalGraphState
 from opie_tools import build_opie_tools
 from opal_executor import OpalExecutor
+from runtime_paths import get_data_subdir
 
 # -----------------------------
 # LLM 配置
@@ -120,8 +121,8 @@ def _rebuild_agent_with_state(graph_state: OpalGraphState):
 # ------------------------------
 
 SESSION_TTL_SECONDS = 60 * 30  # 30 分钟无活动自动过期
-SESSION_STORE_DIR = Path(__file__).parent / "session_store"
-SESSION_STORE_DIR.mkdir(exist_ok=True)
+# session 持久化到运行时可写目录(打包成只读 AppImage 后由 OPAL_DATA_DIR 指定)
+SESSION_STORE_DIR = get_data_subdir("session_store")
 
 
 def _session_file(session_id: str) -> Path:

@@ -5,7 +5,7 @@ import os from 'node:os';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { update } from './update';
+//import { update } from './update';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +37,23 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'local-file', privileges: { bypassCSP: true, stream: true } }
 ]);
 
+// GUI 方式启动的 AppImage 没有连接终端,主进程 stdout/stderr 可能已关闭。
+// 直接 console.log 往断掉的管道写会抛 EPIPE,且发生在异步回调里无人捕获,
+// 就会弹出 "A JavaScript error occurred in the main process"。safeLog 吞掉写入异常。
+function safeLog(message: string) {
+  try {
+    if (VITE_DEV_SERVER_URL) {
+      console.log(message);
+    }
+  } catch {
+    // 终端不可用(EPIPE 等),忽略即可 —— Python 侧已写文件日志
+  }
+}
+
+// 兜底:任何其它路径触发的 EPIPE(stdout/stderr 写失败)都不应导致进程崩溃弹窗。
+process.stdout?.on('error', (err: any) => { if (err?.code !== 'EPIPE') throw err; });
+process.stderr?.on('error', (err: any) => { if (err?.code !== 'EPIPE') throw err; });
+
 // 集成embedded-python环境
 const isPackaged: boolean = app.isPackaged;
 const pythonDir: string = isPackaged
@@ -55,21 +72,28 @@ function runOpalPythonServer() {
     ? path.join(process.resourcesPath, 'python', 'server', 'server.py')
     : path.join(process.env.APP_ROOT, 'python', 'server', 'server.py');
 
-  // 启动 Python 子进程
-  pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"]);
+  // 打包后 AppImage 被挂载为只读文件系统,Python 侧不能再往安装目录写日志/session。
+  // 通过 OPAL_DATA_DIR 把可写的 userData 目录传给 Python,运行时产物统一写到那里。
+  const env = { ...process.env, OPAL_DATA_DIR: app.getPath('userData') };
 
-  // 接收 Python 的标准输出
+  // 启动 Python 子进程
+  pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"], { env });
+
+  // 接收 Python 的标准输出。注意:GUI 方式启动的 AppImage 没有连接终端,
+  // 主进程 stdout/stderr 可能已关闭,直接 console.log 会抛 EPIPE 且无人捕获,
+  // 弹出 "A JavaScript error occurred in the main process"。这里统一用 safeLog,
+  // 且 Python 侧本身已写文件日志(OPAL_DATA_DIR/server.log),终端转发只是辅助。
   pyProcess.stdout.on('data', (data: any) => {
-    //console.log(`OpalPythonServer: ${data.toString()}`);
+    safeLog(`OpalPythonServer: ${data.toString()}`);
   });
 
   // 接收 Python 的错误信息
   pyProcess.stderr.on('data', (data: any) => {
-    //console.error(`OpalPythonServer: ${data.toString()}`);
+    safeLog(`OpalPythonServer: ${data.toString()}`);
   });
 
   pyProcess.on('close', (code: any) => {
-    //console.log(`OpalPythonServer 进程退出，退出码: ${code}`);
+    safeLog(`OpalPythonServer 进程退出，退出码: ${code}`);
     pyProcess = null;
   });
 }
@@ -149,7 +173,7 @@ app.whenReady().then(() => {
     try {
       return callback({ path: path.normalize(filePath) });
     } catch (error) {
-      //console.error('Failed to register protocol', error);
+      console.error('Failed to register protocol', error);
     }
   });
 
@@ -160,7 +184,7 @@ app.whenReady().then(() => {
 // 监听 Electron 的退出事件，确保强杀 Python
 app.on('will-quit', () => {
   if (pyProcess) {
-    //console.log('Electron 正在关闭，正在杀死 Python 进程...');
+    console.log('Electron 正在关闭，正在杀死 Python 进程...');
     // Windows 下可能需要通过 taskkill 强杀，如果是标准信号通常 kill() 即可
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', pyProcess.pid, '/f', '/t']);
@@ -299,7 +323,7 @@ ipcMain.handle('list-apps', async () => {
           mtime: stat.mtime // 2. 保存修改时间用于排序
         });
       } catch (e) {
-        //console.error(`Failed to read ${file}:`, e);
+        console.error(`Failed to read ${file}:`, e);
       }
     }
 
@@ -310,7 +334,7 @@ ipcMain.handle('list-apps', async () => {
     return apps.map(({ mtime, ...appData }) => appData);
 
   } catch (e) {
-    //console.error('Failed to list apps:', e);
+    console.error('Failed to list apps:', e);
     return [];
   }
 });
@@ -347,7 +371,7 @@ ipcMain.handle('save-as-file', async (event, defaultFileName: string, content: s
     }
     return { success: true, filePath };
   } catch (e) {
-    //console.error('Failed to save file:', e);
+    console.error('Failed to save file:', e);
     return { success: false, error: String(e) };
   }
 });

@@ -20,7 +20,17 @@
 
 from __future__ import annotations
 
+import os
 from typing import Iterable, Optional
+
+# tiktoken 首次加载某个 encoding 时会从 openaipublic 下载 .tiktoken 词表并缓存。
+# Electron 打包后在局域网/离线环境无法访问外网,因此把 cl100k_base 词表随包内置到
+# 本目录下的 tiktoken_cache/,并在导入 tiktoken 之前把 TIKTOKEN_CACHE_DIR 指向它。
+# tiktoken 用「下载 URL 的 SHA1」作为缓存文件名,vendored 文件名必须与之一致
+# (见 tiktoken_cache/README)。仅在用户未显式设置该变量时才覆盖,保留外部定制能力。
+_VENDORED_TIKTOKEN_CACHE = os.path.join(os.path.dirname(__file__), "tiktoken_cache")
+if not os.environ.get("TIKTOKEN_CACHE_DIR") and os.path.isdir(_VENDORED_TIKTOKEN_CACHE):
+    os.environ["TIKTOKEN_CACHE_DIR"] = _VENDORED_TIKTOKEN_CACHE
 
 import tiktoken
 

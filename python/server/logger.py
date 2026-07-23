@@ -10,16 +10,19 @@ logger.py
     logger = get_logger(__name__)
     logger.info("...")
 
-所有日志统一写入当前目录下的 server.log。
+日志统一写入运行时可写数据目录下的 server.log(见 runtime_paths.get_data_dir),
+打包成只读的 AppImage 后由 Electron 通过 OPAL_DATA_DIR 指定,源码/测试场景回退到
+server 目录。
 """
 
 from __future__ import annotations
 
 import logging
-import os
 
-# 日志文件固定写到本模块所在目录下的 server.log
-_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.log")
+from runtime_paths import get_data_file
+
+# 日志文件写到运行时可写目录下的 server.log
+_LOG_PATH = str(get_data_file("server.log"))
 
 _FORMATTER = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

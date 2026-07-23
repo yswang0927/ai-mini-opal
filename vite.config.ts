@@ -23,7 +23,11 @@ export default defineConfig(({ command }) => {
   return {
     server: {
       host: '127.0.0.1',
-      port: 15173
+      port: 15173,
+      watch:{
+        // 忽略 node_modules、打包产物、日志、python运行目录
+        ignored: ['**/node_modules/**','**/dist/**','**/dist-electron/**','**/release/**','**/python/**']
+      }
     },
     resolve: {
       alias: {
