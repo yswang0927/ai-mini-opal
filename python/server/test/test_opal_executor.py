@@ -17,19 +17,17 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent / ".env")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-sys.path.insert(0, str(Path(__file__).parent))
+load_dotenv()
 
 from opal_executor import (
     OpalExecutor,
     resolve_placeholders,
     _topological_sort,
-    _DEFAULT_RENDER_SYSTEM_PROMPT,
 )
 
 

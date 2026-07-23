@@ -30,6 +30,7 @@ from langchain_openai import ChatOpenAI
 from opal_graph import OpalGraphState
 from opie_tools import build_opie_tools
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # ===========================================================================
 # LLM 连接配置 —— 在这里填写你自己的参数
@@ -40,7 +41,7 @@ LLM_API_KEY = os.environ.get("OPIE_LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("OPIE_LLM_MODEL", "")
 
 
-PROMPT_PATH = Path(__file__).parent / "mini_opal_prompt_v2.md"
+PROMPT_PATH = Path(__file__).parent.parent / "mini_opal_prompt_v2.md"
 
 
 def load_system_prompt() -> str:
