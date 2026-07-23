@@ -1,0 +1,196 @@
+{
+    "metadata": {
+        "intent": "an app that briefs me for my meetings by asking about the client name, then researching recent relevant information that might impact their business goals",
+        "revision_intents": [],
+        "raw_intent": "an app that briefs me for my meetings by asking about the client name, then researching recent relevant information that might impact their business goals",
+        "parameters": {}
+    },
+    "assets": {},
+    "title": "Executive Briefing",
+    "description": "Get a comprehensive brief on your client before your next meeting.",
+    "version": "0.0.1",
+    "nodes": [
+        {
+            "id": "node_step_brief_content",
+            "metadata": {
+                "title": "Research And Analyze Client Business Impact",
+                "visual": {
+                    "x": 918,
+                    "y": 150
+                },
+                "step_intent": "Research recent news related to the client's business, using Google Search to find relevant articles. Then, analyze the gathered news to identify its potential impact on the client's business or bottom line. The output should be a detailed brief covering the news and its business implications, formatted for display on a webpage."
+            },
+            "type": "agent-generate",
+            "configuration": {
+                "config$prompt": {
+                    "content": "1. Objective: Use search grounding to research recent news regarding {{\"type\":\"in\",\"path\":\"ask_user_client_name\",\"title\":\"Client Name\"}}. Analyze the gathered information to determine its potential impact on the client's business operations or financial bottom line. Compose a detailed brief that synthesizes the news findings and provides a thorough analysis of the business implications. If there are meeting notes provided to you for an existing client, make sure to incorporate any relevant information you find from those notes.\n\n2. Output Format: A detailed brief formatted for display on a webpage. You are done when the brief has been generated and you call the system objective fulfilled function.\n\n3. User Input / Context: The client to be researched is {{\"type\":\"in\",\"path\":\"ask_user_client_name\",\"title\":\"Client Name\"}}. {{\"type\":\"in\",\"path\":\"93719889-e5f0-4f0d-9976-fc2b6366b8ad\",\"title\":\"Analyze Notes\"}}",
+                    "role": "user"
+                },
+                "generation-mode": "agent"
+            }
+        },
+        {
+            "id": "node_step_meeting_brief",
+            "metadata": {
+                "title": "Generate Meeting Brief Webpage",
+                "visual": {
+                    "x": 1370,
+                    "y": 244
+                },
+                "step_intent": "Take the analyzed brief content and the client name, and render them into a comprehensive HTML webpage suitable for a meeting brief. The webpage should present the information clearly and be well-structured."
+            },
+            "type": "render-outputs",
+            "configuration": {
+                "text": {
+                    "content": "The webpage should be designed as a professional and highly readable meeting brief.\n\n**Layout Organization:**\n*   The page will have a clean, article-like structure, centered on the screen with a defined maximum width for optimal reading experience.\n*   A prominent, centered header at the top of the page will display the client name, acting as the main title for the brief.\n*   Below the header, the \"Research And Analyze Client Business Impact\" content will occupy the main content area. This content should be presented as a single, well-structured block of text, organized into paragraphs with clear line spacing for readability. If the text brief contains internal headings or subheadings, they should be clearly differentiated.\n*   The layout should prioritize the brief's content, making it the focal point without distractions.\n\n**Style Design Language:**\n*   **Visual Design Approach**: Modern, professional, and elegant, emphasizing clarity, credibility, and ease of consumption. The design should convey a sense of thoroughness and seriousness appropriate for a business document.\n*   **Color Scheme**: A sophisticated, muted palette based on cool tones. Use a crisp white or light grey background for the main content area to maximize readability. Text should be a deep charcoal grey for strong contrast. Subtle accents could use a professional blue or a muted green for headings or key highlights, adding a touch of distinction without overwhelming the content.\n*   **Typography Style**: Utilize a clean and highly legible sans-serif font for all body text, optimized for long-form reading on screens. Headings should use a slightly bolder or a distinct, yet complementary, sans-serif font to establish a clear hierarchy and visual interest.\n*   **Spacing and Layout Principles**: Employ generous whitespace around all content blocks, between paragraphs, and within lines of text to enhance readability and give the page a spacious, premium feel. Margins should be ample to create a focused reading experience.\n*   **Aesthetic Goal**: Professional, insightful, and structured. The overall aesthetic should feel like a high-quality, well-researched document that is easy to digest and inspires confidence.\n\n**Component Guidelines:**\n*   The core content is a detailed text brief, which should be rendered as standard paragraph text (`<p>` tags). Any internal headings within the brief (e.g., \"Key Findings,\" \"Business Implications\") should be rendered as appropriate heading levels (`<h2>`, `<h3>`) to maintain document structure and hierarchy.\n*   No complex interactive elements are required as this is a static display of information.\n*   The design must be fully responsive, adapting fluidly to different screen sizes (mobile, tablet, desktop) while maintaining excellent readability and layout integrity. Text size, line height, and content margins should adjust accordingly.\n\nbrief_content: {{\"type\":\"in\",\"path\":\"node_step_brief_content\",\"title\":\"Research And Analyze Client Business Impact\"}}\n\nclient_name: {{\"type\":\"in\",\"path\":\"ask_user_client_name\",\"title\":\"Client Name\"}}",
+                    "role": "user"
+                },
+                "system-instruction": {
+                    "content": "You are an AI Web Developer. Your task is to generate a single, self-contained HTML document for rendering in an iframe, based on user instructions and data.\n\n**Visual aesthetic:**\n    * Aesthetics are crucial. Make the page look amazing, especially on mobile.\n    * Respect any instructions on style, color palette, or reference examples provided by the user.\n    * **CRITICAL: Aim for premium, state-of-the-art designs. Avoid simple minimum viable products.**\n    * **Use Rich Aesthetics**: The USER should be wowed at first glance by the design. Use best practices in modern web design (e.g. vibrant colors, dark modes, glassmorphism, and dynamic animations) to create a stunning first impression. Failure to do this is UNACCEPTABLE.\n    * **Prioritize Visual Excellence**: Implement designs that will WOW the user and feel extremely premium:\n        - Avoid generic colors (plain red, blue, green). Use curated, harmonious color palettes (e.g., HSL tailored colors, sleek dark modes).\n        - Using modern typography (e.g., from Google Fonts like Inter, Roboto, or Outfit) instead of browser defaults.\n        - Use smooth gradients.\n        - Add subtle micro-animations for enhanced user experience.\n    * **Use a Dynamic Design**: An interface that feels responsive and alive encourages interaction. Achieve this with hover effects and interactive elements. Micro-animations, in particular, are highly effective for improving user engagement.\n    * **Thematic Specificity**: Do not just create a generic layout. Define a clear \"vibe\" or theme based on the content. Use specific aesthetic keywords (e.g., \"Glassmorphism\", \"Neobrutalism\", \"Minimalist\", \"Comic Book Style\") to guide the design.\n    * **Typography Hierarchy**: Explicitly import and use font pairings. Use a distinct Display Font for headers and a highly readable Body Font for text.\n    * **Readability**: Pay extra attention to readability. Ensure the text is always readable with sufficient contrast against the background. Choose fonts and colors that enhance legibility.\n\n**Design and Functionality:**\n    * **Component-Based Design**: Do not just dump text into blocks. Semanticize the content into distinct UI components.\n    * **Layout Dynamics**: Break the grid. Avoid strict, identical grid columns. Use asymmetrical layouts, Bento grids, or responsive flexbox layouts where some elements span full width to create visual interest and emphasize key content.\n    * **Tailwind Configuration**: Extend the Tailwind configuration within a `<script>` block to define custom font families and color palettes that match the theme.\n    * Thoroughly analyze the user's instructions to determine the desired type of webpage, application, or visualization. What are the key features, layouts, or functionality?\n    * Analyze any provided data to identify the most compelling layout or visualization of it. For example, if the user requests a visualization, select an appropriate chart type (bar, line, pie, scatter, etc.) to create the most insightful and visually compelling representation. Or if user instructions say `use a carousel format`, you should consider how to break the content and any media into different card components to display within the carousel.\n    * If requirements are underspecified, make reasonable assumptions to complete the design and functionality. Your goal is to deliver a working product with no placeholder content.\n    * Ensure the generated code is valid and functional. Return only the code, and open the HTML codeblock with the literal string \"```html\".\n    * The output must be a complete and valid HTML document with no placeholder content for the developer to fill in.\n\n**Libraries:**\n  Unless otherwise specified, use:\n    * Tailwind for CSS\n    * **CRITICAL: Use the Tailwind CDN from `https://cdn.tailwindcss.com`. Do NOT use `tailwind.min.css` or any other local Tailwind file. Always include Tailwind using: `<script src=\"https://cdn.tailwindcss.com\"></script>`**\n\n**Constraints:**\n  * **External Links:** You ARE allowed to generate external links (`<a href=\"...\">` and `window.open(...)`) to external websites (e.g. google.com, wikipedia.org) for user navigation.\n  * **NO External Embeds:** Do NOT embed any external resources (e.g. `<script src=\"...\">`, `<img src=\"...\">`, `<iframe src=\"...\">`, `<link href=\"...\">`) from external URLs. Content Security Policy (CSP) will block them.\n  * **Media Restriction:** ONLY use media URLs that are explicitly passed in the input. Do NOT generate or hallucinate any other media URLs (e.g. from placeholder sites or external CDNs).\n  * **Render All Media:** You MUST render ALL media (images, videos, audio) that are passed in. Do NOT skip or omit any provided media items. Every passed-in media URL must appear in the final HTML output.\n  * **Navigation Restriction:** Do NOT generate unneeded fake links or buttons to sub-pages (e.g. \"About\", \"Contact\", \"Learn More\") unless explicitly requested. Stick to the plan and the provided content.\n  * **Footer Restriction:** **NEVER** generate any footer content, including legal footers like \"All rights reserved\" or \"Copyright 2024\". [It is a violation of Google's policies to hallucinate legal footers.]\n",
+                    "role": "user"
+                },
+                "p-render-mode": "Auto",
+                "b-render-model-name": "gemini-flash"
+            }
+        },
+        {
+            "id": "ask_user_client_name",
+            "metadata": {
+                "title": "Client Name",
+                "visual": {
+                    "x": 465,
+                    "y": 330
+                }
+            },
+            "type": "user-inputs",
+            "configuration": {
+                "description": {
+                    "content": "Enter the name of your client",
+                    "role": "user"
+                },
+                "p-modality": "Any"
+            }
+        },
+        {
+            "id": "9de7f9a7-3c63-4979-9956-c0c7bf60dacb",
+            "type": "user-inputs",
+            "metadata": {
+                "title": "Get Client Status",
+                "visual": {
+                    "x": 10,
+                    "y": 220
+                },
+                "userModified": true,
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "A text response indicating new or existing client.",
+                        "list": false
+                    }
+                ]
+            },
+            "configuration": {
+                "description": {
+                    "role": "user",
+                    "content": "Is this a new client or an existing one? "
+                },
+                "p-modality": "Any",
+                "p-required": false
+            }
+        },
+        {
+            "id": "dab63558-208c-4020-b9c4-375ca3f95c62",
+            "type": "agent-generate",
+            "metadata": {
+                "title": "Logic based on client status",
+                "visual": {
+                    "x": 465,
+                    "y": 155
+                },
+                "userModified": true
+            },
+            "configuration": {
+                "config$prompt": {
+                    "content": "Based on {{\"type\":\"in\",\"path\":\"9de7f9a7-3c63-4979-9956-c0c7bf60dacb\",\"title\":\"Get Client Status\"}},\n\nIf the meeting is with a new client, then {{\"type\":\"tool\",\"path\":\"control-flow/routing\",\"instance\":\"node_step_brief_content\",\"title\":\"Research And Analyze Client Business Impact\"}} \n\nIf the meeting is with an existing client, then {{\"type\":\"in\",\"path\":\"93719889-e5f0-4f0d-9976-fc2b6366b8ad\",\"title\":\"Analyze Notes\"}}",
+                    "role": "user"
+                },
+                "generation-mode": "agent"
+            }
+        },
+        {
+            "id": "93719889-e5f0-4f0d-9976-fc2b6366b8ad",
+            "type": "agent-generate",
+            "metadata": {
+                "title": "Analyze Notes",
+                "visual": {
+                    "x": 100,
+                    "y": -10
+                },
+                "userModified": true,
+                "expected_output": [
+                    {
+                        "type": "text",
+                        "description": "Key insights and considerations from past client meetings.",
+                        "list": false
+                    }
+                ]
+            },
+            "configuration": {
+                "config$prompt": {
+                    "role": "user",
+                    "content": "Ask the user for meeting notes from previous meetings with this client. Analyze the meeting notes to help inform your meeting briefing with important things to consider that might be top of mind for the client. \n\n"
+                },
+                "generation-mode": "agent",
+                "system-instruction": {
+                    "role": "user",
+                    "content": "You are working as part of an AI system, so no chit-chat and no explaining what you're doing and why.\nDO NOT start with \"Okay\", or \"Alright\" or any preambles. Just the output, please."
+                },
+                "config$ask-user": false
+            }
+        }
+    ],
+    "edges": [
+        {
+            "from": "ask_user_client_name",
+            "to": "node_step_brief_content",
+            "out": "context",
+            "in": "p-z-ask_user_client_name"
+        },
+        {
+            "from": "ask_user_client_name",
+            "to": "node_step_meeting_brief",
+            "out": "context",
+            "in": "p-z-ask_user_client_name"
+        },
+        {
+            "from": "node_step_brief_content",
+            "to": "node_step_meeting_brief",
+            "out": "context",
+            "in": "p-z-node_step_brief_content"
+        },
+        {
+            "from": "dab63558-208c-4020-b9c4-375ca3f95c62",
+            "to": "node_step_brief_content",
+            "out": "node_step_brief_content",
+            "in": "context"
+        },
+        {
+            "from": "9de7f9a7-3c63-4979-9956-c0c7bf60dacb",
+            "to": "dab63558-208c-4020-b9c4-375ca3f95c62",
+            "out": "context",
+            "in": "p-z-9de7f9a7-3c63-4979-9956-c0c7bf60dacb"
+        },
+        {
+            "from": "93719889-e5f0-4f0d-9976-fc2b6366b8ad",
+            "to": "dab63558-208c-4020-b9c4-375ca3f95c62",
+            "out": "context",
+            "in": "p-z-93719889-e5f0-4f0d-9976-fc2b6366b8ad"
+        },
+        {
+            "from": "93719889-e5f0-4f0d-9976-fc2b6366b8ad",
+            "to": "node_step_brief_content",
+            "out": "context",
+            "in": "p-z-93719889-e5f0-4f0d-9976-fc2b6366b8ad"
+        }
+    ]
+}
