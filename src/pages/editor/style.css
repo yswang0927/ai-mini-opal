@@ -396,7 +396,7 @@
 
 .console-item {
   flex: 0 0 auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -406,8 +406,8 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #f9fafb;
-  border-bottom: 1px solid #f3f4f6;
+  background: var(--color-bg-secondary);
+  box-shadow: inset 0 -1px 0 rgba(17, 20, 24, .1);
 }
 
 .console-item-status {
@@ -442,14 +442,17 @@
 
 .console-item-section {
   padding: 6px 12px;
-  border-top: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-border-default);
+}
+.console-item-section:last-child {
+    border-bottom: 0;
 }
 
 .console-item-label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--color-text-disabled);
   text-transform: uppercase;
   margin-bottom: 4px;
 }

@@ -68,8 +68,11 @@ const pythonExe: string = process.platform === 'win32'
 let pyProcess: any = null;
 
 function runOpalPythonServer() {
+  // 打包时 afterPack 钩子(scripts/compile-python.mjs)会把 server.py 等业务模块
+  // 编译成 sourceless 的 .pyc 并删除 .py 源码,因此打包态入口是 server.pyc;
+  // 开发态仍直接跑源码 server.py。
   const scriptPath: string = isPackaged
-    ? path.join(process.resourcesPath, 'python', 'server', 'server.py')
+    ? path.join(process.resourcesPath, 'python', 'server', 'server.pyc')
     : path.join(process.env.APP_ROOT, 'python', 'server', 'server.py');
 
   // 打包后 AppImage 被挂载为只读文件系统,Python 侧不能再往安装目录写日志/session。

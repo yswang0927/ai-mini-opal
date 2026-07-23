@@ -3,6 +3,7 @@
   "appId": "mini-opal",
   "productName": "MiniOpal",
   "asar": true,
+  "afterPack": "./scripts/compile-python.mjs",
   "directories": {
     "output": "release/${version}"
   },
