@@ -79,8 +79,6 @@ class MapReduceResult(BaseModel):
     )
     total_levels: int = 0
     failed_chunk_indices: List[int] = Field(default_factory=list)
-    map_model_name: str
-    reduce_model_name: str
 
 
 class RefineStepResult(BaseModel):
@@ -106,9 +104,6 @@ class RefineResult(BaseModel):
     total_steps: int
     total_compression_steps: int = 0
     failed_chunk_indices: List[int] = Field(default_factory=list)
-    model_name: str
-
-    model_config = {"protected_namespaces": ()}
 
 
 class SummarizationResult(BaseModel):

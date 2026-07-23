@@ -48,8 +48,6 @@ class MapReduceSummarizer:
         map_client: LLMClient,
         reduce_client: Optional[LLMClient] = None,
         token_estimator: Optional[StreamingTokenEstimator] = None,
-        map_model_name: str = "gpt-4o",
-        reduce_model_name: Optional[str] = None,
         max_context_tokens: Optional[int] = None,
         max_concurrency: Optional[int] = None,
         fail_fast: Optional[bool] = None,
@@ -58,8 +56,6 @@ class MapReduceSummarizer:
         self.map_client = _ensure_retrying(map_client)
         # 允许 Reduce 阶段使用与 Map 阶段不同（通常更强）的模型；未指定时复用 Map 客户端
         self.reduce_client = _ensure_retrying(reduce_client) if reduce_client else self.map_client
-        self.map_model_name = map_model_name
-        self.reduce_model_name = reduce_model_name or map_model_name
         # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
         self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
         self.token_estimator = token_estimator or StreamingTokenEstimator(
@@ -126,8 +122,6 @@ class MapReduceSummarizer:
             reduce_levels=reduce_levels[1:],  # 第 0 层（叶子/Map输出）已包含在 map_results 中，避免冗余
             total_levels=len(reduce_levels) - 1,
             failed_chunk_indices=failed_indices,
-            map_model_name=self.map_model_name,
-            reduce_model_name=self.reduce_model_name,
         )
 
     # ------------------------------------------------------------------ #

@@ -85,7 +85,6 @@ async def summarize_document(
     strategy: ChunkingStrategy = ChunkingStrategy.LOGICAL,
     task_type: TaskType = TaskType.SUMMARIZATION,
     summarization_strategy: SummarizationStrategy = SummarizationStrategy.MAP_REDUCE,
-    model_name: Optional[str] = None,
     max_context_tokens: Optional[int] = None,
     embeddings: Optional[Embeddings] = None,
 ) -> SummarizationResult:
@@ -102,7 +101,6 @@ async def summarize_document(
             - MAP_REDUCE: 并行 Map 各分块 + 分层 Reduce，延迟低，适合分块数较多的场景。
             - REFINE: 严格按原文顺序串行滚动精炼，延迟与分块数成正比，但每一步都能
               看到"迄今为止的全部摘要"，更适合强调叙事连贯性、时间线一致性的文档。
-        model_name: LLM 模型名。默认取 OPIE_LLM_MODEL 环境变量（见 .env）。
         max_context_tokens: 该模型/部署的最大上下文窗口（token），用于判断是否需要分块
             及计算各阶段的 token 预算。默认取环境变量 OPIE_LLM_MAX_CONTEXT_TOKENS（见 .env），
             均未提供时回退到 settings.default_max_context_tokens。
@@ -117,18 +115,13 @@ async def summarize_document(
     # 延迟导入：llm_client 会 load_dotenv 并依赖 langchain_openai，避免模块导入期的硬依赖
     from llm_client import build_opie_llm_client
 
-    resolved_model = model_name or os.environ.get("OPIE_LLM_MODEL", "")
-    if not resolved_model:
-        raise ConfigurationError(
-            "未指定 model_name，且环境变量 OPIE_LLM_MODEL 为空，无法确定要调用的模型。"
-        )
-
     if strategy == ChunkingStrategy.SEMANTIC and embeddings is None:
         raise ConfigurationError("SEMANTIC 分块策略需要提供 embeddings 向量模型。")
 
     resolved_max_context = _resolve_max_context_tokens(max_context_tokens)
 
-    client = build_opie_llm_client(model_name=resolved_model)
+    # 模型名统一由 build_opie_llm_client 从 OPIE_LLM_MODEL 读取（缺失时其内部会报错）
+    client = build_opie_llm_client()
 
     preprocessor = SummarizationPreprocessor(
         max_context_tokens=resolved_max_context,
@@ -141,13 +134,11 @@ async def summarize_document(
     if summarization_strategy == SummarizationStrategy.MAP_REDUCE:
         summarizer = MapReduceSummarizer(
             map_client=client,
-            map_model_name=resolved_model,
             max_context_tokens=resolved_max_context,
         )
     elif summarization_strategy == SummarizationStrategy.REFINE:
         summarizer = RefineSummarizer(
             refine_client=client,
-            model_name=resolved_model,
             max_context_tokens=resolved_max_context,
         )
     else:

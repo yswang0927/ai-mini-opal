@@ -136,7 +136,6 @@ class FakeLLMClient(LLMClient):
 
 
 def build_opie_llm_client(
-    model_name: Optional[str] = None,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     temperature: float = 0.3,
@@ -145,7 +144,7 @@ def build_opie_llm_client(
 ) -> LLMClient:
     """按本项目 .env 中的 OpenAI 兼容网关配置构建带重试的 LLMClient。
 
-    读取顺序（均可被显式入参覆盖）：
+    读取顺序（base_url / api_key 可被显式入参覆盖，模型名固定取 OPIE_LLM_MODEL）：
         base_url  <- OPIE_LLM_BASE_URL
         api_key   <- OPIE_LLM_API_KEY
         model     <- OPIE_LLM_MODEL
@@ -160,7 +159,7 @@ def build_opie_llm_client(
     """
     resolved_base_url = base_url or os.environ.get("OPIE_LLM_BASE_URL", "")
     resolved_api_key = api_key or os.environ.get("OPIE_LLM_API_KEY", "")
-    resolved_model = model_name or os.environ.get("OPIE_LLM_MODEL", "")
+    resolved_model = os.environ.get("OPIE_LLM_MODEL", "")
 
     missing = [
         name

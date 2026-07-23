@@ -51,7 +51,7 @@ async def main() -> None:
         print("[提示] 使用 FakeLLMClient 离线演示，不会发起真实 LLM 调用；加 --real 接入真实模型。\n")
         client = FakeLLMClient()
 
-    summarizer = RefineSummarizer(refine_client=client, model_name=args.model)
+    summarizer = RefineSummarizer(refine_client=client)
     service = SummarizationService(preprocessor=preprocessor, summarizer=summarizer)
 
     result = await service.summarize(

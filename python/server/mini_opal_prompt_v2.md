@@ -212,6 +212,7 @@ Values allowed in the `tools` parameter of `create_agent_step`:
 - `search-web` — Search the web for information
 - `get-webpage` — Retrieve content from a webpage
 - `code-execution` — Execute python code snippets
+- `summarize-document` — Summarize a long document (txt/markdown/docx/pptx/pdf) that exceeds the context window; auto-chunks and reduces to a final summary
 - `memory` — same effect as `enable_memory=True`; either form is fine
 
 ### Step Capabilities (what an agent step can do)

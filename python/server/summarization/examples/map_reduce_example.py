@@ -58,8 +58,6 @@ async def main() -> None:
     summarizer = MapReduceSummarizer(
         map_client=map_client,
         reduce_client=reduce_client,
-        map_model_name=args.model,
-        reduce_model_name=args.reduce_model,
     )
     service = SummarizationService(preprocessor=preprocessor, summarizer=summarizer)
 

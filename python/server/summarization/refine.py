@@ -67,13 +67,11 @@ class RefineSummarizer:
         self,
         refine_client: LLMClient,
         token_estimator: Optional[StreamingTokenEstimator] = None,
-        model_name: str = "gpt-4o",
         max_context_tokens: Optional[int] = None,
         fail_fast: Optional[bool] = None,
         use_topic_understanding_phase: bool = True,
     ):
         self.refine_client = _ensure_retrying(refine_client)
-        self.model_name = model_name
         # 最大上下文窗口由调用方显式传入（现场定制），未指定时回退到配置默认值。
         self.max_context_tokens = max_context_tokens or settings.default_max_context_tokens
         self.token_estimator = token_estimator or StreamingTokenEstimator(
@@ -171,7 +169,6 @@ class RefineSummarizer:
             total_steps=len(steps),
             total_compression_steps=total_compression_steps,
             failed_chunk_indices=failed_chunk_indices,
-            model_name=self.model_name,
         )
 
     # ------------------------------------------------------------------ #

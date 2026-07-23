@@ -9,7 +9,8 @@
     z-index: 4;
     height: 50px;
     background-color: var(--color-bg-elevated);
-    border-bottom: 1px solid var(--color-divider);
+    /*border-bottom: 1px solid var(--color-divider);*/
+    box-shadow: inset 0 -1px 0 rgba(17, 20, 24, .15);
 }
 
 .layout-header::after {
@@ -192,8 +193,9 @@
 
 .editor-side-header {
     height: 2.625rem;
-    border-bottom: 1px solid var(--color-divider);
     background-color: var(--color-bg-primary);
+    /*border-bottom: 1px solid var(--color-divider);*/
+    box-shadow: inset 0 -1px 0 rgba(17, 20, 24, .15);
 }
 
 .editor-side-body {
@@ -244,7 +246,8 @@
 .opal-node-detail-header {
     padding: 0.5rem 1rem;
     font-weight: 600;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    /*border-bottom: 1px solid rgba(0, 0, 0, 0.2);*/
+    box-shadow: inset 0 -1px 0 rgba(17, 20, 24, .15);
 }
 
 .opal-node-detail-header[data-nodetype='userInput'] {

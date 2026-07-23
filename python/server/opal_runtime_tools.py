@@ -344,6 +344,99 @@ def _make_write_file_tool() -> StructuredTool:
 
 
 # --------------------------------------------
+# summarize-document — 长文档端到端摘要
+#
+# 复用 summarization 模块的 summarize_document():上传文档 ->(估算 + 分块)
+# -> 归约(Map-Reduce / Refine)-> 最终摘要。适合超出单次上下文窗口的长文档
+# (txt / markdown / docx / pptx / pdf)。
+# summarize_document 是 async 的,而执行器以同步方式 tool.invoke(args) 调用工具,
+# 因此这里用 _run_coro 把协程驱动到完成再返回字符串。
+# --------------------------------------------
+
+class SummarizeDocumentInput(BaseModel):
+    file_path: str = Field(
+        description="要摘要的文档的绝对路径(支持 txt / markdown / docx / pptx / pdf)。"
+    )
+    summarization_strategy: str = Field(
+        default="map_reduce",
+        description=(
+            "归约方式:'map_reduce'(并行 Map + 分层 Reduce,延迟低,适合分块数多的场景,默认)"
+            "或 'refine'(串行滚动精炼,更适合强调叙事/时间线连贯性的文档)。"
+        ),
+    )
+
+
+def _run_coro(coro):
+    """把协程驱动到完成并返回结果。
+
+    执行器在同步上下文里调用工具(tool.invoke),正常情况下没有运行中的事件循环,
+    直接 asyncio.run 即可;若身处已运行的事件循环(以防未来改为异步执行),则退到
+    独立线程里另起事件循环执行,避免 'event loop is already running' 报错。
+    """
+    import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is None:
+        return asyncio.run(coro)
+
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(coro)).result()
+
+
+def _summarize_document(file_path: str, summarization_strategy: str = "map_reduce") -> str:
+    logger.info(">> tool_summarize_document: %s (strategy=%s)", file_path, summarization_strategy)
+    path = os.path.abspath(os.path.expanduser(file_path))
+    if not os.path.isfile(path):
+        return f"文档不存在: {file_path}"
+
+    # 延迟导入:service 会拉起 llm_client / langchain / tiktoken 等重依赖,
+    # 避免模块导入期的硬依赖(与 llm_client 内的延迟导入约定一致)。
+    try:
+        from summarization.service import summarize_document
+        from summarization.config import SummarizationStrategy
+    except Exception as e:  # noqa: BLE001
+        return f"摘要模块加载失败: {e}"
+
+    # 工具边界唯一要做的转换:把 LLM 传入的字符串适配成枚举。
+    try:
+        strategy = SummarizationStrategy((summarization_strategy or "map_reduce").strip().lower())
+    except ValueError:
+        return f"未知的归约策略 '{summarization_strategy}',可选值:'map_reduce' 或 'refine'。"
+
+    # 分块/归约/LLM 全部逻辑都在 service.summarize_document 内,这里只负责:
+    # 同步驱动这个 async 接口、并把 SummarizationResult 压成有界字符串。
+    try:
+        result = _run_coro(summarize_document(path, summarization_strategy=strategy))
+    except Exception as e:  # noqa: BLE001
+        return f"文档摘要失败 ({file_path}): {e}"
+
+    summary = (result.final_summary or "").strip()
+    if not summary:
+        return f"文档摘要为空({file_path}),可能未成功归约。"
+
+    chunk_count = result.chunking.total_chunks if result.chunking else 0
+    return f"[文档摘要 | 策略={strategy.value} | 分块数={chunk_count}]\n{summary}"
+
+
+def _make_summarize_document_tool() -> StructuredTool:
+    return StructuredTool.from_function(
+        func=_summarize_document,
+        name="summarize_document",
+        description=(
+            "对超长文档做端到端摘要:自动分块并归约,返回最终摘要文本。"
+            "支持 txt / markdown / docx / pptx / pdf。输入文档的绝对路径。"
+        ),
+        args_schema=SummarizeDocumentInput,
+    )
+
+
+# --------------------------------------------
 # search-internal — 内部检索占位
 # --------------------------------------------
 
@@ -463,6 +556,8 @@ def build_runtime_tools(
             tools.append(_make_read_file_tool())
         elif path == "write-file":
             tools.append(_make_write_file_tool())
+        elif path == "summarize-document":
+            tools.append(_make_summarize_document_tool())
         # 其它(如 control-flow/routing)由执行器另行处理,这里忽略
     return tools
 

@@ -250,7 +250,7 @@ class _CreateAgentStepArgs(_CoercingArgs):
         default_factory=list,
         description=(
             "A list of tool capabilities to be mounted on this node. "
-            "Allowed values: read-file, write-file, code-execution, search-web, get-webpage, search-internal, memory"
+            "Allowed values: read-file, write-file, code-execution, summarize-document, search-web, get-webpage, search-internal, memory"
         ),
     )
     skills: List[str] = Field(

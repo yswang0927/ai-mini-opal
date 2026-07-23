@@ -69,12 +69,17 @@ TOOL_PATH_MAP: Dict[str, Dict[str, Any]] = {
     },
     "read-file": {
         "path": "read-file",
-        "display_title": "Read File",
+        "display_title": "Read text File",
         "confirmed": True,
     },
     "write-file": {
         "path": "write-file",
-        "display_title": "Write File",
+        "display_title": "Write text File",
+        "confirmed": True,
+    },
+    "summarize-document": {
+        "path": "summarize-document",
+        "display_title": "Summarize Document",
         "confirmed": True,
     },
 }
