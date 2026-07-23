@@ -24,7 +24,7 @@ import {Card, Classes, Menu, MenuItem, Overlay2, PopoverNext} from "@blueprintjs
 
 import {type OpalEdge, type OpalNode, OpalNodeRefType, OpalNodeType} from '@/types';
 import {SERVER_BASE_URL} from "@/utils/Api";
-import {uuid} from "@/utils";
+import {uuid, debounce} from "@/utils";
 import {useL10n} from "@/l10n";
 import DotsSpinner from '@/components/DotsSpinner';
 import TextArea from '@/components/TextArea';
@@ -101,10 +101,8 @@ const CustomConnectionLine: React.FC<ConnectionLineComponentProps> = ({
     <g>
       {/* 1. 橘黄色连接线 */}
       <path fill="none" stroke={ORANGE_COLOR} strokeWidth={2} d={edgePath} />
-
       {/* 2. 起点实心小圆点 */}
       <circle cx={fromX} cy={fromY} fill={ORANGE_COLOR} r={5} />
-
       {/* 3. 终点实心小圆点（紧随鼠标指针） */}
       <circle cx={toX} cy={toY} fill={ORANGE_COLOR} r={5} />
     </g>
@@ -113,6 +111,7 @@ const CustomConnectionLine: React.FC<ConnectionLineComponentProps> = ({
 
 const NODE_WIDTH = 300;
 const CHANGE_DELAY = 100;
+const FIT_VIEW_OPTIONS = {duration: 260, padding: 0.2};
 
 const nodeRandomOffset = () => {
   return Math.round(Math.random() * 100) * (Math.random() > 0.5 ? 1 : -1);
@@ -137,6 +136,8 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   const graphDomRef = useRef<HTMLDivElement>(null);
   const reactFlowRef = useRef<any>(null);
   const emptyStateDomRef = useRef<HTMLDivElement|null>(null);
+  const resizeIframeRef = useRef<HTMLIFrameElement|null>(null);
+
   const [inDragDropMode, setInDragDropMode] = useState<boolean>(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -203,14 +204,14 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
   }, [opalData, setOpalData]);
 
   const doLayout = async () => {
-    if (!reactFlowRef.current) return;
     const rf = reactFlowRef.current;
+    if (!rf) return;
     const result = await autoLayout(rf.getNodes(), rf.getEdges(), "RIGHT");
     rf.setNodes(result.nodes);
     rf.setEdges(result.edges);
-    rf.fitView();
 
     setTimeout(() => {
+      rf.fitView(FIT_VIEW_OPTIONS);
       onGraphChanged(result.nodes, result.edges);
     }, CHANGE_DELAY);
   };
@@ -794,6 +795,25 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
     );
   }, [execState]);
 
+  useEffect(() => {
+    const container = graphDomRef.current;
+    if (!container) return;
+
+    // 创建 ResizeObserver 监听容器尺寸改变
+    const trigger = debounce(() => {
+      const rf = reactFlowRef.current;
+      rf && rf.fitView(FIT_VIEW_OPTIONS);
+    }, 200);
+
+    const resizeObserver = new ResizeObserver(trigger);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      trigger.cancel();
+    };
+  }, []);
+
   return (
       <div ref={graphDomRef} className="absolute inset-0" style={{ overflow: 'hidden' }}
         onMouseDown={() => setChatListCollapsed(true)}
@@ -897,29 +917,30 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
         )}
 
         <div className="graph-chatbox" onMouseDown={(e)=>e.stopPropagation()}>
-          <div className={`graph-chat-messages ${chatListCollapsed?'':'expanded'} ${chatHistory.length > 0 ? 'has-msgs' : ''}`}>
-            <div className="graph-chat-msg-toggle" onMouseOver={() => setChatListCollapsed(false)}></div>
-            <div className="graph-chat-msg-list" ref={chatListDomRef}>
-              {chatHistory.map((msg, index) => (
-                  <div key={index} className={`graph-chat-msg ${msg.role}`}>
-                    <div className="graph-chat-msg-content">
-                      { (msg.role === 'user' ||  msg.role === 'error')
-                          ? <span style={{whiteSpace:'pre-wrap'}}>{msg.content}</span>
-                          : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
-                      }
+          <div className="relative graph-chatbox-wrapper">
+            <div className={`graph-chat-messages ${chatListCollapsed?'':'expanded'} ${chatHistory.length > 0 ? 'has-msgs' : ''}`}>
+              <div className="graph-chat-msg-toggle" onMouseOver={() => setChatListCollapsed(false)}></div>
+              <div className="graph-chat-msg-list" ref={chatListDomRef}>
+                {chatHistory.map((msg, index) => (
+                    <div key={index} className={`graph-chat-msg ${msg.role}`}>
+                      <div className="graph-chat-msg-content">
+                        { (msg.role === 'user' ||  msg.role === 'error')
+                            ? <span style={{whiteSpace:'pre-wrap'}}>{msg.content}</span>
+                            : <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                        }
+                      </div>
                     </div>
+                ))}
+
+                {chatting && (
+                  <div className="graph-chat-msg assistant thinking">
+                    <div className="graph-chat-msg-content">{t('生成中')}<DotsSpinner/></div>
                   </div>
-              ))}
-
-              {chatting && (
-                <div className="graph-chat-msg assistant thinking">
-                  <div className="graph-chat-msg-content">{t('生成中')}<DotsSpinner/></div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="graph-chatbox-input flex items-center">
+            <div className="graph-chatbox-input flex items-center">
             <TextArea rows={1} autoHeight={true} maxHeight={200}
               placeholder={nodes.length === 0 ? t('描述你想构建的内容') : t('可以编辑这些步骤')}
               value={chatInput}
@@ -939,7 +960,7 @@ export default function ChatGraph({ graphId }: ChatGraphProps) {
               {chatting ? <span className="chatting-spinner"><Spinner /></span> : <ArrowUp size={20} strokeWidth={1.5} />}
             </button>
           </div>
-
+          </div>
         </div>
 
         <Overlay2
