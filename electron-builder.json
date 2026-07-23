@@ -18,11 +18,15 @@
     {
       "from": "python/server",
       "to": "python/server",
-      "filter": "file => { return file === '.env' || file === 'mini_opal_prompt_v2.md' || (/^((?!test_).)*\\.py$/.test(file)); }"
-    },
-    {
-      "from": "python/server/skills",
-      "to": "python/server/skills"
+      "filter": [
+        "**/*",
+        "!**/docs/**",
+        "!**/test/**",
+        "!**/session_store/**",
+        "!**/__pycache__/**",
+        "!**/*.pyc",
+        "!**/*.log"
+      ]
     }
   ],
   "mac": {

@@ -72,8 +72,7 @@ button.create-new-app:disabled {
     margin: 2rem auto;
     max-width: 560px;
     text-align: center;
-    font-family: var(--font-family-en-title);
-    font-variation-settings: "slnt" 0, "wdth" 100, "GRAD" 0, "ROND" 100;
+    font-family: var(--font-family-art);
 }
 
 .gallery-grid {

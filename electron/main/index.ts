@@ -60,16 +60,16 @@ function runOpalPythonServer() {
 
   // 接收 Python 的标准输出
   pyProcess.stdout.on('data', (data: any) => {
-    console.log(`OpalPythonServer: ${data.toString()}`);
+    //console.log(`OpalPythonServer: ${data.toString()}`);
   });
 
   // 接收 Python 的错误信息
   pyProcess.stderr.on('data', (data: any) => {
-    console.error(`OpalPythonServer: ${data.toString()}`);
+    //console.error(`OpalPythonServer: ${data.toString()}`);
   });
 
   pyProcess.on('close', (code: any) => {
-    console.log(`OpalPythonServer 进程退出，退出码: ${code}`);
+    //console.log(`OpalPythonServer 进程退出，退出码: ${code}`);
     pyProcess = null;
   });
 }
@@ -149,7 +149,7 @@ app.whenReady().then(() => {
     try {
       return callback({ path: path.normalize(filePath) });
     } catch (error) {
-      console.error('Failed to register protocol', error);
+      //console.error('Failed to register protocol', error);
     }
   });
 
@@ -160,7 +160,7 @@ app.whenReady().then(() => {
 // 监听 Electron 的退出事件，确保强杀 Python
 app.on('will-quit', () => {
   if (pyProcess) {
-    console.log('Electron 正在关闭，正在杀死 Python 进程...');
+    //console.log('Electron 正在关闭，正在杀死 Python 进程...');
     // Windows 下可能需要通过 taskkill 强杀，如果是标准信号通常 kill() 即可
     if (process.platform === 'win32') {
       spawn('taskkill', ['/pid', pyProcess.pid, '/f', '/t']);
@@ -299,7 +299,7 @@ ipcMain.handle('list-apps', async () => {
           mtime: stat.mtime // 2. 保存修改时间用于排序
         });
       } catch (e) {
-        console.error(`Failed to read ${file}:`, e);
+        //console.error(`Failed to read ${file}:`, e);
       }
     }
 
@@ -310,7 +310,7 @@ ipcMain.handle('list-apps', async () => {
     return apps.map(({ mtime, ...appData }) => appData);
 
   } catch (e) {
-    console.error('Failed to list apps:', e);
+    //console.error('Failed to list apps:', e);
     return [];
   }
 });
@@ -347,7 +347,7 @@ ipcMain.handle('save-as-file', async (event, defaultFileName: string, content: s
     }
     return { success: true, filePath };
   } catch (e) {
-    console.error('Failed to save file:', e);
+    //console.error('Failed to save file:', e);
     return { success: false, error: String(e) };
   }
 });
