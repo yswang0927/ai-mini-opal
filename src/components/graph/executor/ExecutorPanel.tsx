@@ -11,6 +11,7 @@ import {
 import { useL10n } from "@/l10n";
 import { downloadFile, AppToaster } from "@/utils";
 import type { ExecutionState, InputRequest, RenderedOutput } from "./types";
+import TextArea from "@/components/TextArea";
 
 interface ExecutorPanelProps {
   execState: ExecutionState;
@@ -229,14 +230,17 @@ function InputCollector({
               </button>
             )}
 
-            <input
-              type="text"
-              className="flex-1"
-              value={values[input.nodeId] || ""}
-              onChange={(e) => handleChange(input.nodeId, e.target.value)}
-              required={input.required}
-              placeholder={fileNames[input.nodeId] ? "" : input.description}
+            <TextArea
+                className="flex-1"
+                autoHeight={true}
+                maxHeight={200}
+                rows={1}
+                value={values[input.nodeId] || ""}
+                onChange={(e) => handleChange(input.nodeId, e.target.value)}
+                required={input.required}
+                placeholder={fileNames[input.nodeId] ? "" : input.description}
             />
+
           </div>
           {fileNames[input.nodeId] && (
             <p className="executor-input-filename">已选择: {fileNames[input.nodeId]}</p>
