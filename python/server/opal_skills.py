@@ -30,6 +30,8 @@ import re
 import shlex
 import subprocess
 import sys
+
+import yaml
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, List, Optional
@@ -67,34 +69,33 @@ class Skill:
 def _parse_frontmatter(text: str) -> tuple[Dict[str, str], str]:
     """解析 SKILL.md 顶部的 YAML frontmatter。
 
-    只需要 name / description 两个标量字段,故用极简解析器而不引入 yaml 依赖:
     - frontmatter 由首尾两行 '---' 界定;
-    - 支持 `key: value` 与 `key: "value"` / `key: 'value'`;
-    - 值可能很长(description 常是一大段),但都在单行内。
+    - frontmatter 块用 yaml.safe_load 解析,完整支持多行值、引号、列表/嵌套等 YAML 语法;
+    - 返回的字段字典里,标量值统一转成字符串(name/description 均按字符串使用)。
 
-    返回 (字段字典, frontmatter 之后的正文)。无 frontmatter 时字段为空、正文原样返回。
+    返回 (字段字典, frontmatter 之后的正文)。无 frontmatter 或解析失败时字段为空、正文原样返回。
     """
     if not text.startswith("---"):
         return {}, text
 
-    # 匹配 ^---\n ... \n---\n
+    # 用首尾两行 '---' 界定 frontmatter,分离出 frontmatter 块与其后的正文。
     m = re.match(r"^---\s*\n(.*?)\n---\s*\n?(.*)$", text, re.DOTALL)
     if not m:
         return {}, text
 
     body_fm, body_rest = m.group(1), m.group(2)
+    try:
+        data = yaml.safe_load(body_fm)
+    except yaml.YAMLError:
+        logger.exception("解析SKILL.md frontmatter失败")
+        return {}, body_rest.lstrip("\n")
+
     fields: Dict[str, str] = {}
-    for line in body_fm.splitlines():
-        line = line.rstrip()
-        if not line or line.lstrip().startswith("#"):
-            continue
-        km = re.match(r"^([A-Za-z0-9_-]+)\s*:\s*(.*)$", line)
-        if not km:
-            continue
-        key, val = km.group(1), km.group(2).strip()
-        if len(val) >= 2 and val[0] in "\"'" and val[-1] == val[0]:
-            val = val[1:-1]
-        fields[key] = val
+    if isinstance(data, dict):
+        for key, val in data.items():
+            if val is None:
+                continue
+            fields[str(key)] = val if isinstance(val, str) else str(val)
     return fields, body_rest.lstrip("\n")
 
 

@@ -53,7 +53,20 @@ _SAFE_BUILTINS: Dict[str, Any] = {
     "len": len, "list": list, "map": map, "max": max, "min": min, "next": next,
     "pow": pow, "print": print, "range": range, "repr": repr, "reversed": reversed,
     "round": round, "set": set, "sorted": sorted, "str": str, "sum": sum,
-    "tuple": tuple, "zip": zip, "abs": abs,
+    "tuple": tuple, "zip": zip,
+    # 使用 pandas/numpy/sklearn 等库时用户代码常需的通用内建(不含文件系统访问)。
+    "bytes": bytes, "bytearray": bytearray, "complex": complex,
+    "getattr": getattr, "hasattr": hasattr, "setattr": setattr,
+    "type": type, "object": object, "super": super, "property": property,
+    "staticmethod": staticmethod, "classmethod": classmethod,
+    "callable": callable, "hash": hash, "id": id, "iter": iter, "slice": slice,
+    "vars": vars, "dir": dir, "chr": chr, "ord": ord, "hex": hex, "oct": oct,
+    "bin": bin, "Exception": Exception, "ValueError": ValueError,
+    "TypeError": TypeError, "KeyError": KeyError, "IndexError": IndexError,
+    "ZeroDivisionError": ZeroDivisionError, "StopIteration": StopIteration,
+    "RuntimeError": RuntimeError, "AttributeError": AttributeError,
+    "NotImplementedError": NotImplementedError, "True": True, "False": False,
+    "None": None,
 }
 
 # 预先导入并允许使用的安全模块。
@@ -73,10 +86,43 @@ _SAFE_MODULES: Dict[str, Any] = {
     "random": _random,
 }
 
+# 无显示环境下使用非交互后端,避免 matplotlib 尝试打开 GUI 窗口。
+os.environ.setdefault("MPLBACKEND", "Agg")
+
+# 允许通过 import 语句导入的数据/文档处理库(按顶层包名匹配,子模块一并放行)。
+# 这些库较重,采用按需 import 而非模块加载时预导入,避免拖慢启动。
+_ALLOWED_IMPORT_ROOTS = {
+    # 内置轻量模块(同时也支持直接按名字使用)
+    "math", "statistics", "json", "datetime", "re", "random",
+    # 数据 / 科学计算
+    "pandas", "numpy", "scipy",
+    # 文档 / 表格 / 绘图 / 报表
+    "openpyxl", "matplotlib", "reportlab", "docx", "pandoc",
+    # 机器学习(scikit-learn 的导入名为 sklearn)
+    "sklearn", "joblib",
+}
+
+_ALLOWED_LIBS_NOTE = (
+    "pandas, numpy, openpyxl, matplotlib, reportlab, scikit-learn(sklearn), "
+    "pandoc, python-docx(docx)"
+)
+
+
+def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """受限 __import__:仅放行白名单内的顶层包及其子模块,禁止相对导入。"""
+    root = (name or "").split(".")[0]
+    if level != 0 or root not in _ALLOWED_IMPORT_ROOTS:
+        raise ImportError(
+            f"禁止导入模块 {name!r}。仅允许导入: "
+            f"{', '.join(sorted(_ALLOWED_IMPORT_ROOTS))}。"
+        )
+    return __import__(name, globals, locals, fromlist, level)
+
+
 _CODE_EXEC_TIMEOUT_NOTE = (
-    "注意:代码在受限环境中运行,仅可使用以下模块 "
-    "math, statistics, json, datetime, re, random;"
-    "不可访问文件系统、网络或导入其它模块。"
+    "注意:代码在受限环境中运行。可直接使用 math, statistics, json, datetime, "
+    "re, random;并可 import 以下数据/文档处理库:" + _ALLOWED_LIBS_NOTE +
+    "。不可访问网络或导入其它未列出的模块。"
 )
 
 
@@ -84,8 +130,9 @@ class CodeExecutionInput(BaseModel):
     code: str = Field(
         description=(
             "要执行的 Python 代码。通过 print() 输出结果。"
-            "可用模块: math, statistics, json, datetime, re, random。"
-            "不能访问文件系统 / 网络 / 其它 import。"
+            "可直接使用: math, statistics, json, datetime, re, random。"
+            "可 import: " + _ALLOWED_LIBS_NOTE + "。"
+            "不能访问网络或 import 其它未列出的模块。"
         )
     )
 
@@ -95,7 +142,7 @@ def _run_code(code: str) -> str:
     logger.info(">>> tool_run_code: %s", code)
 
     safe_globals: Dict[str, Any] = {
-        "__builtins__": _SAFE_BUILTINS,
+        "__builtins__": {**_SAFE_BUILTINS, "__import__": _safe_import},
         **_SAFE_MODULES,
     }
 

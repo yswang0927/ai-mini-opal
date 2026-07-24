@@ -21,3 +21,4 @@ python-docx
 pydantic-settings
 langchain-text-splitters
 tiktoken
+PyYAML
