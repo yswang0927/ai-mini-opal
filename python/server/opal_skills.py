@@ -52,6 +52,17 @@ _MOUNT_PREFIXES = (
     "/mnt/skills/",
 )
 
+# SKILL.md 里 --files / --output-file 等参数示例常用的"用户数据"挂载前缀。
+# 这些虚拟目录只存在于 Anthropic 沙箱,本地环境并不存在;LLM 会照着示例把真实
+# 路径拼在前缀之后(如 "/mnt/user-data/uploads/E:\\sales.xlsx"),运行时统一剥离,
+# 恢复出真实路径。顺序从最长到最短,确保先匹配更具体的前缀。
+_DATA_MOUNT_PREFIXES = (
+    "/mnt/user-data/uploads/",
+    "/mnt/user-data/outputs/",
+    "/mnt/user-data/workspace/",
+    "/mnt/user-data/",
+)
+
 # 单次脚本执行的超时与输出上限。
 _SCRIPT_TIMEOUT_SEC = 300
 _SCRIPT_OUTPUT_MAX = 20000
@@ -209,6 +220,20 @@ def _resolve_script_path(
     return candidate, None
 
 
+def _strip_data_mount_prefix(arg: str) -> str:
+    """剥离参数里残留的"用户数据"挂载前缀,恢复真实路径。
+
+    LLM 依照 SKILL.md 示例常把真实路径拼到虚拟前缀之后,例如:
+        "/mnt/user-data/uploads/E:\\sales.xlsx" -> "E:\\sales.xlsx"
+        "/mnt/user-data/uploads/report.csv"     -> "report.csv"
+    仅处理以这些前缀开头的字符串;其余参数原样返回。
+    """
+    for prefix in _DATA_MOUNT_PREFIXES:
+        if arg.startswith(prefix):
+            return arg[len(prefix):]
+    return arg
+
+
 def run_skill_script(
     allowed_skills: List[str],
     skill: str,
@@ -225,7 +250,8 @@ def run_skill_script(
     - 有超时与输出大小上限。
     """
     root = root or SKILLS_ROOT
-    args = list(args or [])
+    # 剥离 LLM 依照 SKILL.md 示例拼在真实路径前的虚拟数据挂载前缀。
+    args = [_strip_data_mount_prefix(a) for a in (args or [])]
 
     path, err = _resolve_script_path(allowed_skills, skill, script, root)
     if err:
