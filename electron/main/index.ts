@@ -1,4 +1,4 @@
-import { app, protocol, BrowserWindow, shell, ipcMain, screen, dialog } from 'electron';
+import { app, protocol, BrowserWindow, shell, ipcMain, screen, dialog, globalShortcut } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
@@ -74,8 +74,14 @@ try {
   // 目录已存在或无法创建时忽略,后续写文件时会再次尝试并抛出具体错误
 }
 
+// Python 侧统一把日志写到 DATA_DIR/server.log(见 python/server/logger.py)。
+const LOG_PATH: string = path.join(DATA_DIR, 'server.log');
+
 // 全局变量用来存放进程实例
 let pyProcess: any = null;
+
+// 日志查看器窗口的单例引用
+let logWin: BrowserWindow | null = null;
 
 function runOpalPythonServer() {
   // 打包时 afterPack 钩子(scripts/compile-python.mjs)会把 server.py 等业务模块
@@ -177,6 +183,35 @@ async function createWindow() {
   //update(win);
 }
 
+// 打开(或聚焦)独立的 server.log 日志查看器窗口。
+function openLogWindow() {
+  // 已存在则直接聚焦,保持单例
+  if (logWin && !logWin.isDestroyed()) {
+    if (logWin.isMinimized()) logWin.restore();
+    logWin.focus();
+    return;
+  }
+
+  logWin = new BrowserWindow({
+    title: 'Server Log',
+    width: 900,
+    height: 600,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  // 查看器是纯静态页面,dev/prod 都从 VITE_PUBLIC 目录加载(dev=public,prod=dist)。
+  logWin.loadFile(path.join(process.env.VITE_PUBLIC, 'logviewer.html'));
+
+  logWin.on('closed', () => {
+    logWin = null;
+  });
+}
+
 app.whenReady().then(() => {
   // 注册自定义的文件读取协议
   protocol.registerFileProtocol('local-file', (request, callback) => {
@@ -192,10 +227,14 @@ app.whenReady().then(() => {
 
   createWindow();
   runOpalPythonServer();
+
+  // 全局快捷键:Ctrl/Cmd+Shift+L 打开 server.log 日志查看器
+  globalShortcut.register('CommandOrControl+Shift+L', openLogWindow);
 });
 
 // 监听 Electron 的退出事件，确保强杀 Python
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
   if (pyProcess) {
     console.log('Electron 正在关闭，正在杀死 Python 进程...');
     // Windows 下可能需要通过 taskkill 强杀，如果是标准信号通常 kill() 即可
@@ -383,4 +422,39 @@ ipcMain.handle('save-as-file', async (event, defaultFileName: string, content: s
     console.error('Failed to save file:', e);
     return { success: false, error: String(e) };
   }
+});
+
+// 读取 server.log 内容。为避免日志过大拖慢查看器,只返回末尾约 512KB。
+ipcMain.handle('read-log', async () => {
+  const MAX_BYTES = 512 * 1024;
+  try {
+    if (!existsSync(LOG_PATH)) {
+      return { path: LOG_PATH, content: '' };
+    }
+    const stat = await fs.stat(LOG_PATH);
+    const handle = await fs.open(LOG_PATH, 'r');
+    try {
+      const start = stat.size > MAX_BYTES ? stat.size - MAX_BYTES : 0;
+      const length = stat.size - start;
+      const buf = Buffer.alloc(length);
+      await handle.read(buf, 0, length, start);
+      let content = buf.toString('utf-8');
+      // 从中间截断时首行可能是半行,丢弃它避免展示乱码
+      if (start > 0) {
+        const nl = content.indexOf('\n');
+        if (nl !== -1) content = content.slice(nl + 1);
+        content = `…(仅显示末尾 ${Math.round(MAX_BYTES / 1024)}KB)\n` + content;
+      }
+      return { path: LOG_PATH, content };
+    } finally {
+      await handle.close();
+    }
+  } catch (e) {
+    return { path: LOG_PATH, content: '', error: String(e) };
+  }
+});
+
+// 打开独立的日志查看器窗口(供渲染进程按钮触发)
+ipcMain.handle('open-log-window', async () => {
+  openLogWindow();
 });

@@ -42,7 +42,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 通用文件保存：弹出系统"另存为"对话框并写入文件（文本或二进制）
   saveAsFile: (defaultFileName: string, content: string | Uint8Array): Promise<SaveFileResult> =>
     ipcRenderer.invoke('save-as-file', defaultFileName, content),
+  // 读取 server.log 内容（返回末尾片段及日志文件路径）
+  readLog: (): Promise<LogResult> => ipcRenderer.invoke('read-log'),
+  // 打开独立的日志查看器窗口
+  openLogWindow: (): Promise<void> => ipcRenderer.invoke('open-log-window'),
 })
+
+interface LogResult {
+  path: string
+  content: string
+  error?: string
+}
 
 interface SaveFileResult {
   success: boolean
@@ -140,4 +150,4 @@ window.onmessage = (ev) => {
   ev.data.payload === 'removeLoading' && removeLoading()
 }
 
-setTimeout(removeLoading, 4999)
+setTimeout(removeLoading, 3000)
