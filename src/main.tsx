@@ -13,9 +13,10 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   </React.StrictMode>
 )
 
-postMessage({ payload: 'removeLoading' }, '*');
+// 通知electron关闭loading动画
+window.postMessage({ payload: 'removeLoading' }, '*');
 
 // Use contextBridge
 window.ipcRenderer.on('main-process-message', (_event, message) => {
-  console.log(message)
+  //console.log(message)
 });
