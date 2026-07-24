@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 //import { update } from './update';
 
@@ -64,6 +64,16 @@ const pythonExe: string = process.platform === 'win32'
   ? path.join(pythonDir, 'python.exe')
   : path.join(pythonDir, 'bin', 'python3');
 
+// 统一的数据目录:放在用户主目录下的 .mini-opal,而不是 electron 默认的 userData
+// (Windows 下 userData 位于 %APPDATA%\<AppName> 层级太深,不便用户查找)。
+// 所有运行时产物(apps、session、日志等)都写到这里。
+const DATA_DIR: string = path.join(os.homedir(), '.mini-opal');
+try {
+  mkdirSync(DATA_DIR, { recursive: true });
+} catch {
+  // 目录已存在或无法创建时忽略,后续写文件时会再次尝试并抛出具体错误
+}
+
 // 全局变量用来存放进程实例
 let pyProcess: any = null;
 
@@ -77,7 +87,7 @@ function runOpalPythonServer() {
 
   // 打包后 AppImage 被挂载为只读文件系统,Python 侧不能再往安装目录写日志/session。
   // 通过 OPAL_DATA_DIR 把可写的 userData 目录传给 Python,运行时产物统一写到那里。
-  const env = { ...process.env, OPAL_DATA_DIR: app.getPath('userData') };
+  const env = { ...process.env, OPAL_DATA_DIR: DATA_DIR };
 
   // 启动 Python 子进程
   pyProcess = spawn(pythonExe, [scriptPath, "--port", "18765"], { env });
@@ -242,13 +252,12 @@ ipcMain.handle('open-win', (_, arg) => {
 
 // Get data directory (base path for all files)
 ipcMain.handle('get-data-dir', async () => {
-  return app.getPath('userData');
+  return DATA_DIR;
 });
 
 // Read file (relative to userData)
 ipcMain.handle('read-file', async (_, filepath: string) => {
-  const userDataPath = app.getPath('userData')
-  const fullPath = path.join(userDataPath, filepath)
+  const fullPath = path.join(DATA_DIR, filepath)
   // Ensure directory exists
   const dir = path.dirname(fullPath)
   await fs.mkdir(dir, { recursive: true })
@@ -269,8 +278,7 @@ ipcMain.handle('read-file', async (_, filepath: string) => {
 
 // Write file (relative to userData)
 ipcMain.handle('write-file', async (_, filepath: string, content: string) => {
-  const userDataPath = app.getPath('userData');
-  const fullPath = path.join(userDataPath, filepath);
+  const fullPath = path.join(DATA_DIR, filepath);
   // Ensure directory exists
   const dir = path.dirname(fullPath);
   await fs.mkdir(dir, { recursive: true });
@@ -284,8 +292,7 @@ ipcMain.handle('write-file', async (_, filepath: string, content: string) => {
 
 // Delete file (relative to userData)
 ipcMain.handle('delete-file', async (_, filepath: string) => {
-  const userDataPath = app.getPath('userData')
-  const fullPath = path.join(userDataPath, filepath)
+  const fullPath = path.join(DATA_DIR, filepath)
   try {
     if (existsSync(fullPath)) {
       await fs.unlink(fullPath);
@@ -298,8 +305,7 @@ ipcMain.handle('delete-file', async (_, filepath: string) => {
 
 // List all JSON files in apps directory
 ipcMain.handle('list-apps', async () => {
-  const userDataPath = app.getPath('userData');
-  const appsDir = path.join(userDataPath, 'apps');
+  const appsDir = path.join(DATA_DIR, 'apps');
 
   // Ensure apps directory exists
   await fs.mkdir(appsDir, { recursive: true });
