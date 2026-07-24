@@ -41,6 +41,57 @@ from opal_graph import OpalGraphState
 from opie_tools import build_opie_tools
 from opal_executor import OpalExecutor
 from runtime_paths import get_data_subdir
+from logger import get_logger
+
+logger = get_logger(__name__)
+
+
+# -----------------------------
+# 全局异常兜底钩子
+# -----------------------------
+# 目的: 任何未被 try/except 捕获的异常(包括后台线程、asyncio 任务)都必须落到
+# server.log 并带完整堆栈。否则某个阶段执行失败时,前端只看到一句 str(e),
+# 日志里却查不到 traceback。
+
+def _install_global_exception_hooks() -> None:
+    import threading
+
+    # 1) 主线程未捕获异常(理论上 uvicorn 已接管,但作为兜底)
+    def _handle_uncaught(exc_type, exc_value, exc_tb):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_tb)
+            return
+        logger.error(
+            "未捕获的异常(主线程)", exc_info=(exc_type, exc_value, exc_tb)
+        )
+
+    sys.excepthook = _handle_uncaught
+
+    # 2) asyncio.to_thread / ThreadPoolExecutor 之外用 threading 起的线程内异常
+    def _handle_thread_exc(args: "threading.ExceptHookArgs") -> None:
+        logger.error(
+            "未捕获的异常(线程 %s)",
+            getattr(args.thread, "name", "?"),
+            exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+        )
+
+    threading.excepthook = _handle_thread_exc
+
+
+def _install_asyncio_exception_handler(loop: asyncio.AbstractEventLoop) -> None:
+    # 3) 事件循环里未被 await 的 Task 抛出的异常(create_task 后台任务的静默丢弃点)
+    def _handler(loop, context):
+        exc = context.get("exception")
+        msg = context.get("message", "asyncio 事件循环异常")
+        if exc is not None:
+            logger.error(msg, exc_info=(type(exc), exc, exc.__traceback__))
+        else:
+            logger.error("asyncio 事件循环异常: %s", msg)
+
+    loop.set_exception_handler(_handler)
+
+
+_install_global_exception_hooks()
 
 # -----------------------------
 # LLM 配置
@@ -176,14 +227,22 @@ sessions: Dict[str, Session] = {}
 
 async def cleanup_expired_sessions():
     while True:
-        await asyncio.sleep(60)
-        expired = [sid for sid, s in sessions.items() if s.is_expired()]
-        for sid in expired:
-            del sessions[sid]
+        try:
+            await asyncio.sleep(60)
+            expired = [sid for sid, s in sessions.items() if s.is_expired()]
+            for sid in expired:
+                del sessions[sid]
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # 后台任务里的异常若不自己记录,会被事件循环静默丢弃
+            logger.exception("清理过期 session 的后台任务发生异常")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 把事件循环级别的兜底异常处理器装上,捕获 create_task 后台任务的未处理异常
+    _install_asyncio_exception_handler(asyncio.get_running_loop())
     task = asyncio.create_task(cleanup_expired_sessions())
     yield
     task.cancel()
@@ -262,7 +321,9 @@ async def _validation_exception_handler(
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    # 兜底:未预期的服务端异常统一返回 500,避免泄漏堆栈到前端
+    # 兜底:未预期的服务端异常统一返回 500,避免泄漏堆栈到前端。
+    # 前端只拿到简短消息,但完整堆栈必须落到 server.log 便于排查。
+    logger.exception("未处理的服务端异常: %s %s", request.method, request.url.path)
     return _error_response(500, f"服务器内部错误: {str(exc)}", "internal_error")
 
 
@@ -344,6 +405,7 @@ async def chat(req: ChatRequest):
         except Exception as e:
             # LLM 服务不可用、超时、鉴权失败等:回滚本轮追加的用户消息,统一返回 502
             session.history = session.history[:history_len_before]
+            logger.exception("chat 调用 agent 失败 (session_id=%s)", session_id)
             raise HTTPException(
                 status_code=502,
                 detail=f"LLM 服务调用失败: {str(e)}",
@@ -434,6 +496,7 @@ async def execute_start(req: ExecuteStartRequest):
         state = await asyncio.to_thread(executor.start, thread_id)
         return ApiResponse.success(data=ExecuteResponse(thread_id=thread_id, **_sanitize_state(state)))
     except Exception as e:
+        logger.exception("execute/start 失败 (thread_id=%s)", thread_id)
         raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
 
 
@@ -451,6 +514,7 @@ async def execute_resume(req: ExecuteResumeRequest):
         state = await asyncio.to_thread(executor.resume, req.user_inputs, req.thread_id)
         return ApiResponse.success(data=ExecuteResponse(thread_id=req.thread_id, **_sanitize_state(state)))
     except Exception as e:
+        logger.exception("execute/resume 失败 (thread_id=%s)", req.thread_id)
         raise HTTPException(status_code=500, detail=f"Execution error: {str(e)}")
 
 
@@ -500,6 +564,7 @@ async def execute_start_stream(req: ExecuteStartRequest):
     try:
         executor = OpalExecutor(graph_json=req.graph_json, llm=_get_llm())
     except Exception as e:
+        logger.exception("execute/start_stream 初始化 executor 失败 (thread_id=%s)", thread_id)
         raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
     executors[thread_id] = executor
 

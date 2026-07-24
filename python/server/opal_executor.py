@@ -39,6 +39,9 @@ from typing import Any, Dict, List, Optional
 
 from opal_runtime_tools import build_runtime_tools, build_skill_tools
 from opal_skills import load_skill_doc
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Executor State
@@ -64,6 +67,9 @@ def _replace_dict(existing: dict, new: dict) -> dict:
     result.update(new)
     return result
 
+
+# 编译产物中 routing 工具的 path,它由执行器的条件路由机制处理,不作为普通工具
+_ROUTING_TOOL_PATH = "control-flow/routing"
 
 # ---------------------------------------------------------------------------
 # Placeholder 解析
@@ -134,10 +140,6 @@ def resolve_placeholders(
     return result.strip()
 
 
-# 编译产物中 routing 工具的 path,它由执行器的条件路由机制处理,不作为普通工具
-_ROUTING_TOOL_PATH = "control-flow/routing"
-
-
 def extract_tool_paths(text: str) -> List[str]:
     """从 prompt 文本中提取所有 type == "tool" 的占位符 path。
 
@@ -150,9 +152,12 @@ def extract_tool_paths(text: str) -> List[str]:
         try:
             spec = json.loads("{" + raw + "}")
         except (ValueError, TypeError):
+            logger.error("无效的{{type,path,title}}引用: %s", raw)
             continue
+
         if not isinstance(spec, dict) or spec.get("type") != "tool":
             continue
+
         path = (spec.get("path") or "").strip()
         if not path or path == _ROUTING_TOOL_PATH:
             continue
@@ -173,6 +178,7 @@ def extract_skill_names(text: str) -> List[str]:
         try:
             spec = json.loads("{" + raw + "}")
         except (ValueError, TypeError):
+            logger.error("无效的{{type,path,title}}引用: %s", raw)
             continue
         if not isinstance(spec, dict) or spec.get("type") != "skill":
             continue
@@ -238,9 +244,7 @@ ROUTING_TOOL_PATH = _ROUTING_TOOL_PATH
 
 
 class _SelectRouteInput(BaseModel):
-    target: str = Field(
-        description="要跳转到的目标节点 id。必须从提供的候选 id 中精确选择一个。"
-    )
+    target: str = Field(description="要跳转到的目标节点 id。必须从提供的候选 id 中精确选择一个。")
 
 
 def _build_route_tool(
@@ -289,7 +293,6 @@ def _build_route_tool(
 # 匹配 <tool_call>...</tool_call> 内的正文(可跨行)。
 _XML_TOOL_CALL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 
-
 def _parse_xml_tool_calls(content: str) -> List[Dict[str, Any]]:
     """从 LLM 文本输出中解析 <tool_call>...</tool_call> 形式的工具调用。
 
@@ -312,12 +315,15 @@ def _parse_xml_tool_calls(content: str) -> List[Dict[str, Any]]:
         try:
             data = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
+            logger.exception("从<tool_call></tool_call>中提取tool-json不是有效的json格式: %s", raw)
             continue
+
         if not isinstance(data, dict):
             continue
 
         name = data.get("name") or data.get("tool") or data.get("function")
         if not name:
+            logger.warning("<tool_call></tool_call>中没有发现有效的function-name: %s", raw)
             continue
 
         # 优先取标准 arguments / parameters;否则把除 name 外的键视为扁平参数。
@@ -335,7 +341,9 @@ def _parse_xml_tool_calls(content: str) -> List[Dict[str, Any]]:
             try:
                 args = json.loads(args)
             except (json.JSONDecodeError, TypeError):
+                logger.exception("来自<tool_call>{name,(arguments|parameters):{}}</tool_call>的参数值不是有效的json格式: %s", name, args)
                 args = {}
+
         if not isinstance(args, dict):
             args = {}
 
@@ -637,6 +645,7 @@ class OpalExecutor:
                     response = self.llm.invoke(messages)
                     result = response.content
             except Exception as e:
+                logger.exception("agent 节点执行失败 (node_id=%s)", node_id)
                 result = f"[Error executing agent node {node_id}: {str(e)}]"
 
             new_outputs = outputs.copy()
@@ -725,23 +734,20 @@ class OpalExecutor:
                     try:
                         tool_result = tool.invoke(args)
                     except Exception as e:  # noqa: BLE001
+                        logger.exception("Tool工具执行出错 (name=%s, node_id=%s, args=%s)", name, node_id, json.dumps(args))
                         tool_result = f"[工具 {name} 执行出错: {e}]"
+
                 if is_xml_tool_call:
                     xml_results.append(f"工具 {name} 的返回结果:\n{tool_result}")
                 else:
-                    convo.append(
-                        ToolMessage(content=str(tool_result), tool_call_id=call_id)
-                    )
+                    convo.append(ToolMessage(content=str(tool_result), tool_call_id=call_id))
 
             if is_xml_tool_call:
                 convo.append(HumanMessage(content="\n\n".join(xml_results)))
 
         # 达到最大轮数仍在调用工具 — 强制让 LLM 基于已有信息给出最终回答
-        convo.append(
-            HumanMessage(
-                content="已达到工具调用上限,请基于以上工具结果给出最终答案。"
-            )
-        )
+        convo.append(HumanMessage(content="已达到工具调用上限,请基于以上工具结果给出最终答案。"))
+
         final = self.llm.invoke(convo)
         return final.content or ""
 
@@ -777,7 +783,8 @@ class OpalExecutor:
                 response = self.llm.invoke(messages)
                 result = response.content
             except Exception as e:
-                result = f"<html><body><p>Error: {str(e)}</p></body></html>"
+                logger.exception("render-output-agent 节点执行失败 (node_id=%s)", node_id)
+                result = f"<html><head><meta charset='utf-8'></head><body><p>Error: {str(e)}</p></body></html>"
 
             new_outputs = outputs.copy()
             new_outputs[node_id] = result
@@ -987,6 +994,7 @@ class OpalExecutor:
                 "current_node": "",
             }
         except Exception as e:  # noqa: BLE001 — 需要把任何执行错误转成事件回传前端
+            logger.exception("stream run graph-json 失败(thread_id=%s)", thread_id)
             yield {"event": "error", "error": str(e)}
 
     def _collect_interrupts(self, snapshot) -> List[Dict[str, Any]]:
@@ -1036,6 +1044,7 @@ class OpalExecutor:
                 return result
             return {"status": "pending", "node_outputs": {}}
         except Exception:
+            logger.exception("get <thread_id=%s> current state失败", thread_id)
             return {"status": "pending", "node_outputs": {}}
 
     def _format_result(self, state: Dict) -> Dict[str, Any]:

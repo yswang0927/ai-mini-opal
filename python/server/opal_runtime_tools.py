@@ -104,6 +104,7 @@ def _run_code(code: str) -> str:
         with contextlib.redirect_stdout(stdout):
             exec(code, safe_globals, safe_globals)  # noqa: S102 (受限沙箱)
     except Exception:  # noqa: BLE001 — 把执行错误作为工具结果返回给 LLM
+        logger.exception("Tool run code失败: \n%s", code)
         tb = traceback.format_exc(limit=3)
         out = stdout.getvalue()
         return (
@@ -294,13 +295,16 @@ def _read_file(file_path: str) -> str:
     logger.info(">> tool_read_file: %s", file_path)
     path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(path):
+        logger.error("Tool<read_file>读取的文件不存在: %s", file_path)
         return f"文件不存在: {file_path}"
     try:
         size = os.path.getsize(path)
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read(_FILE_MAX_BYTES)
     except Exception as e:  # noqa: BLE001
+        logger.exception("Tool<read_file>读取文件失败: %s", file_path)
         return f"读取文件失败 ({file_path}): {e}"
+
     if size > _FILE_MAX_BYTES:
         content += f"\n...[文件超过 {_FILE_MAX_BYTES} 字节,已截断]"
     return content
@@ -321,6 +325,7 @@ def _write_file(file_path: str, content: str) -> str:
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
     except Exception as e:  # noqa: BLE001
+        logger.exception("Tool<write_file>写文件失败: %s \n%s", file_path, content)
         return f"写入文件失败 ({file_path}): {e}"
     return f"已写入 {len(content)} 字符到 {file_path}"
 
@@ -393,6 +398,7 @@ def _summarize_document(file_path: str, summarization_strategy: str = "map_reduc
     logger.info(">> tool_summarize_document: %s (strategy=%s)", file_path, summarization_strategy)
     path = os.path.abspath(os.path.expanduser(file_path))
     if not os.path.isfile(path):
+        logger.error("Tool<summarize_document>要总结的文件不存在: %s", file_path)
         return f"文档不存在: {file_path}"
 
     # 延迟导入:service 会拉起 llm_client / langchain / tiktoken 等重依赖,
@@ -401,12 +407,14 @@ def _summarize_document(file_path: str, summarization_strategy: str = "map_reduc
         from summarization.service import summarize_document
         from summarization.config import SummarizationStrategy
     except Exception as e:  # noqa: BLE001
+        logger.exception("summarization module加载失败(import summarization.service,summarization.config)")
         return f"摘要模块加载失败: {e}"
 
     # 工具边界唯一要做的转换:把 LLM 传入的字符串适配成枚举。
     try:
         strategy = SummarizationStrategy((summarization_strategy or "map_reduce").strip().lower())
     except ValueError:
+        logger.error("未知的归约策略: %s ,可选值:'map_reduce' 或 'refine'", summarization_strategy)
         return f"未知的归约策略 '{summarization_strategy}',可选值:'map_reduce' 或 'refine'。"
 
     # 分块/归约/LLM 全部逻辑都在 service.summarize_document 内,这里只负责:
@@ -414,6 +422,7 @@ def _summarize_document(file_path: str, summarization_strategy: str = "map_reduc
     try:
         result = _run_coro(summarize_document(path, summarization_strategy=strategy))
     except Exception as e:  # noqa: BLE001
+        logger.exception("文档摘要失败: %s", file_path)
         return f"文档摘要失败 ({file_path}): {e}"
 
     summary = (result.final_summary or "").strip()
@@ -430,7 +439,7 @@ def _make_summarize_document_tool() -> StructuredTool:
         name="summarize_document",
         description=(
             "对超长文档做端到端摘要:自动分块并归约,返回最终摘要文本。"
-            "支持 txt / markdown / docx / pptx / pdf。输入文档的绝对路径。"
+            "支持 (txt / markdown / docx / pptx / pdf)。输入文档的绝对路径。"
         ),
         args_schema=SummarizeDocumentInput,
     )
@@ -542,8 +551,15 @@ def build_runtime_tools(
             continue
         seen.add(path)
 
+
         if path == "code-execution":
             tools.append(_make_code_execution_tool())
+        elif path == "read-file":
+            tools.append(_make_read_file_tool())
+        elif path == "write-file":
+            tools.append(_make_write_file_tool())
+        elif path == "summarize-document":
+            tools.append(_make_summarize_document_tool())
         elif path == "get-webpage":
             tools.append(_make_get_webpage_tool())
         elif path == "search-web":
@@ -552,12 +568,6 @@ def build_runtime_tools(
             tools.extend(_make_memory_tools(memory_store))
         elif path in ("search-internal", "search-enterprise"):
             tools.append(_make_search_internal_tool())
-        elif path == "read-file":
-            tools.append(_make_read_file_tool())
-        elif path == "write-file":
-            tools.append(_make_write_file_tool())
-        elif path == "summarize-document":
-            tools.append(_make_summarize_document_tool())
         # 其它(如 control-flow/routing)由执行器另行处理,这里忽略
     return tools
 

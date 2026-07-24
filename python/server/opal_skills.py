@@ -35,10 +35,6 @@ from functools import lru_cache
 from typing import Dict, List, Optional
 from logger import get_logger
 
-
-# ----------------------------------------------
-# 日志配置:将工具调用日志写入当前目录下的 server.log
-# ----------------------------------------------
 logger = get_logger(__name__)
 
 # skills 根目录:默认取本文件同级的 skills/,可用环境变量覆盖。
@@ -55,7 +51,7 @@ _MOUNT_PREFIXES = (
 )
 
 # 单次脚本执行的超时与输出上限。
-_SCRIPT_TIMEOUT_SEC = 120
+_SCRIPT_TIMEOUT_SEC = 300
 _SCRIPT_OUTPUT_MAX = 20000
 
 
@@ -118,7 +114,9 @@ def _discover_cached(root: str, mtime_key: float) -> Dict[str, Skill]:
             with open(skill_md, "r", encoding="utf-8", errors="replace") as f:
                 raw = f.read()
         except OSError:
+            logger.exception("读取SKILL.md文件失败: %s", skill_md)
             continue
+
         fields, doc = _parse_frontmatter(raw)
         name = fields.get("name") or entry
         skills[name] = Skill(
@@ -132,7 +130,6 @@ def _discover_cached(root: str, mtime_key: float) -> Dict[str, Skill]:
 
 def discover_skills(root: Optional[str] = None) -> Dict[str, Skill]:
     """发现 skills 根目录下所有可用的 skill,返回 {name: Skill}。
-
     结果按目录 mtime 缓存,skills 目录变动后会自动失效重扫。
     """
     root = root or SKILLS_ROOT
@@ -179,12 +176,14 @@ def _resolve_script_path(
     返回 (绝对路径, None) 或 (None, 错误信息)。
     """
     if skill not in allowed_skills:
+        logger.warning("调用了无效的SKILL: %s", skill)
         return None, (
             f"Skill '{skill}' is not declared in this node and cannot be invoked. "
             f"Available skills for this node: {allowed_skills or '(none)'}"
         )
     sk = get_skill(skill, root)
     if not sk:
+        logger.warning("Skill< %s >不存在", skill)
         return None, f"Skill '{skill}' does not exist. Available skills: {list_skill_names(root)}"
 
     rel = script.strip()
@@ -229,6 +228,7 @@ def run_skill_script(
 
     path, err = _resolve_script_path(allowed_skills, skill, script, root)
     if err:
+        logger.error("[Skill invocation rejected]: %s", err)
         return f"[Skill invocation rejected] {err}"
 
     if path.endswith(".py"):
@@ -247,8 +247,10 @@ def run_skill_script(
             cwd=os.path.dirname(path),
         )
     except subprocess.TimeoutExpired:
+        logger.exception("Skill脚本执行超时: %s/%s", skill, script)
         return f"[Script execution timeout (>{_SCRIPT_TIMEOUT_SEC}s)] {skill}/{script}"
     except Exception as e:  # noqa: BLE001 — 作为工具结果回传给 LLM
+        logger.exception("Skill脚本执行失败: %s/%s", skill, script)
         return f"[Script execution failed] {skill}/{script}: {e}"
 
     out = (proc.stdout or "").strip()
@@ -257,6 +259,7 @@ def run_skill_script(
     if out:
         segments.append(f"stdout:\n{out}")
     if errout:
+        logger.error("Skill脚本< %s/%s >执行输出错误: %s", skill, script, errout)
         segments.append(f"stderr:\n{errout}")
     if proc.returncode != 0:
         segments.append(f"(exit code: {proc.returncode})")
